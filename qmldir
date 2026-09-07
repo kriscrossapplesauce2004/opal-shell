@@ -31,8 +31,10 @@ QuickTile 1.0 QuickTile.qml
 SearchKeyboard 1.0 SearchKeyboard.qml
 Surface 1.0 Surface.qml
 Taskbar 1.0 Taskbar.qml
+TaskStrip 1.0 TaskStrip.qml
 Wallpaper 1.0 Wallpaper.qml
 WallpaperPicker 1.0 WallpaperPicker.qml
+LocalImageBrowser 1.0 LocalImageBrowser.qml
 WindowSwitcher 1.0 WindowSwitcher.qml
 WindowPreview 1.0 WindowPreview.qml
 HorizontalScroller 1.0 HorizontalScroller.qml

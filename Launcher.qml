@@ -48,7 +48,7 @@ Item {
             Column { anchors {top:parent.top; left:parent.left; right:parent.right; margins:10}
 spacing:18
                 Flower {width:36;height:36;anchors.horizontalCenter:parent.horizontalCenter;fill:Theme.primary;lobes:8
-                    Glyph {anchors.centerIn:parent;name:"spark";color:Theme.onPrimary}
+                    Glyph {anchors.centerIn:parent;name:"spark";color:Theme.primaryText}
                 }
                 Repeater {model:[{id:"apps",icon:"apps",label:"Apps"},{id:"widgets",icon:"grid",label:"At a glance"},{id:"windows",icon:"desktop",label:"Open"},{id:"style",icon:"palette",label:"Style"}]
                     Column {required property var modelData;width:76;spacing:6

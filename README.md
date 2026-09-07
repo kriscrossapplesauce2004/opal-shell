@@ -24,9 +24,13 @@ Convergence includes animated device previews, panel arrival motion, reduced-mot
 
 ## App switcher and phone display corners
 
-Desktop Open, phone Recent and console App switcher share searchable window cards, workspace filtering, close/context actions and keyboard/controller navigation. Clicking a preview explicitly dispatches its workspace before focusing its window on Hyprland. App icons prefer an already-running window; Open new instance remains available in the context menu. Phone uses a height-bounded touch carousel; desktop and console use compact grids. Live Wayland screencopy previews are requested only for visible cards while the switcher is open, kept in GPU/session memory and never written to disk. Hyprland addresses resolve through a separately loaded optional adapter; unsupported or unavailable captures are labeled honestly. Physical capture behavior depends on the compositor and is not established by offscreen renders.
+Desktop Open, phone Recent and console App switcher share searchable window cards, workspace filtering, close/context actions and keyboard/controller navigation. Clicking a preview dismisses the keyboard-exclusive overlay before focusing the live window’s monitor and workspace. The checked adapter detects native Lua dispatchers (this installation) and retains a legacy CLI fallback; compositor errors are reported rather than silently ignored. App icons prefer an already-running window; Open new instance remains available in the context menu. Phone uses a height-bounded touch carousel; desktop and console use compact grids. Live Wayland screencopy previews are requested only for visible cards while the switcher is open, kept in GPU/session memory and never written to disk. Hyprland addresses resolve through a separately loaded optional adapter; unsupported or unavailable captures are labeled honestly. Physical capture behavior depends on the compositor and is not established by offscreen renders.
 
 Choosing Phone targets the invoking display (remembered as phoneDisplay); other displays retain desktop layout. Flow still supports per-output overrides. The shell publishes resolved phone output names to `$XDG_RUNTIME_DIR/opal-phone-displays`; `hyprland.lua` applies `no_rounding` only to `m[output]` workspace selectors. Leaving phone layout or unplugging removes those selectors on config reload. Global desktop rounding is not set to zero.
+
+## Shelf dragging
+
+Drag taskbar icons horizontally to reorder them. The dragged item lifts, neighbors animate aside, and edges auto-scroll. Drop order is persisted separately from favorites and never moves application windows. A drag suppresses click-to-launch; releasing outside the strip cancels. Ctrl+Left/Right on a focused task also reorders it. New motion respects the reduced-motion preference; auto-hide stays inhibited while dragging or using a task context menu.
 
 ## Wallpaper studio
 

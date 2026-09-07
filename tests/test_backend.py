@@ -57,6 +57,15 @@ class BackendTests(unittest.TestCase):
         self.command({'action':'preference','key':'glass','value':0})
         self.assertEqual(self.backend.prefs['glass'], .78)
 
+    def test_taskbar_order_persists_without_changing_pins(self):
+        original=list(self.backend.prefs['favorites'])
+        self.command({'action':'preference','key':'taskbarOrder','value':['two','one']})
+        self.assertEqual(json.loads(self.backend.STORE.read_text())['taskbarOrder'],['two','one'])
+        self.assertEqual(self.backend.prefs['favorites'],original)
+        for invalid in (['one','one'],[''],[{}],['a']*129):
+            self.command({'action':'preference','key':'taskbarOrder','value':invalid})
+            self.assertEqual(self.backend.prefs['taskbarOrder'],['two','one'])
+
     def test_status_poll_cannot_overwrite_event_driven_workspaces(self):
         with patch.object(self.backend, 'run', return_value=''):
             result = self.backend.status()

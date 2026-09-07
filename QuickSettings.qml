@@ -9,8 +9,8 @@ Item {
 spacing:q.height<700 ? 10 : 16
         RowLayout {Layout.fillWidth:true
             ColumnLayout {Layout.fillWidth:true;spacing:4
-                MText {text:Qt.formatDateTime(Hub.now,"ddd, d MMM");color:Theme.subtext;font.pixelSize:12}
-                MText {text:Qt.formatDateTime(Hub.now,"HH:mm");font.pixelSize:48;font.weight:Font.Medium;font.letterSpacing:-2}
+                MText {Layout.fillWidth:true;text:Qt.formatDateTime(Hub.now,"ddd, d MMM");color:Theme.subtext;font.pixelSize:12}
+                MText {Layout.fillWidth:true;text:Qt.formatDateTime(Hub.now,"HH:mm");font.pixelSize:40;font.weight:Font.Medium;font.letterSpacing:-2}
             }
             MButton {icon:"palette";tonal:true;tooltip:"Personalize";onClicked:Hub.page="appearance"}
             MButton {icon:"close";tooltip:"Close shade";onClicked:Hub.close()}

@@ -31,7 +31,7 @@ spacing:10
                                 property int day:index-d.startOffset+1
                                 property bool today:day===Hub.now.getDate()&&d.month.getMonth()===Hub.now.getMonth()&&d.month.getFullYear()===Hub.now.getFullYear()
                                 Layout.fillWidth:true;Layout.fillHeight:true;radius:12;color:today ? Theme.primary : "transparent"
-                                MText {anchors.centerIn:parent;text:parent.day>0&&parent.day<=d.days ? parent.day : "";font.pixelSize:12;color:parent.today ? Theme.onPrimary : Theme.subtext}
+                                MText {anchors.centerIn:parent;text:parent.day>0&&parent.day<=d.days ? parent.day : "";font.pixelSize:12;color:parent.today ? Theme.primaryText : Theme.subtext}
                             }
                         }
                     }

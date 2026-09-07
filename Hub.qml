@@ -102,7 +102,14 @@ Scope {
 groups.push(group);}
             group.windows.push(w);
         });
-        return groups;
+        const order=prefs.taskbarOrder||[];
+        return groups.sort((a,b)=>{const ai=order.indexOf(a.key),bi=order.indexOf(b.key);return (ai<0 ? order.length : ai)-(bi<0 ? order.length : bi);});
+    }
+    function reorderTask(key,index) {
+        let order=taskGroups.map(g=>g.key);const from=order.indexOf(key);
+        if(from<0||index<0||index>=order.length)return;
+        order.splice(from,1);order.splice(index,0,key);
+        set("taskbarOrder",order.concat((prefs.taskbarOrder||[]).filter(k=>order.indexOf(k)<0)).slice(0,128));
     }
     property var recentApps: prefs.recent.map(id => apps.find(a => a.id === id)).filter(Boolean).slice(0,6)
     readonly property var inbox: Notifier.inbox
@@ -124,18 +131,18 @@ groups.push(group);}
     function pinned(app) { return prefs.favorites.indexOf(app.id)>=0; }
     function pin(app) { command({action:"pin",id:app.id,initial:favoriteApps.map(a=>a.id)}); }
     function settings(which) { if(which==="network"||which==="bluetooth") {controlDetail=which==="network" ? "wifi" : which;page="controls";return;} page=""; command({action:"settings",which:which}); }
-    function volume(value) { command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=Math.round(value); status=s; }
-    function workspace(n) { if(status.hypr) Quickshell.execDetached(["hyprctl","dispatch","workspace",String(n)]); }
-    function focusArgs(w) {
-        if(!/^0x[0-9a-f]+$/i.test(w.address))return [];
-        const id=Number(w.workspace);
-        return Number.isInteger(id)&&id>0 ? ["hyprctl","--batch","dispatch workspace "+id+"; dispatch focuswindow address:"+w.address] : ["hyprctl","dispatch","focuswindow","address:"+w.address];
-    }
+    function volume(value) { value=Math.max(0,Math.min(100,Math.round(value))); command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=Math.round(value); status=s; }
+    function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }
+    property var pendingFocus:null
     function focusWindow(w) {
-        if(w.handle)w.handle.activate();
-        else if(status.hypr){const args=focusArgs(w);if(args.length)Quickshell.execDetached(args);}
-        close();
+        // Release layer-shell keyboard exclusivity before transferring app focus.
+        pendingFocus=w;close();focusTransfer.restart();
     }
+    Timer {id:focusTransfer;interval:100;onTriggered:{
+        const w=h.pendingFocus;h.pendingFocus=null;if(!w)return;
+        if(h.status.hypr&&w.address)h.command({action:"focus-window",address:w.address});
+        else if(w.handle)w.handle.activate();
+    }}
     function closeWindow(w) {
         if(w.handle) w.handle.close();
         else if(status.hypr) Quickshell.execDetached(["hyprctl","dispatch","closewindow","address:"+w.address]);

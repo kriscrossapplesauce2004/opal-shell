@@ -58,7 +58,7 @@ ShellRoot {
                     {text:Theme.light ? "Dark appearance" : "Light appearance",icon:"moon",run:()=>Hub.set("light",!Theme.light)},
                     {text:"Taskbar options",icon:"settings",run:()=>output.show("appearance")}
                 ]}
-                MouseArea {anchors.fill:parent;acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}
+                MouseArea {id:desktopMouse;anchors.fill:parent;acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.openAt(desktopMouse,e.x,e.y);}}
             }
             PanelWindow {
                 id:statusbar
@@ -71,6 +71,11 @@ ShellRoot {
                 color:Theme.alpha(Theme.base,.48)
                 Rectangle {anchors.bottom:parent.bottom;width:parent.width;height:1;color:Theme.outline}
                 IdleInhibitor {window:statusbar;enabled:Hub.keepAwake||Hub.gameSession}
+                OpalMenu {id:statusMenu;entries:Hub.taskbarMenu()}
+                MouseArea {
+                    id:statusMouse;anchors.fill:parent;acceptedButtons:Qt.RightButton
+                    onClicked:e=>{Hub.targetScreen=output.modelData;statusMenu.openAt(statusMouse,e.x,e.y);}
+                }
                 RowLayout {
                     anchors {left:parent.left;verticalCenter:parent.verticalCenter;leftMargin:8}
                     spacing:6
@@ -82,6 +87,9 @@ ShellRoot {
                     visible:statusbar.width>800&&Hub.status.hypr&&output.layoutMode!=="phone"
                     anchors.centerIn:parent
                     width:workspaces.implicitWidth+16;height:32;radius:16;color:Theme.alpha(Theme.surfaceHigh,.65)
+                    WheelHandler {
+                        onWheel:e=>{const delta=e.angleDelta.y||e.angleDelta.x;if(delta)Hub.workspace(Math.max(1,Math.min(12,Hub.status.workspace+(delta>0 ? -1 : 1))));e.accepted=true;}
+                    }
                     Row {
                         id:workspaces;anchors.centerIn:parent;spacing:4
                         Repeater {
@@ -90,14 +98,13 @@ ShellRoot {
                                 id:ws
                                 required property int index
                                 property bool current:Hub.status.workspace===index+1
-                                width:current ? 32 : 24;height:24;radius:12
+                                width:32;height:28;radius:current ? 10 : 14
                                 color:current ? Theme.primary : Hub.status.workspaces.indexOf(index+1)>=0 ? Theme.alpha(Theme.primary,.3) : "transparent"
-                                Behavior on width {NumberAnimation {duration:120;easing.type:Easing.OutCubic}}
-                                MText {anchors.centerIn:parent;text:String(index+1);font.pixelSize:ws.current ? 10 : 15;color:ws.current ? Theme.onPrimary : Theme.muted}
+                                MText {anchors.centerIn:parent;text:String(index+1);font.pixelSize:12;color:ws.current ? Theme.primaryText : Theme.muted}
                                 OpalMenu {id:workspaceMenu;entries:[{text:"Switch to workspace "+(ws.index+1),icon:"desktop",run:()=>Hub.workspace(ws.index+1)},
                                     {text:"Show running windows",icon:"list",run:()=>{Hub.targetScreen=output.modelData;Hub.openSection("windows");}}]}
-                                MouseArea {anchors.fill:parent
-acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{if(e.button===Qt.RightButton)workspaceMenu.popup(e.x,e.y);else Hub.workspace(ws.index+1);}}
+                                MouseArea {id:workspaceMouse;anchors.fill:parent;cursorShape:Qt.PointingHandCursor
+acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{if(e.button===Qt.RightButton)workspaceMenu.openAt(workspaceMouse,e.x,e.y);else Hub.workspace(ws.index+1);}}
                             }
                         }
                     }
@@ -116,7 +123,7 @@ acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{if(e.button===Qt.Righ
                     }
                     MButton {icon:Hub.dnd ? "quiet" : "bell";text:Hub.unread ? String(Hub.unread) : "";compact:true;implicitHeight:30;implicitWidth:Hub.unread ? 48 : 30;tooltip:"Notifications";onClicked:output.show("notifications");menuEntries:[{text:Hub.dnd ? "Allow notifications" : "Do not disturb",icon:"quiet",run:()=>Hub.set("dnd",!Hub.dnd)}]}
                     MButton {icon:Hub.status.wifi ? "wifi" : "wifiOff";compact:true;implicitWidth:30;implicitHeight:30;tooltip:Hub.status.network;onClicked:output.show("controls");menuEntries:[{text:"Network settings",icon:"wifi",run:()=>Hub.settings("network")}]}
-                    MButton {visible:statusbar.width>700;icon:Hub.status.muted ? "mute" : "volume";compact:true;implicitWidth:30;implicitHeight:30;tooltip:"Volume "+Hub.status.volume+"%";onClicked:output.show("controls");menuEntries:[{text:"Toggle mute",icon:"mute",run:()=>Hub.command({action:"mute"})},{text:"Audio mixer",icon:"volume",run:()=>Hub.settings("audio")}]}
+                    MButton {visible:statusbar.width>700;icon:Hub.status.muted ? "mute" : "volume";compact:true;implicitWidth:30;implicitHeight:30;tooltip:"Volume "+Hub.status.volume+"% · Scroll to adjust";scrollable:true;onScrolled:steps=>Hub.volume(Hub.status.volume+steps*5);onClicked:output.show("volume");menuEntries:[{text:"Toggle mute",icon:"mute",run:()=>Hub.command({action:"mute"})},{text:"Audio mixer",icon:"volume",run:()=>Hub.settings("audio")}]}
                     MButton {visible:Hub.status.battery>=0;icon:Hub.status.charging ? "charging" : "battery";text:Hub.status.battery+"%";compact:true;implicitHeight:30;onClicked:output.show("controls")}
                     MButton {icon:"settings";compact:true;implicitWidth:30;implicitHeight:30;onClicked:output.show("controls")}
                 }
@@ -187,40 +194,56 @@ acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{if(e.button===Qt.Righ
         id:overlay
         screen:Hub.targetScreen || Quickshell.screens[0]
         visible:Hub.page!==""
-        readonly property string layoutMode:Hub.layoutFor(width,height,screen ? screen.name : "")
+        readonly property string layoutMode:Hub.layoutFor(screen ? screen.width : 1920,screen ? screen.height : 1080,screen ? screen.name : "")
+        readonly property bool phone:layoutMode==="phone"
+        readonly property bool game:layoutMode==="console"
+        readonly property bool launcher:Hub.page==="launcher"
+        readonly property bool volumePopover:Hub.page==="volume"
+        readonly property bool fullScreenCard:phone||game&&launcher
+        readonly property bool centeredCard:launcher||Hub.page==="windows"||Hub.page==="appearance"||Hub.page==="convergence"||Hub.page==="wallpaper"
+        readonly property real cardWidth:fullScreenCard ? (screen ? screen.width : 1920) : Math.min((screen ? screen.width : 1920)-(launcher ? 24 : 40),Hub.page==="volume" ? 360 : launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="wallpaper" ? 1060 : Hub.page==="convergence" ? 800 : Hub.page==="appearance" ? 660 : 490)
+        readonly property real cardHeight:fullScreenCard ? (screen ? screen.height : 1080) : launcher ? Math.min((screen ? screen.height : 1080)-88,740) : Math.min((screen ? screen.height : 1080)-(centeredCard ? 112 : 88),Hub.page==="volume" ? 116 : Hub.page==="clipboard" ? 650 : 760)
+        // One layer owns the card AND outside input. Separate transparent
+        // layer windows are not a reliable click-away target on the compositor.
         anchors {top:true;bottom:true;left:true;right:true}
         exclusionMode:ExclusionMode.Ignore
         WlrLayershell.layer:WlrLayer.Overlay
         WlrLayershell.namespace:"opal-overlay"
         WlrLayershell.keyboardFocus:visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-        // Frosted summon: strong backdrop blur from the compositor, low dim so
-        // the desktop behind stays visible for terminal use.
-        color:Theme.alpha(Theme.base,.12)
-        MouseArea {anchors.fill:parent;onClicked:Hub.close()}
+        // Restore the launcher's frosted backdrop. Other panels remain clear
+        // outside the card; the existing ignore_alpha blur rule skips alpha 0.
+        color:launcher ? Theme.alpha(Theme.base,.12) : "transparent"
+        MouseArea {
+            anchors.fill:parent
+            acceptedButtons:Qt.LeftButton|Qt.RightButton|Qt.MiddleButton
+            onPressed:Hub.close()
+        }
         Surface {
             id:panel
             property real arrival:1
             opacity:arrival
-            scale:.965+.035*arrival
-            transform:Translate {y:(1-panel.arrival)*24}
             Connections {target:overlay;function onVisibleChanged(){if(overlay.visible)panelArrival.restart();}}
             NumberAnimation {id:panelArrival;target:panel;property:"arrival";from:0;to:1;duration:Theme.motion(360);easing.type:Easing.OutCubic}
-            readonly property bool phone:overlay.layoutMode==="phone"
-            readonly property bool game:overlay.layoutMode==="console"
-            readonly property bool launcher:Hub.page==="launcher"
-            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-24,launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="convergence"||Hub.page==="wallpaper" ? 800 : Hub.page==="appearance" ? 660 : 490)
-            height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,launcher ? 740 : Hub.page==="clipboard" ? 650 : 860)
-            x:phone||game&&launcher ? 0 : launcher||Hub.page==="appearance"||Hub.page==="convergence"||Hub.page==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
-            y:phone||game&&launcher ? 0 : launcher ? Math.max(60,(overlay.height-height)/2) : 62
-            radius:phone||game&&launcher ? 0 : 36
+            width:overlay.fullScreenCard ? overlay.width : overlay.cardWidth
+            height:overlay.fullScreenCard ? overlay.height : overlay.cardHeight
+            x:overlay.fullScreenCard ? 0 : overlay.centeredCard ? (overlay.width-width)/2 : overlay.width-width-12
+            y:overlay.fullScreenCard ? 0 : overlay.centeredCard ? Math.max(0,(overlay.height-height)/2) : 52
+            readonly property bool phone:overlay.phone
+            readonly property bool game:overlay.game
+            readonly property bool launcher:overlay.launcher
+            readonly property bool fullScreenCard:overlay.fullScreenCard
+            readonly property bool centeredCard:overlay.centeredCard
+            radius:fullScreenCard ? 0 : launcher ? 36 : overlay.volumePopover ? 24 : 28
             translucency:phone&&launcher ? Math.min(.35,Hub.prefs.glass) : Hub.prefs.glass
-            MouseArea {anchors.fill:parent}
+            elevated:false
+            border.width:overlay.volumePopover ? 0 : 1
+            MouseArea {anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton|Qt.MiddleButton}
             Loader {
                 id:overlayContent
                 anchors.fill:parent;active:overlay.visible
                 onLoaded:contentArrival.restart()
                 NumberAnimation {id:contentArrival;target:overlayContent;property:"opacity";from:0;to:1;duration:Theme.motion(180)}
-                sourceComponent:Hub.page==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : launcherComponent) : Hub.page==="clipboard" ? clipboardComponent : Hub.page==="appearance" ? appearanceComponent : Hub.page==="convergence" ? convergenceComponent : Hub.page==="wallpaper" ? wallpaperComponent : Hub.page==="windows" ? windowsComponent : controlsComponent
+                sourceComponent:Hub.page==="volume" ? volumeComponent : Hub.page==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : launcherComponent) : Hub.page==="clipboard" ? clipboardComponent : Hub.page==="appearance" ? appearanceComponent : Hub.page==="convergence" ? convergenceComponent : Hub.page==="wallpaper" ? wallpaperComponent : Hub.page==="windows" ? windowsComponent : controlsComponent
             }
             Rectangle {visible:Hub.toast!=="";anchors {bottom:parent.bottom;left:parent.left;right:parent.right;margins:12} height:72;radius:24;color:Theme.surfaceHigh;z:5
                 MText {anchors {fill:parent;margins:14} text:Hub.toast;font.pixelSize:12;wrapMode:Text.Wrap;maximumLineCount:3;verticalAlignment:Text.AlignVCenter}
@@ -237,6 +260,17 @@ acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{if(e.button===Qt.Righ
         Component {id:mobileComponent;MobileHome {}}
         Component {id:consoleComponent;ConsoleHome {}}
         Component {id:controlsComponent;QuickSettings {}}
+        Component {id:volumeComponent;ColumnLayout {
+            anchors.fill:parent;anchors.margins:16;spacing:4
+            RowLayout {Layout.fillWidth:true
+                MText {text:"Volume · "+Hub.status.volume+"%";Layout.fillWidth:true;font.weight:Font.DemiBold}
+                MButton {icon:"close";compact:true;implicitHeight:28;implicitWidth:28;onClicked:Hub.close()}
+            }
+            RowLayout {Layout.fillWidth:true;spacing:8
+                MButton {icon:Hub.status.muted ? "mute" : "volume";tonal:true;compact:true;tooltip:"Toggle mute";onClicked:Hub.command({action:"mute"})}
+                ExpressiveSlider {Layout.fillWidth:true;value:Hub.status.volume;icon:Hub.status.muted ? "mute" : "volume";onMoved:Hub.volume(value)}
+            }
+        }}
         Component {id:clipboardComponent;ClipboardPanel {touchMode:panel.phone}}
         Component {id:appearanceComponent;ColumnLayout {
             anchors {fill:parent;margins:20} spacing:16

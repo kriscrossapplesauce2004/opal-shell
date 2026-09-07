@@ -15,7 +15,7 @@ Item {
         anchors {fill:parent;margins:22}
 spacing:14
         RowLayout {Layout.fillWidth:true;spacing:14
-            Flower {Layout.preferredWidth:48;Layout.preferredHeight:48;fill:Theme.primary;lobes:8;Glyph {anchors.centerIn:parent;name:"clipboard";color:Theme.onPrimary;font.pixelSize:24}}
+            Flower {Layout.preferredWidth:48;Layout.preferredHeight:48;fill:Theme.primary;lobes:8;Glyph {anchors.centerIn:parent;name:"clipboard";color:Theme.primaryText;font.pixelSize:24}}
             ColumnLayout {Layout.fillWidth:true;spacing:4
                 MText {text:"Clipboard";font.pixelSize:27;font.weight:Font.DemiBold}
                 MText {text:Hub.clipboardItems.length+" of 20 entries · session only";color:Theme.subtext;font.pixelSize:11}

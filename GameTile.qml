@@ -29,7 +29,7 @@ text:app.name;font.pixelSize:16;font.weight:Font.DemiBold;color:selected ? Theme
     MouseArea {id:mouse;anchors.fill:parent;hoverEnabled:true;acceptedButtons:Qt.LeftButton|Qt.RightButton
         property bool held:false
         onPressed:held=false
-        onClicked:e=>{if(held)return;if(e.button===Qt.RightButton)gameMenu.popup(e.x,e.y);else tile.activated();}
-        onPressAndHold:e=>{held=true;gameMenu.popup(e.x,e.y);}
+        onClicked:e=>{if(held)return;if(e.button===Qt.RightButton)gameMenu.openAt(mouse,e.x,e.y);else tile.activated();}
+        onPressAndHold:e=>{held=true;gameMenu.openAt(mouse,e.x,e.y);}
     }
 }

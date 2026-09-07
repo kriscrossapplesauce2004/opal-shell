@@ -25,8 +25,8 @@ Rectangle {
         id:hit;anchors.fill:parent;hoverEnabled:true;acceptedButtons:Qt.LeftButton|Qt.RightButton;cursorShape:Qt.PointingHandCursor
         property bool held:false
         onPressed:held=false
-        onClicked:e=>{if(held)return;if(e.button===Qt.RightButton)entryMenu.popup(e.x,e.y);else Hub.copyClipboard(entry.record.id,entry.closeAfterCopy);}
-        onPressAndHold:e=>{held=true;entryMenu.popup(e.x,e.y);}
+        onClicked:e=>{if(held)return;if(e.button===Qt.RightButton)entryMenu.openAt(hit,e.x,e.y);else Hub.copyClipboard(entry.record.id,entry.closeAfterCopy);}
+        onPressAndHold:e=>{held=true;entryMenu.openAt(hit,e.x,e.y);}
     }
     RowLayout {
         anchors {fill:parent;margins:entry.compact ? 10 : 14}

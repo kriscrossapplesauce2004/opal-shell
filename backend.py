@@ -20,6 +20,7 @@ def load():
     base = {'mode':'auto', 'palette':0, 'light':False, 'dnd':False, 'glass':0.78, 'favorites':[], 'recent':[], 'wallpaper':0, 'pinsConfigured':False, 'taskbarAutoHide':False, 'taskbarLabels':True, 'phoneButtons':False, 'controllerLayout':'standard'}
     base['displayModes'] = {}
     base['phoneDisplay'] = ''
+    base['taskbarOrder'] = []
     base['reduceMotion'] = False
     base.update(WALLPAPER_DEFAULTS)
     try: base.update(json.loads(STORE.read_text()))
@@ -71,6 +72,8 @@ from clipboard_service import ClipboardHistory
 clipboard = ClipboardHistory(emit)
 from connectivity import Connectivity
 connectivity = Connectivity(emit)
+from hypr_actions import HyprActions
+hypr_actions = HyprActions()
 
 
 def publish_wallpapers(c):
@@ -89,6 +92,7 @@ def commands():
                 key=c.get('key'); value=c.get('value')
                 valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
                 valid = valid or valid_preference(key, value)
+                valid = valid or key=='taskbarOrder' and isinstance(value,list) and len(value)<=128 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneDisplay' and isinstance(value,str) and 0<len(value)<=128 and all(ch.isalnum() or ch in '_.:-' for ch in value)
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
                 if valid:
@@ -145,6 +149,12 @@ def commands():
                         elif action=='pin': items.append(app)
                         if action=='recent': items.insert(0,app)
                         prefs[key]=items[:24]; save()
+            elif action in ('focus-window','workspace'):
+                try:
+                    if action=='focus-window':hypr_actions.focus(c.get('address'))
+                    else:hypr_actions.workspace(c.get('number'))
+                except (ValueError,OSError,subprocess.SubprocessError) as error:
+                    emit({'event':'message','text':str(error)})
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
             elif action=='volume': run('wpctl','set-volume','-l','1','@DEFAULT_AUDIO_SINK@',str(max(0,min(100,int(c['value']))))+'%')

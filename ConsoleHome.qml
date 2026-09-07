@@ -62,7 +62,7 @@ spacing:20
         RowLayout {
             visible:!c.searching
             Layout.fillWidth:true;spacing:14
-            Flower {width:46;height:46;fill:Theme.primary;lobes:8;Glyph {anchors.centerIn:parent;name:"game";color:Theme.onPrimary;font.pixelSize:24}}
+            Flower {width:46;height:46;fill:Theme.primary;lobes:8;Glyph {anchors.centerIn:parent;name:"game";color:Theme.primaryText;font.pixelSize:24}}
             MText {visible:c.width>1000;text:"PLAY";font.pixelSize:20;font.weight:Font.Bold;font.letterSpacing:4;Layout.rightMargin:20}
             MButton {text:"LB";compact:true;tonal:true;tooltip:"Previous category";onClicked:c.changeTab(-1)}
             HorizontalScroller {Layout.fillWidth:true;Layout.preferredHeight:48;contentWidth:categoryRow.width

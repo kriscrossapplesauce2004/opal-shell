@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Window
+import QtQuick.Controls
+import QtTest
 import Quickshell
 import "." as Opal
 
@@ -11,7 +13,13 @@ ShellRoot {
         width:960;height:650;visible:true;color:Opal.Theme.base
         property int step:0
         property var cases:[
-            {name:"wallpaper-studio",ui:"wallpaper",w:800,h:860},
+            {name:"context-pointer-dark",ui:"context",w:640,h:400},
+            {name:"context-pointer-light",ui:"context",w:640,h:400,light:true},
+            {name:"controls-alignment-dark",ui:"primitives",w:400,h:280},
+            {name:"controls-alignment-light",ui:"primitives",w:400,h:280,light:true},
+            {name:"wallpaper-studio",ui:"wallpaper",w:1060,h:760},
+            {name:"wallpaper-browser",ui:"wallpaper",w:1060,h:760,browse:true},
+            {name:"wallpaper-browser-phone",ui:"wallpaper",w:360,h:740,browse:true},
             {name:"wallpaper-studio-light",ui:"wallpaper",w:800,h:860,light:true},
             {name:"wallpaper-studio-images",ui:"wallpaper",w:800,h:860,photo:true},
             {name:"wallpaper-studio-phone",ui:"wallpaper",w:360,h:740},
@@ -51,10 +59,40 @@ ShellRoot {
             {name:"clipboard-empty",ui:"clipboard",w:470,h:650,empty:true},
             {name:"clipboard-text",ui:"clipboard",w:470,h:650},
             {name:"clipboard-phone",ui:"clipboard",w:390,h:844,phone:true},
-            {name:"clipboard-widget",ui:"dashboard",w:840,h:700}
+            {name:"clipboard-widget",ui:"dashboard",w:840,h:700},
+            {name:"taskbar-drag",ui:"taskbar",w:700,h:64,drag:true}
         ]
         Rectangle {anchors.fill:parent;color:Opal.Theme.base}
         Loader {id:view;anchors.fill:parent}
+        TestCase {id:input;name:"TaskbarDrag";when:false}
+        Component {id:contextView;Item {
+            property alias menu:positionedMenu
+            property alias target:menuTarget
+            Rectangle {x:48;y:36;width:544;height:48;radius:16;color:Opal.Theme.surface
+                Item {id:menuTarget;x:140;y:8;width:200;height:32
+                    Opal.MText {anchors.centerIn:parent;text:"Right-click anywhere"}
+                }
+            }
+            Opal.OpalMenu {id:positionedMenu;entries:[
+                {text:"Applications",icon:"apps",run:()=>{}},
+                {text:"Personalize desktop",icon:"palette",run:()=>{}},
+                {text:"Taskbar options",icon:"settings",run:()=>{}}
+            ]}
+        }}
+        Component {id:primitivesView;Item {
+            property alias slider:wheelSlider
+            Column {anchors.centerIn:parent;spacing:12;width:360
+                Row {spacing:12
+                    Opal.MButton {width:30;height:30;icon:"volume";compact:true}
+                    Opal.MButton {width:150;text:"Centered";icon:"check";filled:true}
+                    Opal.MButton {width:150;text:"Inactive";tonal:true}
+                }
+                Opal.ExpressiveSlider {width:360;value:0}
+                Opal.ExpressiveSlider {id:wheelSlider;width:360;value:50}
+                Opal.ExpressiveSlider {width:360;value:100}
+            }
+        }}
+        Component {id:taskbarView;Opal.TaskStrip {labels:false}}
         Component {id:switcherView;Opal.WindowSwitcher {}}
         Component {id:wallpaperStudio;Opal.WallpaperPicker {}}
         Component {id:dockView;Opal.DockWelcome {displayName:"USB-C · External monitor"}}
@@ -103,11 +141,27 @@ ShellRoot {
                 if(Opal.Hub.dockNotice||Opal.Hub.dockScreen!==null)console.error("ASSERTION_FAILED: unplug cleanup");
                 Opal.Hub.knownDisplays=known;Opal.Hub.displaysReady=ready;
             }
-            view.sourceComponent=test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            if(test.drag) {
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{favorites:[],pinsConfigured:true,taskbarOrder:[]});
+                Opal.Hub.status=Object.assign({},Opal.Hub.status,{hypr:true,windows:[0,1,2,3].map(i=>({className:"Fixture-"+i,title:"Fixture "+i,address:"fixture-"+i,workspace:1}))});
+            }
+            view.sourceComponent=test.ui==="context" ? contextView : test.ui==="primitives" ? primitivesView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            if(test.ui==="context")Qt.callLater(()=>{
+                view.item.menu.openAt(view.item.target,37,11);
+                Qt.callLater(()=>{
+                    const menu=view.item.menu;
+                    if(menu.anchor.item!==view.item.target||menu.anchor.rect.x!==37||menu.anchor.rect.y!==11||!menu.popupWindow.grabFocus)
+                        console.error("ASSERTION_FAILED: native context popup lost pointer anchor or grab");
+                });
+            });
+            if(test.ui==="primitives")Qt.callLater(()=>{
+                const slider=view.item.slider;
+                input.mouseWheel(slider,slider.width/2,slider.height/2,0,120);
+                if(slider.value<=50)console.error("ASSERTION_FAILED: slider wheel did not increase volume");
+                input.mouseWheel(slider,slider.width/2,slider.height/2,0,-120);
+                if(slider.value!==50)console.error("ASSERTION_FAILED: slider wheel did not reverse");
+            });
             if(test.ui==="switcher") {
-                const focus=Opal.Hub.focusArgs({address:"0xabc123",workspace:7});
-                if(focus[2]!=="dispatch workspace 7; dispatch focuswindow address:0xabc123")console.error("ASSERTION_FAILED: workspace-before-focus");
-                if(Opal.Hub.focusArgs({address:"0x123; exit",workspace:7}).length)console.error("ASSERTION_FAILED: invalid focus address");
                 view.item.layoutMode=test.game ? "console" : "desktop";
                 view.item.navigate("right");
                 if(view.item.selection!==1)console.error("ASSERTION_FAILED: switcher navigation");
@@ -118,6 +172,7 @@ ShellRoot {
             if(test.ui==="wallpaper") {
                 const original=JSON.stringify(Opal.Hub.prefs);
                 view.item.draftArt=2;view.item.draftPath="";
+                if(test.browse){view.item.folder="file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers";view.item.browsing="folder";}
                 if(test.photo){view.item.draftPath="file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-1.png";view.item.tab="images";Opal.Hub.browseWallpapers(Quickshell.env("HOME")+"/Pictures/Wallpapers");}
                 if(JSON.stringify(Opal.Hub.prefs)!==original)console.error("ASSERTION_FAILED: preview mutated preferences");
             }
@@ -138,15 +193,38 @@ ShellRoot {
                 if(view.item.library.length>1&&view.item.selection!==1)console.error("ASSERTION_FAILED: controller grid");
                 view.item.navigate("left");
             }
-            console.log("THEME",test.name,Opal.Theme.primary,Opal.Theme.onPrimary);
+            if(test.drag)Qt.callLater(()=>{
+                input.mousePress(view.item,22,32,Qt.LeftButton);
+                input.mouseMove(view.item,58,32,40);
+                input.mouseMove(view.item,130,32,40);
+                if(!view.item.dragging)console.error("ASSERTION_FAILED: taskbar mouse drag did not begin");
+            });
+            if(test.ui==="primitives"&&String(Opal.Theme.primaryText)!==(test.light ? "#ffffff" : "#31205f"))
+                console.error("ASSERTION_FAILED: accent foreground contrast",Opal.Theme.primaryText);
+            console.log("THEME",test.name,Opal.Theme.primary,Opal.Theme.primaryText);
             capture.restart();
         }
         Timer {
             id:capture;interval:600
             onTriggered:{
-                fixture.contentItem.grabToImage(result=>{
+                const captureItem=fixture.cases[fixture.step].ui==="context" ? view.item.menu.popupWindow.contentItem : fixture.contentItem;
+                captureItem.grabToImage(result=>{
                     result.saveToFile(Quickshell.env("OPAL_TEST_OUTPUT")+"/"+fixture.cases[fixture.step].name+".png");
                     console.log("RENDERED",fixture.cases[fixture.step].name,view.item.width,view.item.height);
+                    if(fixture.cases[fixture.step].ui==="context")view.item.menu.close();
+                    if(fixture.cases[fixture.step].browse){
+                        const picker=view.item;
+                        const before=JSON.stringify(Opal.Hub.prefs);
+                        const folder=picker.browser.currentFolder.toString();
+                        if(!folder.endsWith("/Pictures/Wallpapers")||picker.browser.folderPath==="")console.error("ASSERTION_FAILED: embedded browser location");
+                        input.mouseClick(picker.browser.folderButton);
+                        if(picker.browsing!==""||picker.folder!==folder||JSON.stringify(Opal.Hub.prefs)!==before)console.error("ASSERTION_FAILED: folder choice did not return safely to gallery");
+                    }
+                    if(fixture.cases[fixture.step].drag){
+                        input.mouseRelease(view.item,130,32,Qt.LeftButton);
+                        if(view.item.dragging||(Opal.Hub.prefs.taskbarOrder||[]).indexOf("Fixture-0")<1)console.error("ASSERTION_FAILED: taskbar drop order");
+                        if(Opal.Hub.pendingFocus!==null)console.error("ASSERTION_FAILED: taskbar drag activated window");
+                    }
                     fixture.step++;Qt.callLater(fixture.next);
                 });
             }

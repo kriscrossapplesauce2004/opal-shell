@@ -79,7 +79,7 @@ Item {
             scale:click.pressed ? .98 : 1
             Behavior on color {ColorAnimation {duration:Theme.motion(180)}}
             Behavior on scale {NumberAnimation {duration:Theme.motion(180)}}
-            MouseArea {id:click;anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{s.selection=c.index;if(e.button===Qt.RightButton)menu.popup(e.x,e.y);else Hub.focusWindow(c.entry);}onPressAndHold:e=>menu.popup(e.x,e.y)}
+            MouseArea {id:click;anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{s.selection=c.index;if(e.button===Qt.RightButton)menu.openAt(click,e.x,e.y);else Hub.focusWindow(c.entry);}onPressAndHold:e=>menu.openAt(click,e.x,e.y)}
             OpalMenu {id:menu;entries:Hub.windowMenu(c.entry)}
             ColumnLayout {anchors.fill:parent;anchors.margins:s.gaming ? 24 : 18;spacing:12
                 RowLayout {Layout.fillWidth:true;spacing:12
