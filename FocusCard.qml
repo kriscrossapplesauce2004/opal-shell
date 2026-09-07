@@ -9,8 +9,8 @@ spacing:20
         Item {Layout.preferredWidth:105;Layout.preferredHeight:105
             Flower {anchors.fill:parent;fill:Theme.primary;lobes:12}
             Column {anchors.centerIn:parent;spacing:2
-                MText {anchors.horizontalCenter:parent.horizontalCenter;text:Math.floor(Hub.focusSeconds/60).toString().padStart(2,"0");font.pixelSize:38;font.weight:Font.Bold;color:Theme.primaryText}
-                MText {anchors.horizontalCenter:parent.horizontalCenter;text:(Hub.focusSeconds%60).toString().padStart(2,"0");font.pixelSize:16;color:Theme.primaryText}
+                MText {anchors.horizontalCenter:parent.horizontalCenter;text:Math.floor(Hub.focusSeconds/60).toString().padStart(2,"0");font.pixelSize:38;font.weight:Font.Bold;color:Theme.onPrimary}
+                MText {anchors.horizontalCenter:parent.horizontalCenter;text:(Hub.focusSeconds%60).toString().padStart(2,"0");font.pixelSize:16;color:Theme.onPrimary}
             }
         }
         ColumnLayout {Layout.fillWidth:true;spacing:8

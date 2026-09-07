@@ -48,7 +48,7 @@ Item {
             Column { anchors {top:parent.top; left:parent.left; right:parent.right; margins:10}
 spacing:18
                 Flower {width:36;height:36;anchors.horizontalCenter:parent.horizontalCenter;fill:Theme.primary;lobes:8
-                    Glyph {anchors.centerIn:parent;name:"spark";color:Theme.primaryText}
+                    Glyph {anchors.centerIn:parent;name:"spark";color:Theme.onPrimary}
                 }
                 Repeater {model:[{id:"apps",icon:"apps",label:"Apps"},{id:"widgets",icon:"grid",label:"At a glance"},{id:"windows",icon:"desktop",label:"Open"},{id:"style",icon:"palette",label:"Style"}]
                     Column {required property var modelData;width:76;spacing:6
@@ -117,7 +117,7 @@ icon:Hub.query!=="" ? "close" : "spark";compact:true;tooltip:Hub.query!=="" ? "C
                 visible:l.section==="apps";Layout.fillWidth:true;Layout.fillHeight:true
                 GridView {
                     id:grid;anchors.fill:parent;visible:!l.special;clip:true;model:l.results
-                    cellWidth:width/l.columns;cellHeight:l.consoleMode ? 190 : height/Math.max(1,Math.floor(height/132))
+                    cellWidth:width/l.columns;cellHeight:l.consoleMode ? 190 : l.phone ? height/Math.max(1,Math.floor(height/132)) : 120
                     currentIndex:0;keyNavigationEnabled:false;boundsBehavior:Flickable.StopAtBounds
                     ScrollBar.vertical:ScrollBar {policy:ScrollBar.AsNeeded}
                     Keys.onPressed:e => {

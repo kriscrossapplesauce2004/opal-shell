@@ -14,15 +14,45 @@ Item {
     property int selection:0
     readonly property int columns:Math.max(2,Math.min(6,Math.floor((width-64)/260)))
     readonly property var tabs:["Continue","Games","Pinned","All apps"]
-    readonly property var library:query!=="" ? Hub.searchApps(query,"All apps") : category==="Continue" ? Hub.recentApps.filter(a=>(a.categories||[]).indexOf("Game")>=0) : Hub.searchApps("",category)
+    readonly property var continueApps: {
+        const running=Hub.windows.map(w=>Hub.appForWindow(w)).filter(a=>a&&(a.categories||[]).indexOf("Game")>=0);
+        return running.concat(Hub.recentApps.filter(a=>(a.categories||[]).indexOf("Game")>=0)).filter((a,i,all)=>all.findIndex(other=>other.id===a.id)===i);
+    }
+    readonly property var library:query!=="" ? Hub.searchApps(query,"All apps") : category==="Continue" ? continueApps : Hub.searchApps("",category)
     readonly property var selected:library.length ? library[Math.min(selection,library.length-1)] : null
     readonly property var selectedWindows:selected ? Hub.windows.filter(w=>Hub.appForWindow(w)===selected) : []
-    readonly property var actions:(selected ? Hub.appMenu(selected) : []).concat([
-        {text:"App switcher",icon:"desktop",run:()=>Hub.page="windows"},
-        {text:"Steam Big Picture",icon:"game",run:()=>Hub.settings("steam")},
-        {text:"Switch to desktop layout",icon:"desktop",run:()=>Hub.mode("desktop")},
-        {text:"Close library",icon:"back",run:()=>Hub.close()}
-    ])
+    property int menuTab:0
+    readonly property var menuTabs:["Library","Session","Sound","Setup"]
+    readonly property bool nintendo:Hub.prefs.controllerLayout==="nintendo"
+    readonly property string acceptButton:nintendo ? "B" : "A"
+    readonly property string backButton:nintendo ? "A" : "B"
+    readonly property string pinButton:nintendo ? "Y" : "X"
+    readonly property string searchButton:nintendo ? "X" : "Y"
+    readonly property var actions:menuTab===0 ? (selected ? Hub.appMenu(selected) : []).concat([
+        {text:"Search installed games & apps",icon:"search",run:()=>c.searchToggle()},
+        {text:"App switcher · "+Hub.windows.length+" windows",icon:"desktop",run:()=>Hub.page="windows"},
+        {text:"Steam Big Picture",icon:"game",run:()=>Hub.settings("steam")}
+    ]) : menuTab===1 ? [
+        {text:Hub.gameSession ? "End play session · "+Hub.gameMinutes+" min" : "Start a quiet play session",icon:"game",run:()=>Hub.toggleGameSession(),stay:true},
+        {text:"Screenshot",icon:"capture",run:()=>Hub.screenShot()},
+        {text:(Hub.keepAwake ? "Allow idle" : "Keep awake")+(Hub.gameSession ? " · after session" : ""),icon:"coffee",run:()=>Hub.keepAwake=!Hub.keepAwake,stay:true},
+        {text:(Hub.dnd ? "Allow notification popups" : "Quiet notification popups")+(Hub.gameSession ? " · after session" : ""),icon:"quiet",run:()=>Hub.set("dnd",!Hub.dnd),stay:true},
+        {text:"Return to game / close library",icon:"back",run:()=>Hub.close()}
+    ] : menuTab===2 ? [
+        {text:"Volume down · "+Hub.status.volume+"%",icon:"volume",run:()=>Hub.volume(Math.max(0,Hub.status.volume-5)),stay:true},
+        {text:"Volume up · "+Hub.status.volume+"%",icon:"volume",run:()=>Hub.volume(Math.min(100,Hub.status.volume+5)),stay:true},
+        {text:Hub.status.muted ? "Unmute" : "Mute",icon:"mute",run:()=>Hub.command({action:"mute"}),stay:true},
+        {text:Hub.status.playing ? "Pause music" : "Play music",icon:"music",run:()=>Hub.media("play-pause"),stay:true},
+        {text:"Next track",icon:"skip",run:()=>Hub.media("next"),stay:true}
+    ] : [
+        {text:"Button layout · "+(nintendo ? "Nintendo" : "Xbox / standard"),icon:"game",run:()=>Hub.set("controllerLayout",nintendo ? "standard" : "nintendo"),stay:true},
+        {text:Theme.light ? "Use dark appearance" : "Use light appearance",icon:"moon",run:()=>Hub.set("light",!Theme.light),stay:true},
+        {text:"Quick Settings · touch / mouse",icon:"settings",run:()=>Hub.page="controls"},
+        {text:"Switch to desktop layout",icon:"desktop",run:()=>Hub.mode("desktop")}
+    ]
+    function menuCategory(delta) {menuTab=(menuTab+delta+menuTabs.length)%menuTabs.length;menuIndex=0;actionList.positionViewAtBeginning();}
+    function runAction(index) {const action=actions[index];if(!action)return;if(!action.stay)menuOpen=false;action.run();}
+    function openMenu() {menuIndex=0;menuOpen=true;c.forceActiveFocus();}
     onLibraryChanged:selection=0
     function launch() {if(selectedWindows.length)Hub.focusWindow(selectedWindows[0]);else if(selected)Hub.launch(selected);}
     function changeTab(delta) {category=tabs[(tabs.indexOf(category)+delta+tabs.length)%tabs.length];query="";selection=0;}
@@ -32,12 +62,14 @@ Item {
             if(key==="back"||key==="menu")menuOpen=false;
             else if(key==="up") {menuIndex=Math.max(0,menuIndex-1);actionList.positionViewAtIndex(menuIndex,ListView.Contain);}
             else if(key==="down") {menuIndex=Math.min(actions.length-1,menuIndex+1);actionList.positionViewAtIndex(menuIndex,ListView.Contain);}
-            else if(key==="accept") {const action=actions[menuIndex];menuOpen=false;if(action)action.run();}
+            else if(key==="left"||key==="previousTab")menuCategory(-1);
+            else if(key==="right"||key==="nextTab")menuCategory(1);
+            else if(key==="accept")runAction(menuIndex);
             return;
         }
         if(searching&&key!=="search") {keyboard.navigation(key);return;}
         if(key==="search") {searchToggle();return;}
-        if(key==="menu") {menuIndex=0;menuOpen=true;return;}
+        if(key==="menu") {openMenu();return;}
         if(key==="pin") {if(selected){Hub.pin(selected);Hub.message("Updated favorites");}return;}
         if(key==="back") {if(query){query="";return;}Hub.close();return;}
         if(key==="accept") {launch();return;}
@@ -52,7 +84,8 @@ Item {
         const map={}
 map[Qt.Key_Left]="left";map[Qt.Key_Right]="right";map[Qt.Key_Up]="up";map[Qt.Key_Down]="down";map[Qt.Key_Return]="accept";map[Qt.Key_Enter]="accept";map[Qt.Key_Escape]="back";map[Qt.Key_Menu]="menu";
         if(map[e.key]){c.navigate(map[e.key]);e.accepted=true;}
-        else if(e.key===Qt.Key_Tab){c.changeTab(e.modifiers&Qt.ShiftModifier ? -1 : 1);e.accepted=true;}
+        else if(e.key===Qt.Key_Tab){c.navigate(e.modifiers&Qt.ShiftModifier ? "previousTab" : "nextTab");e.accepted=true;}
+        else if(e.key===Qt.Key_F2){c.navigate("pin");e.accepted=true;}
         else if(e.key===Qt.Key_F3){c.searchToggle();e.accepted=true;}
     }
     Component.onCompleted:if(!embedded)forceActiveFocus()
@@ -62,7 +95,7 @@ spacing:20
         RowLayout {
             visible:!c.searching
             Layout.fillWidth:true;spacing:14
-            Flower {width:46;height:46;fill:Theme.primary;lobes:8;Glyph {anchors.centerIn:parent;name:"game";color:Theme.primaryText;font.pixelSize:24}}
+            Flower {width:46;height:46;fill:Theme.primary;lobes:8;Glyph {anchors.centerIn:parent;name:"game";color:Theme.onPrimary;font.pixelSize:24}}
             MText {visible:c.width>1000;text:"PLAY";font.pixelSize:20;font.weight:Font.Bold;font.letterSpacing:4;Layout.rightMargin:20}
             MButton {text:"LB";compact:true;tonal:true;tooltip:"Previous category";onClicked:c.changeTab(-1)}
             HorizontalScroller {Layout.fillWidth:true;Layout.preferredHeight:48;contentWidth:categoryRow.width
@@ -74,8 +107,9 @@ spacing:20
             }
             MButton {text:"RB";compact:true;tonal:true;tooltip:"Next category";onClicked:c.changeTab(1)}
             MText {visible:c.width>900;text:Qt.formatDateTime(Hub.now,"HH:mm");font.pixelSize:18;color:Theme.subtext}
+            MButton {icon:"volume";tooltip:"Sound & music · scroll for volume";scrollable:true;onScrolled:steps=>Hub.audioScroll(steps,Hub.chooseScreen());onClicked:Hub.toggleAudio(Hub.chooseScreen())}
             MButton {icon:"desktop";tooltip:"App switcher";onClicked:Hub.page="windows"}
-            MButton {icon:"settings";tooltip:"Library actions · Menu / Select";onClicked:{c.menuIndex=0;c.menuOpen=true;}}
+            MButton {icon:"settings";tooltip:"Play hub · Menu / Select";onClicked:c.openMenu()}
         }
         Rectangle {
             visible:!c.searching
@@ -101,8 +135,8 @@ fill:Theme.alpha(Theme.primary,.22);lobes:8;rotation:12}
                     MText {text:c.selected ? c.selected.name : c.category==="Continue" ? "Your next session starts here." : "Choose something to play.";Layout.fillWidth:true;font.pixelSize:Math.min(30,c.width/38);font.weight:Font.DemiBold;maximumLineCount:1;wrapMode:Text.Wrap;elide:Text.ElideRight;color:Theme.onContainer}
                     MText {visible:c.height>700;text:c.selected ? c.selected.comment||c.selected.genericName||"Installed on this device" : "Open Steam or choose All apps. No fake recommendations.";Layout.fillWidth:true;font.pixelSize:13;color:Theme.subtext}
                     RowLayout {spacing:10
-                        MButton {visible:!!c.selected;text:c.selectedWindows.length ? "A  Resume" : "A  Launch";icon:"play";filled:true;onClicked:c.launch()}
-                        MButton {visible:!!c.selected;text:Hub.pinned(c.selected||{}) ? "X  Unpin" : "X  Pin";icon:"pin";tonal:true;onClicked:Hub.pin(c.selected)}
+                        MButton {visible:!!c.selected;text:c.acceptButton+(c.selectedWindows.length ? "  Resume" : "  Launch");icon:"play";filled:true;onClicked:c.launch()}
+                        MButton {visible:!!c.selected;text:c.pinButton+(Hub.pinned(c.selected||{}) ? "  Unpin" : "  Pin");icon:"pin";tonal:true;onClicked:Hub.pin(c.selected)}
                         MButton {text:"Steam Big Picture";icon:"game";tonal:true;onClicked:Hub.settings("steam")}
                     }
                 }
@@ -147,7 +181,7 @@ fill:Theme.alpha(Theme.primary,.22);lobes:8;rotation:12}
                     onActivated:{if(c.selection===index)c.launch();else c.selection=index;}
                 }
             }
-            MText {anchors.centerIn:parent;visible:c.library.length===0;text:c.query ? "Nothing matched. Try another search." : c.category==="Pinned" ? "Press X on a title to add it here." : "No entries yet. Choose another category or open Steam.";color:Theme.subtext;font.pixelSize:20}
+            MText {anchors.centerIn:parent;visible:c.library.length===0;text:c.query ? "Nothing matched. Try another search." : c.category==="Pinned" ? "Press "+c.pinButton+" / F2 on a title to add it here." : "No entries yet. Choose another category or open Steam.";color:Theme.subtext;font.pixelSize:20}
         }
         MText {visible:c.searching;text:c.library.length+" matches · Done to browse results";color:Theme.subtext;font.pixelSize:14}
         ColumnLayout {visible:c.searching;Layout.fillWidth:true;Layout.fillHeight:true;spacing:6
@@ -168,21 +202,30 @@ fill:Theme.alpha(Theme.primary,.22);lobes:8;rotation:12}
             Glyph {name:"game";color:Hub.controller ? Theme.secondary : Theme.muted}
             MText {text:Hub.controller ? (Hub.controllerName||"Controller connected") : "Keyboard ready";color:Theme.subtext;font.pixelSize:12;Layout.maximumWidth:280}
             Item {Layout.fillWidth:true}
-            MButton {text:"Y  Search";icon:"search";tonal:true;onClicked:c.searchToggle()}
-            MButton {text:"Menu  Actions";tonal:true;onClicked:{c.menuIndex=0;c.menuOpen=true;}}
-            MButton {visible:!c.embedded;text:"B  Back";icon:"back";onClicked:c.navigate("back")}
+            MButton {text:c.searchButton+"  Search";icon:"search";tonal:true;onClicked:c.searchToggle()}
+            MButton {text:"Menu  Play hub";tonal:true;onClicked:c.openMenu()}
+            MButton {visible:!c.embedded;text:c.backButton+"  Back";icon:"back";onClicked:c.navigate("back")}
         }
     }
     Rectangle {
         visible:c.menuOpen;anchors.fill:parent;color:Theme.alpha(Theme.base,.97)
         MouseArea {anchors.fill:parent;onClicked:c.menuOpen=false}
         ColumnLayout {
-            anchors.centerIn:parent;width:Math.min(parent.width-64,600);height:Math.min(parent.height-80,c.actions.length*60+120);spacing:8
-            MText {text:"Library actions";font.pixelSize:30;font.weight:Font.DemiBold;Layout.bottomMargin:16}
-            ListView {id:actionList;model:c.actions;Layout.fillWidth:true;Layout.fillHeight:true;clip:true;spacing:8
-                delegate:MButton {required property var modelData;required property int index;implicitWidth:ListView.view.width;implicitHeight:52;text:modelData.text;icon:modelData.icon;filled:index===c.menuIndex;tonal:index!==c.menuIndex;onClicked:{c.menuOpen=false;modelData.run();}}
+            anchors.centerIn:parent;width:Math.min(parent.width-64,600);height:Math.min(parent.height-48,c.actions.length*60+230);spacing:12
+            RowLayout {Layout.fillWidth:true
+                MText {text:"Play hub";font.pixelSize:30;font.weight:Font.DemiBold;Layout.fillWidth:true}
+                MButton {icon:"close";tooltip:"Return to library";onClicked:c.menuOpen=false}
             }
-            MText {text:"↑ ↓ Choose · A / Enter Confirm · B / Escape Back";color:Theme.subtext;font.pixelSize:13;Layout.topMargin:14}
+            MText {text:Hub.gameSession ? "SESSION ACTIVE · "+Hub.gameMinutes+" min · quiet & awake until session ends" : "Your library, your session, your controls";color:Theme.subtext;font.pixelSize:13}
+            RowLayout {Layout.fillWidth:true;spacing:6
+                Repeater {model:c.menuTabs
+                    MButton {required property string modelData;required property int index;Layout.fillWidth:true;text:modelData;compact:true;filled:c.menuTab===index;tonal:true;onClicked:{c.menuTab=index;c.menuIndex=0;}}
+                }
+            }
+            ListView {id:actionList;model:c.actions;Layout.fillWidth:true;Layout.fillHeight:true;clip:true;spacing:8
+                delegate:MButton {required property var modelData;required property int index;implicitWidth:ListView.view.width;implicitHeight:52;text:modelData.text;icon:modelData.icon;filled:index===c.menuIndex;tonal:index!==c.menuIndex;onClicked:c.runAction(index)}
+            }
+            MText {text:"LB / RB Sections · ↑ ↓ Choose · "+c.acceptButton+" Confirm · "+c.backButton+" Back";color:Theme.subtext;font.pixelSize:13;Layout.topMargin:14}
         }
     }
 }

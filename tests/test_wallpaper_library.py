@@ -3,7 +3,7 @@ import sys
 import tempfile
 import unittest
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
-from wallpaper_service import image_library
+from wallpaper_service import image_library, browse_images
 
 
 class WallpaperLibraryTests(unittest.TestCase):
@@ -19,6 +19,24 @@ class WallpaperLibraryTests(unittest.TestCase):
             items=image_library(root.as_uri())
             self.assertEqual([i['name'] for i in items],['one','two'])
             self.assertTrue(all(i['path'].startswith('file:') for i in items))
+
+    def test_in_shell_browser_lists_directories_and_images(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=pathlib.Path(folder)
+            (root/'Landscapes').mkdir()
+            (root/'photo.png').write_bytes(b'fixture')
+            (root/'.hidden').mkdir()
+            (root/'other.txt').write_text('not an image')
+            (root/'loop').symlink_to(root,target_is_directory=True)
+            listing=browse_images(root.as_uri())
+            self.assertEqual(listing['folder'],root.as_uri())
+            self.assertEqual(listing['parent'],root.parent.as_uri())
+            self.assertEqual([i['name'] for i in listing['folders']],['Landscapes'])
+            self.assertTrue(listing['folders'][0]['directory'])
+            self.assertEqual([i['name'] for i in listing['items']],['photo'])
+            self.assertFalse(listing['items'][0]['directory'])
+            for remote in ('https://example.com','file://remote/tmp','relative/path'):
+                with self.assertRaises(ValueError):browse_images(remote)
 
     def test_remote_rejected(self):
         for folder in ('https://example.com/images','file://remote/images','relative/path'):

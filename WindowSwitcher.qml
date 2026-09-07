@@ -11,6 +11,7 @@ Item {
     property bool currentWorkspace:false
     readonly property bool touch:layoutMode==="phone"
     readonly property bool gaming:layoutMode==="console"
+    readonly property bool touchCarousel:touch&&width<680
     readonly property var windows:Hub.windows.filter(w=>(!currentWorkspace||w.workspace===Hub.status.workspace)&&(w.title+" "+w.className).toLowerCase().indexOf(query.toLowerCase())>=0)
     property int selection:0
     Component.onCompleted:{selection=Math.max(0,windows.findIndex(w=>Hub.active(w)));if(active&&!touch)forceActiveFocus();}
@@ -22,7 +23,7 @@ Item {
         if(key==="accept"){if(windows[selection])Hub.focusWindow(windows[selection]);return;}
         let step=key==="left" ? -1 : key==="right" ? 1 : key==="up" ? -grid.columns : key==="down" ? grid.columns : 0;
         selection=Math.max(0,Math.min(windows.length-1,selection+step));
-        if(touch)carousel.positionViewAtIndex(selection,ListView.SnapPosition);else grid.positionViewAtIndex(selection,GridView.Contain);
+        if(touchCarousel)carousel.positionViewAtIndex(selection,ListView.SnapPosition);else grid.positionViewAtIndex(selection,GridView.Contain);
     }
     Connections {target:Hub;function onNavigate(key){if(s.active&&s.gaming)s.navigate(key);}}
     Keys.onPressed:event=>{
@@ -37,13 +38,13 @@ Item {
         }
         RowLayout {Layout.fillWidth:true
             MText {text:s.windows.length+" open app"+(s.windows.length===1 ? "" : "s");font.pixelSize:12;color:Theme.subtext;Layout.fillWidth:true}
-            MText {text:s.touch ? "Swipe · tap a card to return" : s.gaming ? "D-pad to choose · A to return" : "Click to return · right-click for actions";font.pixelSize:11;color:Theme.subtext}
+            MText {text:s.touchCarousel ? "Swipe · tap a card to return" : s.touch ? "Tap a window to return" : s.gaming ? "D-pad to choose · A to return" : "Click to return · right-click for actions";font.pixelSize:11;color:Theme.subtext}
         }
         Item {Layout.fillWidth:true;Layout.fillHeight:true
             GridView {
-                id:grid;anchors.fill:parent;visible:!s.touch;clip:true;model:s.touch ? [] : s.windows
-                readonly property int columns:Math.max(1,Math.floor(width/(s.gaming ? 320 : 270)))
-                cellWidth:width/columns;cellHeight:s.gaming ? 340 : 280
+                id:grid;anchors.fill:parent;visible:!s.touchCarousel;clip:true;model:s.touchCarousel ? [] : s.windows
+                readonly property int columns:Math.max(1,Math.floor(width/(s.touch ? 420 : s.gaming ? 320 : 270)))
+                cellWidth:width/columns;cellHeight:s.touch ? 360 : s.gaming ? 340 : 280
                 boundsBehavior:Flickable.StopAtBounds;ScrollBar.vertical:ScrollBar {}
                 delegate:Item {id:gridDelegate;required property var modelData;required property int index;width:grid.cellWidth;height:grid.cellHeight
                     Loader {anchors.fill:parent;anchors.margins:6;sourceComponent:card;onLoaded:{item.entry=Qt.binding(()=>modelData);item.index=Qt.binding(()=>index);item.previewActive=Qt.binding(()=>s.active&&grid.visible&&gridDelegate.y+gridDelegate.height>grid.contentY&&gridDelegate.y<grid.contentY+grid.height);}}
@@ -51,17 +52,17 @@ Item {
             }
             ListView {
                 id:carousel;anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter
-                height:Math.min(parent.height,380);visible:s.touch;clip:true;model:s.touch ? s.windows : []
+                height:Math.min(parent.height,380);visible:s.touchCarousel;clip:true;model:s.touchCarousel ? s.windows : []
                 orientation:ListView.Horizontal;spacing:14;snapMode:ListView.SnapOneItem;boundsBehavior:Flickable.StopAtBounds
                 preferredHighlightBegin:16;preferredHighlightEnd:16;highlightRangeMode:ListView.StrictlyEnforceRange
-                onCurrentIndexChanged:if(s.touch)s.selection=Math.max(0,currentIndex)
+                onCurrentIndexChanged:if(s.touchCarousel)s.selection=Math.max(0,currentIndex)
                 delegate:Item {id:carouselDelegate;required property var modelData;required property int index;width:Math.min(360,carousel.width*.84);height:carousel.height
                     Loader {anchors.fill:parent;anchors.margins:6;sourceComponent:card;onLoaded:{item.entry=Qt.binding(()=>modelData);item.index=Qt.binding(()=>index);item.previewActive=Qt.binding(()=>s.active&&carousel.visible&&carouselDelegate.x+carouselDelegate.width>carousel.contentX&&carouselDelegate.x<carousel.contentX+carousel.width);}}
                 }
             }
             MText {anchors.centerIn:parent;visible:s.windows.length===0;text:s.query ? "No open apps match your search." : "Nothing open here yet.";color:Theme.subtext}
         }
-        RowLayout {visible:s.touch&&s.windows.length>1;Layout.alignment:Qt.AlignHCenter
+        RowLayout {visible:s.touchCarousel&&s.windows.length>1;Layout.alignment:Qt.AlignHCenter
             MButton {icon:"back";tooltip:"Previous app";enabled:s.selection>0;onClicked:s.navigate("left")}
             MText {text:(s.selection+1)+" / "+s.windows.length;font.pixelSize:12;color:Theme.subtext}
             MButton {icon:"next";tooltip:"Next app";enabled:s.selection<s.windows.length-1;onClicked:s.navigate("right")}
@@ -76,15 +77,25 @@ Item {
             readonly property var app:Hub.appForWindow(entry)
             radius:s.touch ? 28 : 24;color:Theme.alpha(s.selection===index ? Theme.primaryContainer : Theme.surfaceHigh,s.selection===index ? .60 : .38)
             border.width:1;border.color:s.selection===index ? Theme.primary : Theme.outline
+            property real entrance:0
+            opacity:entrance;transform:Translate {y:18*(1-c.entrance)}
+            Component.onCompleted:Qt.callLater(()=>cardEnter.restart())
+            SequentialAnimation {id:cardEnter
+                PauseAnimation {duration:Theme.motion(Math.min(c.index,5)*35)}
+                NumberAnimation {target:c;property:"entrance";from:0;to:1;duration:Theme.motion(320);easing.type:Easing.OutCubic}
+            }
             scale:click.pressed ? .98 : 1
             Behavior on color {ColorAnimation {duration:Theme.motion(180)}}
             Behavior on scale {NumberAnimation {duration:Theme.motion(180)}}
-            MouseArea {id:click;anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{s.selection=c.index;if(e.button===Qt.RightButton)menu.openAt(click,e.x,e.y);else Hub.focusWindow(c.entry);}onPressAndHold:e=>menu.openAt(click,e.x,e.y)}
+            MouseArea {id:click;anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:e=>{s.selection=c.index;if(e.button===Qt.RightButton)menu.popup(e.x,e.y);else Hub.focusWindow(c.entry);}onPressAndHold:e=>menu.popup(e.x,e.y)}
             OpalMenu {id:menu;entries:Hub.windowMenu(c.entry)}
             ColumnLayout {anchors.fill:parent;anchors.margins:s.gaming ? 24 : 18;spacing:12
                 RowLayout {Layout.fillWidth:true;spacing:12
-                    Image {id:icon;Layout.preferredWidth:s.touch||s.gaming ? 48 : 36;Layout.preferredHeight:Layout.preferredWidth;source:Quickshell.iconPath(c.app ? c.app.icon : "application-x-executable",true)}
-                    MText {text:c.app ? c.app.name : c.entry.className;Layout.fillWidth:true;font.pixelSize:13;font.weight:Font.DemiBold}
+                    Item {Layout.preferredWidth:s.touch||s.gaming ? 48 : 36;Layout.preferredHeight:Layout.preferredWidth
+                        Image {id:icon;anchors.fill:parent;source:Quickshell.iconPath(c.app ? c.app.icon : "application-x-executable",true)}
+                        Glyph {anchors.centerIn:parent;visible:icon.status!==Image.Ready;name:"apps";font.pixelSize:30;color:Theme.primary}
+                    }
+                    MText {text:c.app ? c.app.name : String(c.entry.className).startsWith("steam_app_") ? "Game" : c.entry.className||"Application";Layout.fillWidth:true;font.pixelSize:13;font.weight:Font.DemiBold}
                     MButton {icon:"close";implicitWidth:44;implicitHeight:44;tooltip:"Close "+c.entry.title;onClicked:Hub.closeWindow(c.entry)}
                 }
                 Rectangle {Layout.fillWidth:true;Layout.fillHeight:true;Layout.minimumHeight:64;radius:14;color:Theme.alpha(Theme.base,.5)

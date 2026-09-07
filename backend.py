@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Opal's optional Linux adapters. JSON-lines only; no shell-evaluated user input."""
-import sys, os, json, subprocess, threading, time, pathlib, shutil, glob, select, struct, math, ast, operator
-from wallpaper_service import DEFAULTS as WALLPAPER_DEFAULTS, local_image, generate, valid_preference, image_library
+import sys, os, json, subprocess, threading, time, pathlib, shutil, glob, select, struct, math, ast, operator, re
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+from wallpaper_service import DEFAULTS as WALLPAPER_DEFAULTS, local_image, generate, valid_preference, image_library, browse_images
 HOME = pathlib.Path.home()
 STORE = HOME / '.local/state/opal/preferences.json'
 lock = threading.Lock()
@@ -9,8 +11,12 @@ prefs_lock = threading.Lock()
 def emit(data):
     with lock:
         print(json.dumps(data), flush=True)
+@lru_cache(maxsize=64)
+def command_available(name):
+    return bool(shutil.which(name))
+
 def run(*args, timeout=1.4):
-    if not shutil.which(args[0]): return ''
+    if not command_available(args[0]): return ''
     try: return subprocess.check_output(args, stderr=subprocess.DEVNULL, timeout=timeout).decode().strip()
     except (OSError, subprocess.SubprocessError): return ''
 def spawn(args):
@@ -78,8 +84,11 @@ hypr_actions = HyprActions()
 
 def publish_wallpapers(c):
     try:
-        items=image_library(c.get('folder',''), prefs.get('wallpaperPath',''))
-        emit({'event':'wallpapers','request':c.get('request'), 'items':items, 'error':''})
+        if c.get('browse'):
+            data=browse_images(c.get('folder',''))
+        else:
+            data={'items':image_library(c.get('folder',''), prefs.get('wallpaperPath','')), 'folders':[], 'folder':'', 'parent':''}
+        emit({'event':'wallpapers','request':c.get('request'), **data, 'error':''})
     except (ValueError, OSError) as error:
         emit({'event':'wallpapers','request':c.get('request'), 'items':[], 'error':str(error)})
 
@@ -192,21 +201,57 @@ def commands():
         except Exception as e: emit({'event':'message','text':'That action could not be completed'})
 
 last_cpu=None
+status_workers=ThreadPoolExecutor(max_workers=8, thread_name_prefix='opal-status')
+status_cache={}
+status_cache_lock=threading.Lock()
+
+def status_probe(specs):
+    futures={}
+    values={}
+    now=time.monotonic()
+    with status_cache_lock:
+        for key,args,ttl in specs:
+            cached=status_cache.get(key)
+            if ttl and cached and now-cached[0] < ttl:
+                values[key]=cached[1]
+            else:
+                futures[key]=status_workers.submit(run,*args)
+    for key,future in futures.items():
+        try: value=future.result()
+        except Exception: value=''
+        values[key]=value
+        for spec_key,_,ttl in specs:
+            if spec_key==key and ttl:
+                with status_cache_lock: status_cache[key]=(time.monotonic(),value)
+                break
+    return values
 
 def status():
     global last_cpu
     # Compositor fields arrive independently from hypr_events, never from this poll.
     s={'volume':0,'muted':False,'network':'Offline','wifi':False,'bluetooth':False,'track':'','artist':'','art':'','playing':False,'battery':-1,'charging':False,'brightness':-1,'cpu':0,'memory':0,'profile':'','uptime':''}
-    v=run('wpctl','get-volume','@DEFAULT_AUDIO_SINK@')
+    values=status_probe([
+        ('volume',('wpctl','get-volume','@DEFAULT_AUDIO_SINK@'),0),
+        ('audioOutput',('wpctl','inspect','@DEFAULT_AUDIO_SINK@'),10),
+        ('mic',('wpctl','get-volume','@DEFAULT_AUDIO_SOURCE@'),0),
+        ('network',('nmcli','-t','-f','NAME,TYPE','connection','show','--active'),3),
+        ('wifi',('nmcli','radio','wifi'),3),
+        ('bluetooth',('bluetoothctl','show'),5),
+        ('media',('playerctl','metadata','--format','{{title}}\n{{artist}}\n{{mpris:artUrl}}\n{{status}}'),0),
+        ('profile',('powerprofilesctl','get'),10),
+    ])
+    v=values['volume']
     try: s['volume']=round(float(v.split()[1])*100)
     except (ValueError,IndexError): pass
     s['muted']='MUTED' in v
-    s['micMuted']='MUTED' in run('wpctl','get-volume','@DEFAULT_AUDIO_SOURCE@')
-    n=run('nmcli','-t','-f','NAME,TYPE','connection','show','--active')
+    description=re.search(r'node\.description\s*=\s*"([^"]+)"',values['audioOutput'])
+    s['audioOutput']=description.group(1) if description else ''
+    s['micMuted']='MUTED' in values['mic']
+    n=values['network']
     s['network']=next((l.rsplit(':',1)[0] for l in n.splitlines() if not l.endswith(':loopback')),'Offline')
-    s['wifi']=run('nmcli','radio','wifi')=='enabled'
-    s['bluetooth']='Powered: yes' in run('bluetoothctl','show')
-    meta=run('playerctl','metadata','--format','{{title}}\n{{artist}}\n{{mpris:artUrl}}\n{{status}}').splitlines()
+    s['wifi']=values['wifi']=='enabled'
+    s['bluetooth']='Powered: yes' in values['bluetooth']
+    meta=values['media'].splitlines()
     if meta:
         for i,k in enumerate(('track','artist','art')):
             if len(meta)>i: s[k]=meta[i]
@@ -227,7 +272,7 @@ def status():
         hrs=int(float(pathlib.Path('/proc/uptime').read_text().split()[0]))//3600
         s['uptime']=str(hrs)+'h'
     except (OSError,ValueError,KeyError): pass
-    s['profile']=run('powerprofilesctl','get')
+    s['profile']=values['profile']
     return s
 
 def library_art():
@@ -253,6 +298,7 @@ def library_art():
     return result
 
 def controllers():
+    from controller_mapping import device_maps, button_action, axis_orientation
     # Linux joystick API, read-only. Never grabs devices or injects global input.
     while True:
         paths=glob.glob('/dev/input/js*')
@@ -277,6 +323,7 @@ def controllers():
         emit({'event':'controller','connected':f is not None,'name':name})
         if f is None: time.sleep(5); continue
         try:
+            button_codes,axis_codes=device_maps(f)
             previous={}
             held={}
             while True:
@@ -295,13 +342,12 @@ def controllers():
                 if kind & 0x80: continue
                 nav=None
                 if kind==1 and value==1:
-                    mapping={0:'accept',1:'back',2:'pin',3:'search',4:'previousTab',5:'nextTab',6:'menu',7:'home'}
-                    if prefs.get('controllerLayout')=='nintendo': mapping.update({0:'back',1:'accept',2:'search',3:'pin'})
-                    nav=mapping.get(number)
-                if kind==2 and number in (0,1,6,7):
+                    nav=button_action(number,prefs.get('controllerLayout','standard'),button_codes)
+                orientation=axis_orientation(number,axis_codes) if kind==2 else None
+                if orientation:
                     direction=0 if abs(value)<16000 else (1 if value>0 else -1)
                     if direction and previous.get(number)!=direction:
-                        nav=('right' if direction>0 else 'left') if number in (0,6) else ('down' if direction>0 else 'up')
+                        nav=('right' if direction>0 else 'left') if orientation=='horizontal' else ('down' if direction>0 else 'up')
                         held[number]=(nav,time.monotonic()+.38)
                     elif not direction: held.pop(number,None)
                     previous[number]=direction
@@ -313,6 +359,7 @@ def controllers():
 def main():
     import atexit, signal
     atexit.register(clipboard.stop)
+    atexit.register(status_workers.shutdown, wait=False, cancel_futures=True)
     def shutdown(signum, frame):
         clipboard.stop()
         raise SystemExit(0)
@@ -325,8 +372,13 @@ def main():
     threading.Thread(target=lambda:emit({'event':'libraryArt','data':library_art()}),daemon=True).start()
     from hypr_events import listen as listen_hyprland
     threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()
+    last_published=None
     while True:
-        try: emit({'event':'status','data':status()})
+        try:
+            current=status()
+            if current != last_published:
+                emit({'event':'status','data':current})
+                last_published=current
         except Exception: pass
         time.sleep(2)
 

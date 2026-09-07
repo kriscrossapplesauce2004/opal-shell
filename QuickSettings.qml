@@ -5,13 +5,17 @@ Item {
     id:q
     property string tab:Hub.page==="notifications" ? "inbox" : "controls"
     property string confirm:""
-    ColumnLayout {visible:Hub.controlDetail==="";anchors {fill:parent;margins:q.width<400 ? 16 : 24}
+    readonly property var bluetoothDevice:Hub.connectivity.bluetooth.items.find(d=>d.active)||null
+    Component.onCompleted:if(tab==="controls")Hub.connection("bluetooth","refresh")
+    Connections {target:Hub;function onPageChanged(){if(Hub.page==="notifications")q.tab="inbox";else if(Hub.page==="controls")q.tab="controls";}}
+    ColumnLayout {visible:Hub.controlDetail==="";width:Math.min(560,q.width-(q.width<400 ? 32 : 48));anchors.horizontalCenter:parent.horizontalCenter;anchors.top:parent.top;anchors.bottom:parent.bottom;anchors.topMargin:q.width<400 ? 16 : 24;anchors.bottomMargin:q.width<400 ? 16 : 24
 spacing:q.height<700 ? 10 : 16
         RowLayout {Layout.fillWidth:true
             ColumnLayout {Layout.fillWidth:true;spacing:4
-                MText {Layout.fillWidth:true;text:Qt.formatDateTime(Hub.now,"ddd, d MMM");color:Theme.subtext;font.pixelSize:12}
-                MText {Layout.fillWidth:true;text:Qt.formatDateTime(Hub.now,"HH:mm");font.pixelSize:40;font.weight:Font.Medium;font.letterSpacing:-2}
+                MText {text:Qt.formatDateTime(Hub.now,"ddd, d MMM");color:Theme.subtext;font.pixelSize:12}
+                MText {text:Qt.formatDateTime(Hub.now,"HH:mm");font.pixelSize:48;font.weight:Font.Medium;font.letterSpacing:-2}
             }
+            Item {Layout.fillWidth:true}
             MButton {icon:"palette";tonal:true;tooltip:"Personalize";onClicked:Hub.page="appearance"}
             MButton {icon:"close";tooltip:"Close shade";onClicked:Hub.close()}
         }
@@ -25,33 +29,33 @@ spacing:4
         Flickable {visible:q.tab==="controls";Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentHeight:controls.implicitHeight;boundsBehavior:Flickable.StopAtBounds
             ScrollBar.vertical:ScrollBar {}
             ColumnLayout {id:controls;width:parent.width;spacing:14
-                GridLayout {columns:2;Layout.fillWidth:true;columnSpacing:10;rowSpacing:10
-                    QuickTile {Layout.fillWidth:true;icon:Hub.status.wifi ? "wifi" : "wifiOff";title:"Internet";subtitle:Hub.status.wifi ? Hub.status.network : "Wi-Fi off";active:Hub.status.wifi;settings:true;onClicked:Hub.settings("network");onOpenSettings:Hub.settings("network")}
-                    QuickTile {Layout.fillWidth:true;icon:"bluetooth";title:"Bluetooth";subtitle:Hub.status.bluetooth ? "On" : "Off";active:Hub.status.bluetooth;settings:true;onClicked:Hub.settings("bluetooth");onOpenSettings:Hub.settings("bluetooth")}
-                    QuickTile {Layout.fillWidth:true;icon:Hub.dnd ? "quiet" : "bell";title:"Do not disturb";subtitle:Hub.gameSession ? "Play session active" : Hub.dnd ? "Popups silenced" : "Notifications allowed";active:Hub.dnd;onClicked:{if(Hub.gameSession)Hub.toggleGameSession();else Hub.set("dnd",!Hub.dnd);}}
-                    QuickTile {Layout.fillWidth:true;icon:"coffee";title:"Keep awake";subtitle:Hub.gameSession ? "Play session active" : Hub.keepAwake ? "Idle inhibited" : "Rest when you do";active:Hub.keepAwake||Hub.gameSession;onClicked:{if(Hub.gameSession)Hub.toggleGameSession();else Hub.keepAwake=!Hub.keepAwake;}}
-                }
                 ColumnLayout {Layout.fillWidth:true;spacing:0
                     RowLayout {Layout.fillWidth:true;spacing:8
                         ExpressiveSlider {Layout.fillWidth:true;icon:Hub.status.muted ? "mute" : "volume";value:Hub.status.volume;onMoved:Hub.volume(value)}
-                        MButton {icon:Hub.status.muted ? "mute" : "volume";tonal:true;tooltip:"Toggle mute";onClicked:Hub.command({action:"mute"})}
+                        MButton {icon:Hub.status.muted ? "mute" : "volume";morph:true;checked:Hub.status.muted;filled:checked;tonal:!checked;tooltip:"Toggle mute";onClicked:Hub.command({action:"mute"})}
                     }
                     RowLayout {Layout.fillWidth:true;visible:Hub.status.brightness>=0;spacing:8
                         ExpressiveSlider {Layout.fillWidth:true;icon:"sun";value:Hub.status.brightness;onMoved:Hub.command({action:"brightness",value:Math.round(value)})}
                         MText {text:Hub.status.brightness+"%";color:Theme.subtext;font.pixelSize:12}
                     }
                 }
-                RowLayout {Layout.fillWidth:true;spacing:6
-                    MButton {Layout.fillWidth:true;icon:Theme.light ? "sun" : "moon";text:Theme.light ? "Light" : "Dark";tonal:true;compact:true;onClicked:Hub.set("light",!Theme.light)}
-                    MButton {Layout.fillWidth:true;icon:"capture";text:"Capture";tonal:true;compact:true;onClicked:Hub.screenShot()}
-                    MButton {Layout.fillWidth:true;icon:"mute";text:Hub.status.micMuted ? "Mic off" : "Mic on";tonal:true;compact:true;tooltip:"Toggle microphone mute";onClicked:Hub.command({action:"mic"})}
+                GridLayout {columns:2;Layout.fillWidth:true;columnSpacing:10;rowSpacing:10
+                    ShadeTile {Layout.fillWidth:true;icon:Hub.status.wifi ? "wifi" : "wifiOff";title:"Internet";subtitle:Hub.status.wifi ? Hub.status.network : "Wi-Fi off";active:Hub.status.wifi;settings:true;onClicked:Hub.settings("network");onOpenSettings:Hub.settings("network")}
+                    ShadeTile {Layout.fillWidth:true;icon:"bluetooth";title:"Bluetooth";subtitle:q.bluetoothDevice ? q.bluetoothDevice.name : Hub.status.bluetooth ? "On" : "Off";active:Hub.status.bluetooth;settings:true;onClicked:Hub.settings("bluetooth");onOpenSettings:Hub.settings("bluetooth")}
+                    ShadeTile {Layout.fillWidth:true;icon:Hub.dnd ? "quiet" : "bell";title:"Do not disturb";subtitle:Hub.gameSession ? "Play session active" : Hub.dnd ? "Popups silenced" : "Notifications allowed";active:Hub.dnd;onClicked:{if(Hub.gameSession)Hub.toggleGameSession();else Hub.set("dnd",!Hub.dnd);}}
+                    ShadeTile {Layout.fillWidth:true;icon:"coffee";title:"Keep awake";subtitle:Hub.gameSession ? "Play session active" : Hub.keepAwake ? "Idle inhibited" : "Rest when you do";active:Hub.keepAwake||Hub.gameSession;onClicked:{if(Hub.gameSession)Hub.toggleGameSession();else Hub.keepAwake=!Hub.keepAwake;}}
                 }
-                MediaCard {Layout.fillWidth:true;compact:true}
+                RowLayout {Layout.fillWidth:true;spacing:6
+                    MButton {Layout.fillWidth:true;icon:Theme.light ? "sun" : "moon";text:Theme.light ? "Light" : "Dark";morph:true;checked:Theme.light;filled:checked;tonal:!checked;compact:true;onClicked:Hub.set("light",!Theme.light)}
+                    MButton {Layout.fillWidth:true;icon:"capture";text:"Capture";tonal:true;compact:true;onClicked:Hub.screenShot()}
+                    MButton {Layout.fillWidth:true;icon:"mute";text:Hub.status.micMuted ? "Mic off" : "Mic on";morph:true;checked:!!Hub.status.micMuted;filled:checked;tonal:!checked;compact:true;tooltip:"Toggle microphone mute";onClicked:Hub.command({action:"mic"})}
+                }
+                MediaCard {Layout.fillWidth:true;compact:true;expandable:true}
                 FocusCard {Layout.fillWidth:true}
                 ClipboardCard {Layout.fillWidth:true}
                 RowLayout {Layout.fillWidth:true;visible:Hub.status.profile!=="";spacing:4
                     Repeater {model:[{id:"power-saver",text:"Saver",icon:"battery"},{id:"balanced",text:"Balanced",icon:"heart"},{id:"performance",text:"Boost",icon:"cpu"}]
-                        MButton {required property var modelData;Layout.fillWidth:true;text:modelData.text;icon:modelData.icon;compact:true;filled:Hub.status.profile===modelData.id;tonal:Hub.status.profile!==modelData.id;onClicked:Hub.command({action:"profile",value:modelData.id})}
+                        MButton {required property var modelData;Layout.fillWidth:true;text:modelData.text;icon:modelData.icon;compact:true;morph:true;checked:Hub.status.profile===modelData.id;filled:checked;tonal:!checked;onClicked:Hub.command({action:"profile",value:modelData.id})}
                     }
                 }
                 MText {text:"CPU "+Hub.status.cpu+"%   ·   RAM "+Hub.status.memory+"%   ·   "+(Hub.status.battery>=0 ? Hub.status.battery+"% battery" : "Plugged in");color:Theme.muted;font.pixelSize:10;Layout.alignment:Qt.AlignHCenter}

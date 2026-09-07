@@ -28,12 +28,18 @@ class DisplayLayoutsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             prefs=pathlib.Path(home,'.local/state/opal/preferences.json');prefs.parent.mkdir(parents=True);prefs.write_text('{"mode":"phone"}')
             publish(home,'phone',[{'name':'eDP-1','mode':'phone'},{'name':'DP-1','mode':'desktop'}])
-            script='''local rules={}
+            script='''local rules={}; local layers={}
             hl={config=function(c) assert(c.decoration.rounding==16) end,
             workspace_rule=function(r) table.insert(rules,r) end,
-            layer_rule=function() end,unbind=function() end,bind=function() end,dsp={exec_cmd=function() end}}
+            layer_rule=function(r) table.insert(layers,r) end,unbind=function() end,bind=function() end,dsp={exec_cmd=function() end}}
             dofile(arg[1])
             assert(#rules==1 and rules[1].workspace=="m[eDP-1]" and rules[1].no_rounding==true)
+            local dismiss=false; local cards=false
+            for _,r in ipairs(layers) do
+                if r.match.namespace=="^opal-(audio|shade)-dismiss$" then dismiss=r.blur==false end
+                if r.match.namespace=="^opal-(audio|shade)$" then cards=r.blur==true end
+            end
+            assert(dismiss and cards, "New panels must not blur their click-away surfaces")
             '''
             test=pathlib.Path(home,'test.lua');test.write_text(script)
             subprocess.run(['lua',str(test),str(pathlib.Path(__file__).resolve().parents[1]/'hyprland.lua')],check=True,env={**os.environ,'HOME':home,'XDG_RUNTIME_DIR':home})

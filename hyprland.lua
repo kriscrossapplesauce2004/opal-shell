@@ -33,12 +33,11 @@ if phone_displays then
     end
     phone_displays:close()
 end
-hl.layer_rule({ match = { namespace = "^opal-(bar|shelf|toast)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
--- The fullscreen click-away/scrim layer stays sharp. Only the floating card is
--- blurred, which keeps real glass inside the panel without fogging its surroundings.
-hl.layer_rule({ match = { namespace = "^opal-overlay-scrim$" }, blur = false, no_anim = true })
-hl.layer_rule({ match = { namespace = "^opal-overlay$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
-hl.layer_rule({ match = { namespace = "^opal-overlay-card$" }, blur = true, ignore_alpha = 0.04, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(bar|shelf|overlay|toast)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+-- New shade/audio cards blur only their own small surfaces; click-away layers
+-- are transparent input surfaces, never fullscreen blur regions.
+hl.layer_rule({ match = { namespace = "^opal-(audio|shade)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(audio|shade)-dismiss$" }, blur = false, no_anim = true })
 local function bind(key, command)
     hl.unbind(key)
     hl.bind(key, hl.dsp.exec_cmd(command))

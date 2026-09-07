@@ -82,8 +82,8 @@ Item {
                             onPositionChanged:if(drag.active){suppressClick=true;s.begin(task.modelData.key,task.index,visual);s.updateDrop(visual.mapToItem(row,mouseX,mouseY).x);}
                             onReleased:{if(task.dragged){const y=visual.mapToItem(s,mouseX,mouseY).y;s.finish(y>=-8&&y<=s.height+8);}else visual.x=0;}
                             onCanceled:{if(task.dragged)s.finish(false);else visual.x=0;suppressClick=true;}
-                            onClicked:e=>{if(suppressClick)return;if(e.button===Qt.RightButton)menu.openAt(mouse,e.x,e.y);else Hub.activateGroup(task.modelData);}
-                            onPressAndHold:e=>{if(!drag.active){suppressClick=true;menu.openAt(mouse,e.x,e.y);}}
+                            onClicked:e=>{if(suppressClick)return;if(e.button===Qt.RightButton)menu.popup(e.x,e.y);else Hub.activateGroup(task.modelData);}
+                            onPressAndHold:e=>{if(!drag.active){suppressClick=true;menu.popup(e.x,e.y);}}
                             onEntered:{s.hovered=true;s.engaged();}
                             onExited:{s.hovered=false;if(!s.interacting)s.released();}
                         }

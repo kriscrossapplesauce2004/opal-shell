@@ -3,9 +3,11 @@ import QtQuick.Layouts
 Rectangle {
     id:m
     property bool compact:false
+    property bool expandable:false
     implicitHeight:compact ? 150 : 176
     radius:30;color:Theme.alpha(Theme.secondary,Theme.light ? .5 : .16);clip:true
     Image {anchors.fill:parent;source:Hub.status.art;fillMode:Image.PreserveAspectCrop;opacity:.13;visible:source!=="";asynchronous:true}
+    MButton {visible:m.expandable;anchors.right:parent.right;anchors.top:parent.top;anchors.margins:6;implicitWidth:32;implicitHeight:32;compact:true;icon:"expand";tooltip:"Open sound & music";z:2;onClicked:Hub.openAudio(Hub.targetScreen)}
     RowLayout {anchors {fill:parent;margins:20}
 spacing:18
         Item {Layout.preferredWidth:m.compact ? 80 : 110;Layout.preferredHeight:width

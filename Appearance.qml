@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 Flickable {
     id:a
     property bool compact:false
@@ -60,7 +59,7 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
         MText {text:"TASKBAR & NAVIGATION";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MButton {Layout.fillWidth:true;icon:"expand";text:Hub.prefs.taskbarAutoHide ? "Auto-hide on · zero reserved space" : "Floating shelf · always visible";tonal:true;onClicked:Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide)}
         MButton {Layout.fillWidth:true;icon:"list";text:Hub.prefs.taskbarLabels===false ? "Taskbar: icons only" : "Taskbar: show running app names";tonal:true;onClicked:Hub.set("taskbarLabels",Hub.prefs.taskbarLabels===false)}
-        MButton {Layout.fillWidth:true;icon:"phone";text:Hub.prefs.phoneButtons ? "Phone: three-button navigation" : "Phone: minimal gesture strip · 24 px";tonal:true;onClicked:Hub.set("phoneButtons",!Hub.prefs.phoneButtons)}
+        MButton {Layout.fillWidth:true;icon:"phone";text:Hub.prefs.phoneButtons ? "Phone: three-button navigation" : "Phone: gesture strip & shortcuts";tonal:true;onClicked:Hub.set("phoneButtons",!Hub.prefs.phoneButtons)}
         MText {text:"CONTROLLER BUTTON ORDER";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         RowLayout {Layout.fillWidth:true;spacing:8
             MButton {Layout.fillWidth:true;text:"Standard / Xbox";filled:Hub.prefs.controllerLayout!=="nintendo";tonal:Hub.prefs.controllerLayout==="nintendo";onClicked:Hub.set("controllerLayout","standard")}

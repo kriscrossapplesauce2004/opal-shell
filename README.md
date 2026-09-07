@@ -6,6 +6,14 @@ A Material 3 Expressive-inspired Quickshell, with Pixel-style quick settings, a 
 
 `opal on` starts the shell and temporarily stops/masks DMS. `opal off` restores DMS and your prior Hyprland styling/bindings. DMS is not removed or permanently disabled. The runtime mask and Hyprland style marker disappear at reboot. The original shell was backed up under `~/.local/state/opal/v1-*`.
 
+## Install
+
+From a checkout, run `./install.sh` to install the shell into
+`~/.config/quickshell/opal` and the `opal` command into `~/.local/bin`. Existing
+shell files are moved to a timestamped backup under
+`~/.local/state/opal/pre-deploy-*-install`; preferences are preserved. Use
+`./install.sh --restart` to install and reload the running shell in one step.
+
 ## Shortcuts and layouts
 
 - Super+Space: launcher. Super+Comma: shade. Super+N: inbox.
@@ -55,9 +63,15 @@ Working volume/mute and hardware backlight controls, integrated Wi-Fi and Blueto
 
 DND suppresses toasts but retains notifications. Inbox is session-only and is not written to disk. Preferences, favorites, recent app IDs: `~/.local/state/opal/preferences.json`. Focus timer is in-memory. UI defaults to Inter + CaskaydiaCove Nerd Font.
 
+## Phone bars
+
+Phone has a dedicated 48-pixel status bar rather than desktop tray controls: clock opens the inbox, unread/quiet status, sound/now-playing, and a combined Wi-Fi/battery Quick Settings target. Hold the clock for quiet mode and personalization; hold connectivity for Wi-Fi and docking. A running focus timer gets a compact shortcut. Back / Home / Recents remain the three-button set, with larger touch targets and Home hold-actions. Gesture navigation has explicit Back and Apps shortcuts; tap the handle for Home, slide sideways or hold for Recents. Back navigates within Opal, never injects an application's Back key. Both bars remain available on full-screen launcher and utility overlays; the shade retains its own controls.
+
 ## Console controllers
 
-The Python adapter reads the Linux joystick API at `/dev/input/js*`, without grabbing devices or injecting input. Standard mappings: A/0 accept, B/1 back, left stick / D-pad navigate, LB/RB change category, Start/7 opens or closes the library. Keyboard arrows/Enter/Escape also work. Navigation events are ignored outside console mode; game controls are not intercepted. Requires an accessible joystick device and compatible button mapping. No device permissions are modified. Controller mappings and physical button behavior must be tested on your controller; not every controller uses the same indices. Holding the stick does not auto-repeat. Only launcher navigation is gamepad-aware; settings dialogs are touch/mouse/keyboard UI.
+The Python adapter reads the Linux joystick API at `/dev/input/js*`, without grabbing devices or injecting input. Kernel button and axis maps identify face buttons, shoulders, Start/Guide, Select and D-pad; fixed indices are a fallback when map queries are unavailable. Standard layout: A accept, B back, X pin, Y search, left stick / D-pad navigate, LB/RB change category, Select opens Play hub, Start/Guide toggles the library. Choose Nintendo in Play hub → Setup to swap face-button actions and their hints. Stick navigation repeats after a short hold; triggers and the right stick are ignored. Keyboard arrows/Enter/Escape, Tab/Shift+Tab, F2 pin, F3 search and Menu also work.
+
+Play hub has Library, Session, Sound and Setup sections. Left/right or LB/RB switches sections; up/down selects and accept activates. Volume, mute, music, session and layout toggles can be used without leaving the menu. Continue includes running games before recently launched games. A quiet play session suppresses popups and inhibits idle without changing saved DND settings; ending it restores the underlying behavior. Navigation is ignored outside console mode and, except Start/Guide, while the library/other overlays are closed. Game input is never intercepted, so a game may also receive controller buttons. Requires an accessible joystick device; no permissions are modified. Physical mappings still need hardware verification. The library, Play hub, search keyboard and app switcher support controllers; general settings dialogs remain touch/mouse/keyboard UI.
 
 ## Compatibility / dependencies
 

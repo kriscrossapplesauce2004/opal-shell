@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from collections import deque
 from urllib.parse import unquote, urlparse
 
 ROLES = ('primary', 'on_primary', 'primary_container', 'on_primary_container',
@@ -53,9 +54,9 @@ def image_library(folder='', current='', home=None):
             p = local_image(current)
             result.append({'path':p.as_uri(), 'name':p.stem}); seen.add(p)
         except (ValueError, OSError): pass
-    queue = [(p, 0) for p in roots]
+    queue = deque((p, 0) for p in roots)
     while queue and len(result) < 120 and scanned < 3000:
-        directory, depth = queue.pop(0)
+        directory, depth = queue.popleft()
         try:
             for p in directory.iterdir():
                 scanned += 1
@@ -75,6 +76,40 @@ def image_library(folder='', current='', home=None):
                     result.append({'path':p.as_uri(), 'name':name})
         except OSError: continue
     return sorted(result, key=lambda item:item['name'].casefold())
+
+
+def browse_images(value='', home=None):
+    """One directory for the in-shell browser; no external file chooser."""
+    home = pathlib.Path(home) if home else pathlib.Path.home()
+    if not value:
+        root = home/'Pictures' if (home/'Pictures').is_dir() else home
+    else:
+        if not isinstance(value,str) or len(value)>4096:
+            raise ValueError('Choose a local folder.')
+        url=urlparse(value)
+        if url.scheme not in ('','file') or url.netloc not in ('','localhost'):
+            raise ValueError('Only local folders are supported.')
+        root=pathlib.Path(unquote(url.path) if url.scheme else value).expanduser()
+        if not root.is_absolute(): raise ValueError('Enter an absolute folder path.')
+    if not root.is_dir(): raise ValueError('Folder is unavailable.')
+    root=root.resolve()
+    folders,images=[],[]
+    try:
+        for count,p in enumerate(root.iterdir()):
+            if count>=3000:break
+            if p.name.startswith('.') or p.is_symlink():continue
+            try:
+                if p.is_dir():
+                    if len(folders)<200:folders.append({'path':p.as_uri(),'name':p.name,'directory':True})
+                elif len(images)<120:
+                    image=local_image(str(p))
+                    images.append({'path':image.as_uri(),'name':image.stem,'directory':False})
+            except (ValueError,OSError):continue
+    except OSError as error:
+        raise ValueError('Cannot read this folder.') from error
+    return {'folder':root.as_uri(),'parent':root.parent.as_uri() if root.parent!=root else '',
+            'folders':sorted(folders,key=lambda p:p['name'].casefold()),
+            'items':sorted(images,key=lambda p:p['name'].casefold())}
 
 
 def normalize_colors(data):

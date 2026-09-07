@@ -14,7 +14,7 @@ QtObject {
     readonly property var generated: Hub.prefs.dynamicColors && Hub.prefs.dynamicPalette ? Hub.prefs.dynamicPalette[light ? "light" : "dark"] || {} : {}
     function role(name,fallback) {return generated[name] || fallback;}
     readonly property color primary: role("primary",light ? palette.seed : palette.primary)
-    readonly property color primaryText: role("on_primary",light ? "#ffffff" : palette.onPrimary)
+    readonly property color onPrimary: generated.on_primary || (light ? "#ffffff" : palette.onPrimary)
     readonly property color primaryContainer: role("primary_container",light ? palette.primary : palette.onPrimary)
     readonly property color onContainer: role("on_primary_container",light ? palette.onPrimary : palette.primary)
     readonly property color secondary: role("secondary",palette.secondary)

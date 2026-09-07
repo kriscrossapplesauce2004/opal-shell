@@ -11,7 +11,15 @@ Scope {
     property var connectivity: ({wifi:{items:[],busy:false,error:"",powered:false},bluetooth:{items:[],busy:false,error:"",powered:false}})
     property string controlDetail: ""
     function connection(kind,verb,extra) { command(Object.assign({action:"connectivity",kind:kind,verb:verb},extra||{})); }
+    property bool audioOpen:false
+    property var audioScreen:null
+    onAudioScreenChanged:if(!audioScreen)audioOpen=false
+    function openAudio(screen) {audioScreen=screen||chooseScreen();controlDetail="";page="";audioOpen=true;}
+    function closeAudio() {audioOpen=false;}
+    function toggleAudio(screen) {if(audioOpen)closeAudio();else openAudio(screen);}
+    function audioScroll(steps,screen) {openAudio(screen);volume(Math.max(0,Math.min(100,status.volume+steps*2)));}
     property string page: ""
+    onPageChanged:if(page!=="")closeAudio()
     property string category: "All apps"
     property string query: ""
     property string calculation: ""
@@ -19,6 +27,13 @@ Scope {
     property bool keepAwake: false
     property bool themeBusy: false
     property var wallpaperLibrary: []
+    property var wallpaperFolders: []
+    property string wallpaperFolder:""
+    property string wallpaperParent:""
+    function browseWallpaperFolder(folder) {
+        wallpaperRequest++;wallpaperLibraryBusy=true;wallpaperLibraryError="";
+        command({action:"wallpaper-list",folder:folder||"",browse:true,request:wallpaperRequest});
+    }
     property bool wallpaperLibraryBusy: false
     property string wallpaperLibraryError: ""
     property int wallpaperRequest: 0
@@ -55,12 +70,35 @@ Scope {
     property int focusSeconds: 25*60
     property bool focusRunning: false
     property bool preferencesLoaded: false
+    // Normalize desktop entries once; search, taskbar, and window cards all use
+    // these indexes instead of scanning the complete application list.
     property var apps: DesktopEntries.applications.values.filter(a => !a.noDisplay).sort((a,b) => a.name.localeCompare(b.name))
+    readonly property var appIndex: {
+        const index=Object.create(null);
+        const add=(value,app) => {
+            const key=String(value||"").toLowerCase().replace(/\.desktop$/i,"").trim();
+            if(key && !index[key]) index[key]=app;
+        };
+        apps.forEach(a => {
+            add(a.id,a); add(a.startupClass,a);
+        });
+        // Exact identifiers win over the legacy basename fallback.
+        apps.forEach(a => {
+            add(String(a.id||"").split(".").pop(),a);
+        });
+        return index;
+    }
+    readonly property var appSearchIndex: apps.map(a => ({
+        app:a,
+        name:String(a.name||"").toLowerCase(),
+        hay:(String(a.name||"")+" "+String(a.genericName||"")+" "+(a.keywords||[]).join(" ")).toLowerCase(),
+        categories:(a.categories||[]).join(" ").toLowerCase()
+    }))
     property var favoriteApps: {
         let ids = prefs.favorites;
-        if (prefs.pinsConfigured || ids.length) return ids.map(id => apps.find(a => a.id === id)).filter(Boolean);
+        if (prefs.pinsConfigured || ids.length) return ids.map(id => appIndex[String(id).toLowerCase()]).filter(Boolean);
         const choices = ["firefox", "google-chrome", "chromium", "kitty", "org.kde.dolphin", "org.gnome.Nautilus", "steam", "code", "org.kde.kate"];
-        return choices.map(id => apps.find(a => a.id.toLowerCase() === id.toLowerCase())).filter(Boolean).slice(0,6);
+        return choices.map(id => appIndex[id.toLowerCase()]).filter(Boolean).slice(0,6);
     }
     property var dockScreen: null
     property bool dockNotice: false
@@ -82,7 +120,18 @@ Scope {
         if(added.length) {dockScreen=added[added.length-1];dockNotice=true;dockTimer.restart();}
     }
     Timer {interval:3000;running:true;onTriggered:{h.knownDisplays=h.displayTopology.slice();h.displaysReady=true;}}
-    Timer {id:dockTimer;interval:20000;onTriggered:h.dockNotice=false}
+    Timer {id:dockTimer;interval:30000;onTriggered:h.dockNotice=false}
+    function pauseDockNotice(){if(dockNotice)dockTimer.stop();}
+    function resumeDockNotice(){if(dockNotice)dockTimer.restart();}
+    function useDockedWorkspace(phoneScreen) {
+        if(!dockScreen)return;
+        const overrides=Object.assign({},prefs.displayModes||{});
+        if(phoneScreen)overrides[phoneScreen.name]="phone";
+        overrides[dockScreen.name]="desktop";
+        set("displayModes",overrides);
+        targetScreen=dockScreen;dockNotice=false;
+        mode("auto");openSection("apps");
+    }
     property var targetScreen: null
     function chooseScreen() {
         return Quickshell.screens.find(s=>s.name===status.activeMonitor) ||
@@ -90,16 +139,26 @@ Scope {
     }
     property string launcherSection: "apps"
     property string mobileTab: "home"
-    property var windows: status.hypr ? status.windows : ToplevelManager.toplevels.values.map(w => ({title:w.title,className:w.appId,handle:w,workspace:0,address:""}))
+    // Resource telemetry changes frequently; compositor topology does not. Keep
+    // the latter on its own properties so every CPU tick does not rebuild the
+    // taskbar's complete window grouping model.
+    property bool compositorActive: false
+    property var compositorWindows: []
+    property var windows: compositorActive ? compositorWindows : ToplevelManager.toplevels.values.map(w => ({title:w.title,className:w.appId,handle:w,workspace:0,address:""}))
     property var taskGroups: {
         let groups=[];
-        favoriteApps.forEach(app => groups.push({app:app,key:app.id,name:app.name,icon:app.icon,windows:[]}));
+        const byKey=Object.create(null);
+        const addGroup=(key,app,name,icon) => {
+            key=key||"unknown";
+            let group=byKey[key];
+            if(!group) {group={app:app,key:key,name:name,icon:icon,windows:[]};byKey[key]=group;groups.push(group);}
+            return group;
+        };
+        favoriteApps.forEach(app => addGroup(app.id,app,app.name,app.icon));
         windows.forEach(w => {
             const app=appForWindow(w);
             const key=app ? app.id : w.className;
-            let group=groups.find(g=>g.key===key);
-            if(!group) {group={app:app,key:key,name:app ? app.name : w.className||w.title,icon:app ? app.icon : "application-x-executable",windows:[]}
-groups.push(group);}
+            const group=addGroup(key,app,app ? app.name : w.className||w.title,app ? app.icon : "application-x-executable");
             group.windows.push(w);
         });
         const order=prefs.taskbarOrder||[];
@@ -111,7 +170,7 @@ groups.push(group);}
         order.splice(from,1);order.splice(index,0,key);
         set("taskbarOrder",order.concat((prefs.taskbarOrder||[]).filter(k=>order.indexOf(k)<0)).slice(0,128));
     }
-    property var recentApps: prefs.recent.map(id => apps.find(a => a.id === id)).filter(Boolean).slice(0,6)
+    property var recentApps: prefs.recent.map(id => appIndex[String(id).toLowerCase()]).filter(Boolean).slice(0,6)
     readonly property var inbox: Notifier.inbox
     readonly property int unread: Notifier.unread
     property date now: clock.date
@@ -120,7 +179,7 @@ groups.push(group);}
     function set(key,value) { let p = Object.assign({},prefs); p[key]=value; prefs=p; command({action:"preference",key:key,value:value}); }
     function toggle(p) { page = page === p ? "" : p; if(page === "launcher") query = ""; }
     function mode(m) { if(m==="phone") {const screen=targetScreen||chooseScreen();if(screen)set("phoneDisplay",screen.name);} set("mode",m); page=""; query=""; mobileTab="home"; launcherSection="apps"; category=m==="console" ? "Games" : "All apps"; }
-    function close() { page=""; }
+    function close() { page="";closeAudio(); }
     function launch(app) {
         if(!app)return;
         const running=windows.filter(w=>appForWindow(w)===app);
@@ -131,7 +190,7 @@ groups.push(group);}
     function pinned(app) { return prefs.favorites.indexOf(app.id)>=0; }
     function pin(app) { command({action:"pin",id:app.id,initial:favoriteApps.map(a=>a.id)}); }
     function settings(which) { if(which==="network"||which==="bluetooth") {controlDetail=which==="network" ? "wifi" : which;page="controls";return;} page=""; command({action:"settings",which:which}); }
-    function volume(value) { value=Math.max(0,Math.min(100,Math.round(value))); command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=Math.round(value); status=s; }
+    function volume(value) { command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=Math.round(value); status=s; }
     function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }
     property var pendingFocus:null
     function focusWindow(w) {
@@ -164,9 +223,8 @@ groups.push(group);}
     }
     function openSection(section) { launcherSection=section;if(section==="windows")mobileTab="recent";page=section==="windows"&&prefs.mode==="console" ? "windows" : "launcher"; }
     function appForWindow(w) {
-        const key=w.className.toLowerCase().replace(/\.desktop$/,"");
-        return apps.find(a=>a.id.toLowerCase()===key || (a.startupClass||"").toLowerCase()===key) ||
-            apps.find(a=>a.id.toLowerCase().split(".").pop()===key) || null;
+        const key=String(w.className||"").toLowerCase().replace(/\.desktop$/i,"").trim();
+        return appIndex[key]||null;
     }
     function active(w) { return w.handle ? w.handle.activated : w.address===status.activeAddress; }
     function activateGroup(g) {
@@ -217,21 +275,22 @@ groups.push(group);}
     function timerToggle() { if(focusSeconds<=0) focusSeconds=25*60; focusRunning=!focusRunning; }
     function searchApps(text,cat) {
         const q=text.toLowerCase().trim();
-        const categories = {Games:"Game", Create:"Graphics|AudioVideo|Audio|Video", Work:"Office|Development|Education", System:"System|Settings|Utility", Internet:"Network"}
+        const categories = {Games:["game"], Create:["graphics","audiovideo","audio","video"], Work:["office","development","education"], System:["system","settings","utility"], Internet:["network"]};
 
-        let source = cat === "Pinned" ? favoriteApps : apps;
-        return source.map(a => {
-            const name=a.name.toLowerCase();
-            const hay=(a.name+" "+a.genericName+" "+(a.keywords||[]).join(" ")).toLowerCase();
+        const source = cat === "Pinned" ? favoriteApps.map(a => ({app:a,name:String(a.name||"").toLowerCase(),hay:(String(a.name||"")+" "+String(a.genericName||"")+" "+(a.keywords||[]).join(" ")).toLowerCase(),categories:(a.categories||[]).join(" ").toLowerCase()})) : appSearchIndex;
+        const category=categories[cat];
+        return source.map(record => {
+            const a=record.app;
+            const name=record.name;
+            if(category && !category.some(token => record.categories.indexOf(token)>=0)) return null;
             let score=0;
             if(q) {
                 if(name===q) score=1000;
                 else if(name.startsWith(q)) score=800;
                 else if(name.indexOf(q)>=0) score=600;
-                else if(hay.indexOf(q)>=0) score=400;
+                else if(record.hay.indexOf(q)>=0) score=400;
                 else { let j=0; for(let i=0;i<name.length && j<q.length;i++) if(name[i]===q[j]) j++; if(j===q.length) score=100-name.length; else return null; }
             }
-            if(categories[cat] && !(new RegExp(categories[cat])).test((a.categories||[]).join(" "))) return null;
             return {app:a,score:score}
 
         }).filter(Boolean).sort((a,b)=>b.score-a.score||a.app.name.localeCompare(b.app.name)).map(x=>x.app);
@@ -250,6 +309,8 @@ groups.push(group);}
                         if (h.preferencesLoaded && (e.data.volume !== h.status.volume || e.data.muted !== h.status.muted)) { h.osd=e.data.muted ? "Volume muted" : "Volume  " + e.data.volume + "%"; osdTimer.restart(); }
                         h.status=Object.assign({},h.status,e.data);
                     } else if(e.event === "compositor") {
+                        if (e.data.hypr !== undefined) h.compositorActive=!!e.data.hypr;
+                        if (e.data.windows !== undefined) h.compositorWindows=e.data.windows;
                         h.status=Object.assign({},h.status,e.data);
                     } else if(e.event === "preferences") {
                         h.prefs=e.data;
@@ -258,6 +319,7 @@ groups.push(group);}
                         h.preferencesLoaded=true;
                     } else if(e.event === "wallpapers" && e.request===h.wallpaperRequest) {
                         h.wallpaperLibrary=e.items;h.wallpaperLibraryError=e.error;h.wallpaperLibraryBusy=false;
+                        if(!e.error){h.wallpaperFolders=e.folders||[];h.wallpaperFolder=e.folder||"";h.wallpaperParent=e.parent||"";}
                     } else if(e.event === "connectivity") {
                         let data=Object.assign({},h.connectivity);
                         data[e.kind]=Object.assign({},data[e.kind],e);h.connectivity=data;
