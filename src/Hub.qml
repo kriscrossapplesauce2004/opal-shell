@@ -102,6 +102,12 @@ Scope {
     property string clipboardPendingId: ""
     property bool clipboardCloseAfterCopy: true
     property var gameArt: ({})
+    // Console library from game_library.py. Launching sends only the id.
+    property var games: []
+    function launchGame(game) { if(!game)return; command({action:"game-launch",id:game.id}); close(); }
+    function gameRunning(game) { return !!game&&!!game.windowClass&&windows.some(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
+    function gameWindows(game) { return !game||!game.windowClass ? [] : windows.filter(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
+    function pinGame(game) { const pins=(prefs.gamePins||[]).slice();const i=pins.indexOf(game.id);if(i>=0)pins.splice(i,1);else pins.unshift(game.id);set("gamePins",pins); }
     function artFor(app) {
         if(!app)return {}
 
@@ -443,6 +449,7 @@ Scope {
                     else if(e.event === "controller") { h.controller=e.connected;h.controllerName=e.name||""; }
                     else if(e.event === "systemOsk") {h.systemOskAvailable=!!e.available;h.systemOskRunning=!!e.running;h.systemOskVisible=!!e.visible;h.systemOskDetail=e.detail||"";}
                     else if(e.event === "libraryArt") h.gameArt=e.data;
+                    else if(e.event === "gameLibrary") h.games=e.data;
                     else if(e.event === "navigation" && h.prefs.mode === "console") { if(e.key==="home") h.toggle("launcher"); else if(h.page!=="") h.navigate(e.key); }
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;
                     else if(e.event === "clipboard") {

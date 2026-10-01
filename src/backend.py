@@ -40,6 +40,7 @@ def load():
     base['taskbarClockDate'] = True
     base['barStyle'] = 'islands'
     base['iconStyle'] = 'raw'
+    base['gamePins'] = []
     base['sheetSections'] = list(SHEET_SECTION_DEFAULT)
     base['quickTiles'] = list(QUICK_TILE_DEFAULT)
     base['phoneRows'] = 5
@@ -345,6 +346,7 @@ def commands():
             if action=='preference':
                 key=c.get('key'); value=c.get('value')
                 valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = valid or key=='gamePins' and isinstance(value,list) and len(value)<=256 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='sheetSections' and isinstance(value,list) and len(value)<=len(SHEET_SECTION_IDS) and all(v in SHEET_SECTION_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='quickTiles' and isinstance(value,list) and len(value)<=len(QUICK_TILE_IDS) and all(v in QUICK_TILE_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneRows' and type(value)==int and 4<=value<=7
@@ -415,6 +417,8 @@ def commands():
                     emit({'event':'message','text':str(error)})
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
+            elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
+            elif action=='game-launch': launch_game(c.get('id'))
             elif action=='system-osk' and c.get('verb') in ('show','hide','toggle'):
                 if not system_osk:
                     emit({'event':'systemOsk','available':False,'running':False,'visible':False,'detail':'System keyboard is not initialized'})
@@ -592,6 +596,42 @@ def library_art():
         except OSError: continue
     return result
 
+GAMES = {}
+GAME_STATE = HOME / '.local/state/opal/games.json'
+def publish_games():
+    """Index local games and art, remember launch commands by id, and send the list without them."""
+    import game_library
+    art = library_art()
+    emit({'event':'libraryArt','data':art})
+    try: played = json.loads(GAME_STATE.read_text())
+    except (OSError, ValueError): played = {}
+    games = game_library.library(art)
+    GAMES.clear()
+    listed = []
+    for game in games:
+        GAMES[game['id']] = game['launch']
+        entry = {k: v for k, v in game.items() if k != 'launch'}
+        entry['lastPlayed'] = max(int(entry.get('lastPlayed') or 0), int(played.get(game['id'], 0) if isinstance(played, dict) else 0))
+        listed.append(entry)
+    listed.sort(key=lambda g: (-g['lastPlayed'], g['title'].lower()))
+    emit({'event':'gameLibrary','data':listed})
+
+def launch_game(game_id):
+    """Launch only commands from the local index; the UI sends an id, never a command line."""
+    command = GAMES.get(game_id) if isinstance(game_id, str) else None
+    if not command: emit({'event':'message','text':'That game is no longer installed'}); return
+    if not shutil.which(command[0]): emit({'event':'message','text':f'{command[0]} is not installed'}); return
+    spawn(command)
+    try:
+        try: played = json.loads(GAME_STATE.read_text())
+        except (OSError, ValueError): played = {}
+        if not isinstance(played, dict): played = {}
+        played[game_id] = int(time.time())
+        GAME_STATE.parent.mkdir(parents=True, exist_ok=True)
+        temp = GAME_STATE.with_suffix('.tmp'); temp.write_text(json.dumps(played)); temp.replace(GAME_STATE)
+    except OSError:
+        pass
+
 def controllers():
     from controller_mapping import device_maps, button_action, axis_orientation
     # Linux joystick API, read-only. Never grabs devices or injects global input.
@@ -690,7 +730,7 @@ def main():
     threading.Thread(target=commands,daemon=True).start()
     threading.Thread(target=controllers,daemon=True).start()
     threading.Thread(target=logind_locks,daemon=True).start()
-    threading.Thread(target=lambda:emit({'event':'libraryArt','data':library_art()}),daemon=True).start()
+    threading.Thread(target=publish_games,daemon=True).start()
     from hypr_events import listen as listen_hyprland
     threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()
     last_published=None
