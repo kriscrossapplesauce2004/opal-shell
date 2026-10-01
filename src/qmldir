@@ -91,3 +91,5 @@ SettingsProfiles 1.0 SettingsProfiles.qml
 SettingsSchedules 1.0 SettingsSchedules.qml
 SettingsSystem 1.0 SettingsSystem.qml
 Onboarding 1.0 Onboarding.qml
+LinkDevices 1.0 LinkDevices.qml
+SettingsLink 1.0 SettingsLink.qml

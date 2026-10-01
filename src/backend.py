@@ -28,7 +28,7 @@ def spawn(args):
     try: subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     except OSError: emit({'event':'message', 'text':f'{args[0]} is not installed'})
 BAR_STYLES = ('islands','dock','split','edge')
-SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery')
+SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery','devices')
 SHEET_SECTION_DEFAULT = ('sliders','tiles','media','notifications')
 PHONE_WIDGETS = ('glance','stack','media','calendar','battery','focus')
 def valid_phone_home(value):
@@ -74,6 +74,10 @@ def load():
     base['gamePins'] = []
     base['autoRotate'] = True
     base['themeExport'] = []
+    base['linkEnabled'] = False
+    base['linkClipboard'] = True
+    base['linkSession'] = True
+    base['linkImportKde'] = True
     base['schedules'] = {}
     base['profiles'] = {}
     base['sheetSections'] = list(SHEET_SECTION_DEFAULT)
@@ -119,6 +123,7 @@ def save():
     emit({'event':'preferences', 'data':prefs.copy()})
     if system_osk: system_osk.refresh(prefs)
     threading.Thread(target=sync_greeter_theme,args=(prefs.copy(),),daemon=True).start()
+    if (prefs.get('linkEnabled') is True)!=(LINK['service'] is not None): threading.Thread(target=link_apply,daemon=True).start()
 
 def exit_with_parent():
     """Ask Linux to send SIGTERM to this child when the backend dies, so a reload never leaves an orphan keyboard."""
@@ -353,7 +358,12 @@ def calculate(expr):
     except Exception: return ''
 
 from clipboard_service import ClipboardHistory
-clipboard = ClipboardHistory(emit)
+def clipboard_emit(data):
+    emit(data)
+    # Opal Link: share new local clipboard text with paired devices.
+    if data.get('event')=='clipboard' and data.get('items'):
+        link_clipboard(data['items'][0].get('text',''))
+clipboard = ClipboardHistory(clipboard_emit)
 from connectivity import Connectivity
 connectivity = Connectivity(emit)
 from hypr_actions import HyprActions
@@ -381,7 +391,7 @@ def commands():
             c=json.loads(line); action=c.get('action')
             if action=='preference':
                 key=c.get('key'); value=c.get('value')
-                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate','onboarded') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate','onboarded','linkEnabled','linkClipboard','linkSession','linkImportKde') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
                 valid = valid or key=='themeExport' and isinstance(value,list) and all(v in system_tools.TARGETS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='schedules' and valid_schedules(value)
                 valid = valid or key=='profiles' and valid_profiles(value)
@@ -487,6 +497,8 @@ def commands():
             elif action=='sun-times':
                 where=system_tools.zone_coordinates(); times=system_tools.sun_times(*where) if where else None
                 emit({'event':'sun','sunrise':times[0] if times else '07:00','sunset':times[1] if times else '19:00','estimated':times is None})
+            elif isinstance(action,str) and action.startswith('link-'):
+                threading.Thread(target=link_command,args=(c,),daemon=True).start()
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
             elif action=='game-launch': launch_game(c.get('id'))
             elif action=='system-osk' and c.get('verb') in ('show','hide','toggle'):
@@ -830,6 +842,127 @@ def health_watch():
             last_updates=time.time(); emit(dict(system_tools.updates(),event='updates'))
         time.sleep(300)
 
+# ---------- Opal Link ----------
+LINK = {'service': None}
+def notify(title, body='', app='Opal Link', urgency='normal'):
+    if shutil.which('notify-send'): spawn(['notify-send','-a',app,'-u',urgency,title[:200],body[:800]])
+
+def link_clipboard(text):
+    service=LINK['service']
+    if not service or not prefs.get('linkClipboard',True) or not isinstance(text,str) or not text or len(text)>100000 or text==service.last_clipboard: return
+    service.last_clipboard=text
+    service.broadcast('kdeconnect.clipboard',{'content':text})
+
+def link_copy(text):
+    service=LINK['service']
+    if service: service.last_clipboard=text
+    try: subprocess.run(['wl-copy','--',text],timeout=5,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); return True
+    except (OSError,subprocess.SubprocessError): return False
+
+def link_open_url(url):
+    if isinstance(url,str) and re.match(r'https?://',url) and len(url)<4000 and shutil.which('xdg-open'): spawn(['xdg-open',url]); return True
+    return False
+
+def link_handlers(service):
+    seen=set()
+    def ping(device, body): notify('Ping from '+device.name, str(body.get('message','')))
+    def notification(device, body):
+        if body.get('isCancel') or body.get('silent') or not body.get('title') and not body.get('text'): return
+        key=(device.id,body.get('id'),body.get('title'),body.get('text'))
+        if key in seen: return
+        seen.add(key)
+        if len(seen)>500: seen.clear()
+        notify(str(body.get('title') or body.get('appName') or ''), str(body.get('text','')), app=str(body.get('appName') or device.name)+' · '+device.name)
+    def clip(device, body):
+        if prefs.get('linkClipboard',True) and isinstance(body.get('content'),str): link_copy(body['content'])
+    def share(device, body):
+        if link_open_url(body.get('url')): return
+        if isinstance(body.get('text'),str):
+            if link_copy(body['text']): notify('Text from '+device.name,'Copied to the clipboard')
+            return
+        if body.get('filename'):
+            def fetch():
+                target=service.download(device,body,HOME/'Downloads')
+                notify(('Received '+target.name) if target else 'A file from '+device.name+' did not arrive', str(target.parent) if target else '')
+            threading.Thread(target=fetch,daemon=True).start()
+    def find(device, body): notify(device.name+' is looking for this device','',urgency='critical')
+    def handoff(device, body):
+        kind,value=body.get('kind'),body.get('value')
+        if kind=='url': link_open_url(value)
+        elif kind=='app' and isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9._-]{1,200}',value) and shutil.which('gtk-launch'): spawn(['gtk-launch',value])
+        elif kind=='text' and isinstance(value,str): link_copy(value)
+    def paired(device):
+        if device.link:
+            s=LINK.get('status') or {}
+            device.link.send('kdeconnect.battery',{'currentCharge':s.get('battery',-1),'isCharging':bool(s.get('charging')),'thresholdEvent':0})
+            if device.opal: device.link.send('opal.session',LINK.get('session') or {})
+    service.handlers.update({'kdeconnect.ping':ping,'kdeconnect.notification':notification,'kdeconnect.clipboard':clip,'kdeconnect.clipboard.connect':clip,
+                             'kdeconnect.share.request':share,'kdeconnect.findmyphone.request':find,'opal.handoff':handoff,'paired':paired})
+
+def link_apply():
+    """Start or stop Opal Link to match preferences."""
+    import opal_link
+    wanted=prefs.get('linkEnabled') is True
+    service=LINK['service']
+    if wanted and not service:
+        service=opal_link.LinkService(emit, HOME/'.local/state/opal/link', device_type=prefs.get('linkDeviceType','desktop') if prefs.get('linkDeviceType') in ('desktop','laptop','phone','tablet') else 'desktop')
+        link_handlers(service)
+        try:
+            if service.start(import_kde=prefs.get('linkImportKde',True) is not False): LINK['service']=service
+        except (OSError,ValueError) as error:
+            emit({'event':'link','status':'error','detail':str(error),'devices':[]})
+    elif not wanted and service:
+        service.stop(); LINK['service']=None
+    elif not wanted:
+        emit({'event':'link','status':'off','devices':[]})
+
+def link_status(current):
+    """Share battery with paired devices and the active app and media with paired Opal devices."""
+    service=LINK['service']
+    previous=LINK.get('status') or {}
+    LINK['status']=current
+    if not service: return
+    if current.get('battery')!=previous.get('battery') or current.get('charging')!=previous.get('charging'):
+        service.broadcast('kdeconnect.battery',{'currentCharge':current.get('battery',-1),'isCharging':bool(current.get('charging')),'thresholdEvent':0})
+    link_session()
+
+def link_compositor(data):
+    """Keep the latest window list and focus from compositor patches."""
+    state=LINK.setdefault('compositor',{})
+    state.update({k:v for k,v in data.items() if k in ('windows','activeAddress')})
+    link_session()
+
+def link_session():
+    service=LINK['service']
+    if not service: return
+    current=LINK.get('status') or {}
+    state=LINK.get('compositor') or {}
+    active=next((w for w in state.get('windows') or [] if w.get('address')==state.get('activeAddress')),{})
+    share=prefs.get('linkSession',True) is not False
+    session={'app':active.get('className','') if share else '','title':'','track':current.get('track','') if share else '','artist':current.get('artist','') if share else '','playing':bool(current.get('playing'))}
+    if session!=LINK.get('session'):
+        LINK['session']=session
+        service.broadcast('opal.session',session,opal_only=True)
+
+def link_command(c):
+    action=c.get('action'); service=LINK['service']; ident=c.get('id')
+    if action=='link-stop-kde':
+        if shutil.which('pkill'): subprocess.run(['pkill','-x','kdeconnectd'],timeout=5)
+        time.sleep(1); LINK['service']=None; link_apply(); return
+    if not service: return
+    if action=='link-refresh': service.announce(); service.publish()
+    elif action=='link-pair': service.pair(ident)
+    elif action=='link-accept': service.accept(ident,True)
+    elif action=='link-reject': service.accept(ident,False)
+    elif action=='link-unpair': service.unpair(ident)
+    elif action=='link-ping': service.send(ident,'kdeconnect.ping',{})
+    elif action=='link-ring': service.send(ident,'kdeconnect.findmyphone.request',{})
+    elif action=='link-clipboard':
+        text=clipboard.items[0]['text'] if clipboard.items else ''
+        if text: service.send(ident,'kdeconnect.clipboard',{'content':text})
+    elif action=='link-handoff' and c.get('kind') in ('url','app','text') and isinstance(c.get('value'),str) and len(c['value'])<4000:
+        service.send(ident,'opal.handoff',{'kind':c['kind'],'value':c['value']})
+
 def session_object_path(session_id):
     """Encode a logind session ID as its D-Bus object path, like systemd's bus_path_encode."""
     if not session_id: return ''
@@ -872,8 +1005,12 @@ def main():
     threading.Thread(target=orientation_watch,daemon=True).start()
     threading.Thread(target=health_watch,daemon=True).start()
     threading.Thread(target=publish_games,daemon=True).start()
+    threading.Thread(target=link_apply,daemon=True).start()
     from hypr_events import listen as listen_hyprland
-    threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()
+    def compositor_emit(data):
+        emit(data)
+        if data.get('event')=='compositor': link_compositor(data.get('data') or {})
+    threading.Thread(target=listen_hyprland, args=(compositor_emit,), daemon=True).start()
     last_published=None
     while True:
         try:
@@ -881,6 +1018,7 @@ def main():
             if current != last_published:
                 emit({'event':'status','data':current})
                 last_published=current
+                link_status(current)
         except Exception: pass
         time.sleep(2)
 

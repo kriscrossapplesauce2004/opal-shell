@@ -15,6 +15,7 @@ ShellRoot {
         width:960;height:650;visible:true;color:Opal.Theme.base
         property int step:0
         property real musicVolume:40
+        Timer {id:linkFixture;interval:400;onTriggered:{Opal.Hub.linkStatus="running";Opal.Hub.linkDevices=[{id:"a".repeat(32),name:"OnePlus 7",type:"phone",reachable:true,paired:true,battery:76,charging:false,opal:false,session:{}},{id:"b".repeat(32),name:"Living room PC",type:"desktop",reachable:true,paired:true,battery:-1,charging:false,opal:true,session:{app:"firefox",track:"",playing:false}},{id:"c".repeat(32),name:"Pixel Tablet",type:"tablet",reachable:true,paired:false,pairRequested:true,opal:false,session:{}}];Opal.Hub.apps=[{id:"firefox",name:"Firefox",icon:"firefox",categories:[],keywords:[],execute:()=>{}}];}}
         Timer {id:monitorFixture;interval:400;onTriggered:Opal.Hub.monitors=[{name:"eDP-1",description:"Built-in display",width:2560,height:1600,refresh:120,x:0,y:0,scale:1.5,transform:0,disabled:false,mirror:"none",modes:["2560x1600@120.00Hz","2560x1600@60.00Hz","1920x1200@60.00Hz"]},{name:"HDMI-A-1",description:"Dell U2720Q",width:1920,height:1080,refresh:60,x:1707,y:0,scale:1,transform:0,disabled:false,mirror:"none",modes:["1920x1080@60.00Hz","1280x720@60.00Hz"]}]}
         property var cases:[
             {name:"start-beauty",ui:"start",w:600,h:680},
@@ -53,6 +54,7 @@ ShellRoot {
             {name:"settings-system",ui:"settings",w:980,h:800,section:"system",health:true},
             {name:"onboarding-bar",ui:"onboarding",w:660,h:640,step:2},
             {name:"onboarding-welcome-light",ui:"onboarding",w:660,h:640,step:0,light:true},
+            {name:"settings-link",ui:"settings",w:980,h:800,section:"link",link:true},
             {name:"settings-home",ui:"settings",w:980,h:800},
             {name:"settings-phone",ui:"settings",w:360,h:740,light:true},
             {name:"volume-osd-dark",ui:"osd",w:340,h:112},
@@ -348,6 +350,7 @@ ShellRoot {
             if(test.schedules)Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{schedules:{nightLight:{enabled:true,mode:"sun",temperature:3800},darkMode:{enabled:true,mode:"custom",from:"19:30",to:"07:00"}}});
             if(test.profiles)Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{profiles:{"Work":{barStyle:"edge",light:true},"Gaming night":{barStyle:"dock",light:false}}});
             if(test.health)Qt.callLater(()=>{Opal.Hub.health={disks:[{label:"System",total:495810760704,used:415556063232,percent:84}],temperatures:{k10temp:58,amdgpu:52,nvme:41},hottest:58};Opal.Hub.updates={pacman:12,flatpak:3};});
+            if(test.link){Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{linkEnabled:true});linkFixture.restart();}
             if(test.ui==="lock")Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{wallpaperPath:"file://"+Quickshell.env("HOME")+"/Ocean.png",wallpaperDim:0});
             if(test.ui==="reference"||test.ui==="bars") {
                 Opal.Hub.apps=[{id:"firefox",name:"Firefox",genericName:"Web browser",icon:"firefox",keywords:["internet"],categories:["Network"],execute:()=>{}},{id:"files",name:"Files",genericName:"File manager",icon:"system-file-manager",keywords:["folders"],categories:["System"],execute:()=>{}},{id:"terminal",name:"Terminal",genericName:"Command line",icon:"utilities-terminal",keywords:["shell"],categories:["System"],execute:()=>{}},{id:"code",name:"Visual Studio Code",genericName:"Code editor",icon:"code",keywords:["editor"],categories:["Development"],execute:()=>{}},{id:"music",name:"Music",icon:"multimedia-player",keywords:[],categories:["AudioVideo"],execute:()=>{}},{id:"notes",name:"Notes",icon:"text-editor",keywords:[],categories:["Office"],execute:()=>{}}];

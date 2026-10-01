@@ -168,6 +168,33 @@ ShellRoot {
             }
         }
     }
+    // Opal Link pairing request. It never takes the keyboard.
+    PanelWindow {
+        screen:Hub.chooseScreen()
+        visible:Hub.linkPairRequest!==null
+        anchors {bottom:true;right:true}
+        margins {bottom:90;right:18}
+        implicitWidth:360;implicitHeight:pairCard.implicitHeight
+        exclusionMode:ExclusionMode.Ignore
+        WlrLayershell.layer:WlrLayer.Overlay
+        WlrLayershell.namespace:"opal-toast"
+        WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
+        color:"transparent"
+        Rectangle {
+            id:pairCard;anchors.fill:parent;implicitHeight:pairColumn.implicitHeight+32;radius:Theme.shapeXl;color:Theme.level(3)
+            ColumnLayout {id:pairColumn;anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;anchors.margins:16;spacing:6
+                RowLayout {spacing:10
+                    Glyph {name:"devices";font.pixelSize:22;color:Theme.primary}
+                    MText {text:"Pair with "+(Hub.linkPairRequest ? Hub.linkPairRequest.name : "")+"?";role:"titleS";Layout.fillWidth:true}}
+                MText {Layout.fillWidth:true;wrapMode:Text.Wrap;text:"Check that both screens show "+(Hub.linkPairRequest ? Hub.linkPairRequest.code : "")+".";role:"bodyS";color:Theme.subtext}
+                RowLayout {Layout.fillWidth:true;Layout.topMargin:4
+                    Item {Layout.fillWidth:true}
+                    MButton {text:"Reject";compact:true;onClicked:{Hub.link("reject",Hub.linkPairRequest.id);Hub.linkPairRequest=null;}}
+                    MButton {text:"Pair";compact:true;filled:true;onClicked:{Hub.link("accept",Hub.linkPairRequest.id);Hub.linkPairRequest=null;}}
+                }
+            }
+        }
+    }
     WorkspaceOsd {}
     LockScreen {}
     PolkitDialog {}

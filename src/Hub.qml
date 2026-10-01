@@ -127,6 +127,13 @@ Scope {
     property var updates: ({pacman:null,flatpak:null})
     property var monitors: []
     property var sun: ({sunrise:"07:00",sunset:"19:00",estimated:true})
+    // Opal Link devices and status from opal_link.py.
+    property string linkStatus: "off"
+    property string linkDetail: ""
+    property var linkDevices: []
+    property var linkPairRequest: null
+    function link(action, id, extra) { command(Object.assign({action:"link-"+action,id:id||""},extra||{})); }
+    function appForClass(name) { const c=(name||"").toLowerCase();return c ? apps.find(a=>(a.id||"").toLowerCase()===c||(a.id||"").toLowerCase().endsWith("."+c)||(a.name||"").toLowerCase()===c)||null : null; }
     property var games: []
     function launchGame(game) { if(!game)return; command({action:"game-launch",id:game.id}); close(); }
     function gameRunning(game) { return !!game&&!!game.windowClass&&windows.some(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
@@ -492,6 +499,8 @@ Scope {
                     else if(e.event === "systemOsk") {h.systemOskAvailable=!!e.available;h.systemOskRunning=!!e.running;h.systemOskVisible=!!e.visible;h.systemOskDetail=e.detail||"";}
                     else if(e.event === "libraryArt") h.gameArt=e.data;
                     else if(e.event === "gameLibrary") h.games=e.data;
+                    else if(e.event === "link") {h.linkStatus=e.status||"off";h.linkDetail=e.detail||"";h.linkDevices=e.devices||[];if(h.linkPairRequest&&!h.linkDevices.some(d=>d.id===h.linkPairRequest.id&&d.pairRequested))h.linkPairRequest=null;}
+                    else if(e.event === "linkPairRequest") h.linkPairRequest={id:e.id,name:e.name,code:e.code};
                     else if(e.event === "health") h.health={disks:e.disks,temperatures:e.temperatures,hottest:e.hottest};
                     else if(e.event === "updates") h.updates={pacman:e.pacman,flatpak:e.flatpak};
                     else if(e.event === "monitors") h.monitors=e.data;

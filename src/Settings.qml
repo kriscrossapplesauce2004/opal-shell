@@ -17,7 +17,8 @@ Item {
     readonly property var groups:[
         {title:"Connections",items:[
             {id:"network",title:"Network & internet",icon:"wifi",detail:"Wi-Fi and saved networks"},
-            {id:"bluetooth",title:"Connected devices",icon:"bluetooth",detail:"Bluetooth and pairing"}]},
+            {id:"bluetooth",title:"Connected devices",icon:"bluetooth",detail:"Bluetooth and pairing"},
+            {id:"link",title:"Opal Link",icon:"devices",detail:"Your phone and other Opal devices"}]},
         {title:"Device",items:[
             {id:"sound",title:"Sound",icon:"volume",detail:"Volume, outputs and microphone"},
             {id:"screens",title:"Screens",icon:"monitor",detail:"Arrangement, resolution and scale"},
@@ -122,7 +123,7 @@ Item {
                 Loader {
                     id:page
                     Layout.fillWidth:true;Layout.fillHeight:true
-                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="display" ? displayPage : Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
+                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="display" ? displayPage : Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="link" ? linkPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
                     // Pages slide in from the side on every section change.
                     onLoaded:{pageIn.restart();}
                     ParallelAnimation {
@@ -241,6 +242,7 @@ Item {
     Component {id:appThemePage;SettingsAppTheme {}}
     Component {id:profilesPage;SettingsProfiles {}}
     Component {id:systemPage;SettingsSystem {}}
+    Component {id:linkPage;SettingsLink {}}
     Component {id:connectionPage;ConnectionPanel {kind:Hub.settingsSection==="network" ? "wifi" : "bluetooth";embedded:true;backAction:()=>{Hub.settingsSection="";}}}
     Component {id:soundPage;Flickable {contentHeight:sound.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
         ScrollBar.vertical:ScrollBar {}

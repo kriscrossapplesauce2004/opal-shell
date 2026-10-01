@@ -17,7 +17,8 @@ Item {
         {id:"monitor",title:"System monitor",icon:"speed"},
         {id:"clipboard",title:"Clipboard",icon:"content_paste"},
         {id:"focus",title:"Focus timer",icon:"timer"},
-        {id:"battery",title:"Device batteries",icon:"battery_full"}
+        {id:"battery",title:"Device batteries",icon:"battery_full"},
+        {id:"devices",title:"Your devices",icon:"devices"}
     ]
     readonly property var sections:Array.isArray(Hub.prefs.sheetSections) ? Hub.prefs.sheetSections.filter(id=>catalog.some(c=>c.id===id)) : ["sliders","tiles","media","notifications"]
     function title(id) {const c=catalog.find(c=>c.id===id);return c ? c.title : id;}
@@ -113,7 +114,7 @@ Item {
                     Loader {
                         required property string modelData
                         Layout.fillWidth:true
-                        sourceComponent:modelData==="sliders" ? slidersSection : modelData==="tiles" ? tilesSection : modelData==="media" ? mediaSection : modelData==="notifications" ? inboxSection : modelData==="calendar" ? calendarSection : modelData==="monitor" ? monitorSection : modelData==="clipboard" ? clipboardSection : modelData==="focus" ? focusSection : batterySection
+                        sourceComponent:modelData==="sliders" ? slidersSection : modelData==="tiles" ? tilesSection : modelData==="media" ? mediaSection : modelData==="notifications" ? inboxSection : modelData==="calendar" ? calendarSection : modelData==="monitor" ? monitorSection : modelData==="clipboard" ? clipboardSection : modelData==="focus" ? focusSection : modelData==="devices" ? devicesSection : batterySection
                     }
                 }
                 MText {visible:q.sections.length===0&&!q.editing;Layout.fillWidth:true;horizontalAlignment:Text.AlignHCenter;text:"Nothing here yet. Edit to add sections.";role:"bodyS";color:Theme.subtext;Layout.topMargin:12;Layout.bottomMargin:12}
@@ -178,6 +179,10 @@ Item {
     Component {id:focusSection;Item {implicitHeight:Hub.focusRunning ? focusCard.implicitHeight : startFocus.implicitHeight
         FocusCard {id:focusCard;visible:Hub.focusRunning;width:parent.width}
         MButton {id:startFocus;visible:!Hub.focusRunning;width:parent.width;icon:"timer";text:"Start a 25 minute focus";tonal:true;onClicked:Hub.timerToggle()}
+    }}
+    Component {id:devicesSection;ColumnLayout {spacing:6
+        MText {text:"Your devices";role:"titleS";Layout.leftMargin:6}
+        LinkDevices {Layout.fillWidth:true;compact:true}
     }}
     Component {id:batterySection;ColumnLayout {spacing:6
         MText {text:"Batteries";role:"titleS";Layout.leftMargin:6}
