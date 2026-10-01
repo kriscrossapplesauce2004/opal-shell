@@ -187,6 +187,8 @@ systemd_user() {
 
 case "${1:-on}" in
     on)
+        # Opal brings its own polkit agent; only one agent can register per session.
+        systemd_user stop hyprpolkitagent.service || true
         quickshell -d -n -p "$config"
         systemd_user mask --runtime --now dms.service || true
         touch "$marker"
@@ -205,20 +207,27 @@ case "${1:-on}" in
         quickshell kill -p "$config" || true
         systemd_user unmask --runtime dms.service || true
         systemd_user start dms.service || true
+        systemd_user start hyprpolkitagent.service || true
         command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true
         ;;
     console|gaming)
         exec quickshell ipc -p "$config" call opal gaming
         ;;
-    launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect)
+    greeter)
+        exec sudo "@OPAL_TOOLS@/install-greeter.sh" "${@:2}"
+        ;;
+    launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect|lock)
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|launcher|controls|notifications|clipboard|phone|console|gaming|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|lock|greeter [--revert]|launcher|controls|notifications|clipboard|phone|console|gaming|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac
 EOF
+# The greeter command runs the installer from this checkout.
+tools_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+sed -i "s|@OPAL_TOOLS@|$tools_dir|" "$wrapper_tmp"
 chmod 0755 "$wrapper_tmp"
 mv -- "$wrapper_tmp" "$bin_dir/opal"
 

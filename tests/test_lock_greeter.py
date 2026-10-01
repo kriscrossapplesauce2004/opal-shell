@@ -1,0 +1,60 @@
+import io, json, os, pathlib, sys, tempfile, unittest
+from unittest.mock import patch
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'src'))
+import backend, greeter_info
+
+
+class LockAndGreeterTests(unittest.TestCase):
+    def test_session_path_encoding(self):
+        self.assertEqual(backend.session_object_path('8'), '/org/freedesktop/login1/session/_38')
+        self.assertEqual(backend.session_object_path('c2'), '/org/freedesktop/login1/session/c2')
+        self.assertEqual(backend.session_object_path(''), '')
+
+    def test_logind_lock_and_unlock_for_this_session_only(self):
+        path = backend.session_object_path('8')
+        lines = [
+            f"{backend.session_object_path('9')}: org.freedesktop.login1.Session.Lock ()\n",
+            f"{path}: org.freedesktop.login1.Session.Lock ()\n",
+            f"{path}: org.freedesktop.login1.Session.Unlock ()\n",
+        ]
+        class Fake: stdout = io.StringIO(''.join(lines))
+        events = []
+        with patch.object(backend, 'emit', events.append), patch.object(backend.shutil, 'which', return_value='/usr/bin/gdbus'):
+            backend.logind_locks('8', Fake())
+        self.assertEqual(events, [{'event': 'lock'}, {'event': 'unlock'}])
+
+    def test_greeter_theme_sync_copies_wallpaper_and_roles(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = pathlib.Path(root)
+            cache = root / 'cache'; cache.mkdir()
+            image = root / 'wall.png'; image.write_bytes(b'png')
+            values = {'light': True, 'palette': 2, 'wallpaperPath': image.as_uri(), 'favorites': ['secret-app']}
+            self.assertTrue(backend.sync_greeter_theme(values, cache))
+            theme = json.loads((cache / 'theme.json').read_text())
+            self.assertEqual(theme['light'], True)
+            self.assertNotIn('favorites', theme)
+            self.assertEqual(theme['wallpaperPath'], (cache / 'wallpaper.png').as_uri())
+            self.assertEqual((cache / 'wallpaper.png').read_bytes(), b'png')
+
+    def test_greeter_theme_sync_skips_missing_cache(self):
+        self.assertFalse(backend.sync_greeter_theme({}, pathlib.Path('/nonexistent/opal-greeter')))
+
+    def test_desktop_entry_parsing(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = pathlib.Path(root)
+            (root / 'a.desktop').write_text('[Desktop Entry]\nName=Alpha\nExec=alpha --flag %U\n[Desktop Action x]\nExec=nope\n')
+            (root / 'b.desktop').write_text('[Desktop Entry]\nName=Hidden\nExec=b\nNoDisplay=true\n')
+            (root / 'c.desktop').write_text('[Desktop Entry]\nName=Broken\nExec="unterminated\n')
+            with patch.object(greeter_info, 'SESSION_DIRS', [root]):
+                self.assertEqual(greeter_info.sessions(), [{'id': 'a', 'name': 'Alpha', 'command': ['alpha', '--flag']}])
+
+    def test_remember_round_trip(self):
+        with tempfile.TemporaryDirectory() as root:
+            state = pathlib.Path(root) / 'state.json'
+            with patch.object(greeter_info, 'STATE', state):
+                greeter_info.remember('melissa', 'hyprland')
+                self.assertEqual(greeter_info.remembered(), {'user': 'melissa', 'session': 'hyprland'})
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -278,7 +278,10 @@ Scope {
         return "apps";
     }
     function pin(app) { command({action:"pin",id:app.id,initial:favoriteApps.map(a=>a.id)}); }
-    function settings(which) { if(which==="network"||which==="bluetooth") {controlDetail=which==="network" ? "wifi" : which;page="controls";return;} page=""; command({action:"settings",which:which}); }
+    // Session lock. The Opal lock screen owns unlocking through PAM.
+    property bool locked: false
+    function lock() { page=""; locked=true; }
+    function settings(which) { if(which==="lock") {lock();return;} if(which==="network"||which==="bluetooth") {controlDetail=which==="network" ? "wifi" : which;page="controls";return;} page=""; command({action:"settings",which:which}); }
     function volume(value) { value=Math.max(0,Math.min(100,Math.round(value)));command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=value; status=s;showVolumeOsd(); }
     function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }
     property var pendingFocus:null
@@ -394,10 +397,22 @@ Scope {
         return matches.map(match => match.app);
     }
     SystemClock { id: clock; precision: SystemClock.Seconds }
+    // Greeter mode: no session backend. Theme roles come from a cache the user session writes.
+    readonly property bool greeterMode: Quickshell.env("OPAL_GREETER") === "1"
+    FileView {
+        id: greeterTheme
+        path: h.greeterMode ? (Quickshell.env("OPAL_GREETER_THEME") || "/var/cache/opal-greeter/theme.json") : ""
+        watchChanges: h.greeterMode
+        onFileChanged: reload()
+        onLoaded: {
+            try { h.prefs = Object.assign({}, h.prefs, JSON.parse(text())); } catch (error) { console.warn("Greeter theme is not valid JSON"); }
+            h.preferencesLoaded = true;
+        }
+    }
     Process {
         id: bridge
         command: ["python3", Qt.resolvedUrl("backend.py").toString().replace("file://","")]
-        running: true
+        running: !h.greeterMode
         stdinEnabled: true
         stdout: SplitParser {
             onRead: line => {
@@ -423,6 +438,8 @@ Scope {
                         data[e.kind]=Object.assign({},data[e.kind],e);h.connectivity=data;
                     } else if(e.event === "themeBusy") h.themeBusy=e.busy;
                     else if(e.event === "message") h.message(e.text);
+                    else if(e.event === "lock") h.lock();
+                    else if(e.event === "unlock") h.locked=false;
                     else if(e.event === "controller") { h.controller=e.connected;h.controllerName=e.name||""; }
                     else if(e.event === "systemOsk") {h.systemOskAvailable=!!e.available;h.systemOskRunning=!!e.running;h.systemOskVisible=!!e.visible;h.systemOskDetail=e.detail||"";}
                     else if(e.event === "libraryArt") h.gameArt=e.data;

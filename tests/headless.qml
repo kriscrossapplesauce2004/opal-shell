@@ -19,6 +19,12 @@ ShellRoot {
             {name:"start-beauty",ui:"start",w:600,h:680},
             {name:"workspace-pill",ui:"bars",w:600,h:120,pill:true},
             {name:"workspace-pill-light",ui:"bars",w:600,h:120,pill:true,light:true},
+            {name:"lock-idle",ui:"lock",w:1440,h:900,music:true},
+            {name:"lock-revealed",ui:"lock",w:1440,h:900,music:true,reveal:true,lockError:true},
+            {name:"lock-light-small",ui:"lock",w:420,h:860,light:true,reveal:true},
+            {name:"greeter",ui:"lock",w:1440,h:900,greeter:true},
+            {name:"greeter-whats-new",ui:"lock",w:1440,h:900,greeter:true,whatsNew:true,light:true},
+            {name:"polkit",ui:"polkit",w:640,h:520},
             {name:"bar-islands",ui:"bars",w:1440,h:300,music:true,barStyle:"islands"},
             {name:"bar-islands-light",ui:"bars",w:1440,h:300,light:true,tide:true,barStyle:"islands"},
             {name:"bar-dock",ui:"bars",w:1440,h:300,barStyle:"dock"},
@@ -233,6 +239,27 @@ ShellRoot {
             }
             Opal.DesktopShelf {id:referenceShelf;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:64}
         }}
+        Component {id:lockView;Item {
+            readonly property var test:fixture.cases[fixture.step]
+            Opal.LockScene {
+                id:lockScene;anchors.fill:parent
+                mode:parent.test.greeter ? "greeter" : "lock"
+                userName:"Melissa"
+                error:parent.test.lockError ? "That password didn't work. Try again." : ""
+                notificationGroups:[{app:"Firefox",icon:"firefox",count:3},{app:"Discord",icon:"discord",count:1}]
+                users:[{login:"melissa",name:"Melissa"},{login:"teleop",name:"teleop"}]
+                sessions:[{id:"hyprland",name:"Hyprland"},{id:"niri",name:"Niri"}]
+                keyboardLayout:"GB"
+                whatsNewOpen:!!parent.test.whatsNew
+                whatsNew:[{icon:"view_column",title:"A calmer bar",text:"Fewer, bolder islands. Choose islands, dock, split or edge in Settings."},{icon:"bolt",title:"Live activity",text:"Music and focus timers sit in the bar."},{icon:"notifications",title:"Better notifications",text:"Smaller popups, and an inbox grouped by app."}]
+                Component.onCompleted:if(parent.test.reveal)reveal()
+            }
+        }}
+        Component {id:polkitView;Item {
+            Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
+            Rectangle {anchors.fill:parent;color:"#66000000"}
+            Opal.PolkitCard {anchors.centerIn:parent;message:"Authentication is required to install software.";identity:"unix-user:melissa"}
+        }}
         Component {id:barsView;Item {
             Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
             Opal.WorkspacePill {visible:!!fixture.cases[fixture.step].pill;anchors.horizontalCenter:parent.horizontalCenter;y:10;shown:2}
@@ -301,6 +328,7 @@ ShellRoot {
                 Opal.Hub.query=test.searchText||"";
                 if(test.searchText&&test.searchText.startsWith("12"))Opal.Hub.calculation="84";
             }
+            if(test.ui==="lock")Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{wallpaperPath:"file://"+Quickshell.env("HOME")+"/Ocean.png",wallpaperDim:0});
             if(test.ui==="reference"||test.ui==="bars") {
                 Opal.Hub.apps=[{id:"firefox",name:"Firefox",genericName:"Web browser",icon:"firefox",keywords:["internet"],categories:["Network"],execute:()=>{}},{id:"files",name:"Files",genericName:"File manager",icon:"system-file-manager",keywords:["folders"],categories:["System"],execute:()=>{}},{id:"terminal",name:"Terminal",genericName:"Command line",icon:"utilities-terminal",keywords:["shell"],categories:["System"],execute:()=>{}},{id:"code",name:"Visual Studio Code",genericName:"Code editor",icon:"code",keywords:["editor"],categories:["Development"],execute:()=>{}},{id:"music",name:"Music",icon:"multimedia-player",keywords:[],categories:["AudioVideo"],execute:()=>{}},{id:"notes",name:"Notes",icon:"text-editor",keywords:[],categories:["Office"],execute:()=>{}}];
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{palette:1,dynamicColors:!test.tide,desktopWidgets:true,recent:["files","code","firefox","notes"],favorites:["firefox","files"]});
@@ -322,7 +350,7 @@ ShellRoot {
                 Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:2}];
                 Opal.Hub.query=test.searchText||"";Opal.Hub.page="launcher";Opal.Hub.launcherSection="apps";
             }
-            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{

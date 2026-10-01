@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Opal's optional Linux adapters. JSON-lines only; no shell-evaluated user input."""
-import sys, os, json, subprocess, threading, time, pathlib, shutil, glob, select, struct, math, ast, operator, re
+import sys, os, json, subprocess, threading, time, pathlib, shutil, glob, select, struct, math, ast, operator, re, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from wallpaper_service import DEFAULTS as WALLPAPER_DEFAULTS, local_image, generate, valid_preference, image_library, browse_images
@@ -48,6 +48,32 @@ def load():
     except (OSError, ValueError): pass
     return base
 prefs = load()
+GREETER_CACHE = pathlib.Path(os.environ.get('OPAL_GREETER_CACHE', '/var/cache/opal-greeter'))
+GREETER_KEYS = ('light','palette','dynamicColors','dynamicPalette','colorScheme','wallpaperDim','reduceMotion')
+def sync_greeter_theme(values=None, cache=None):
+    """Copy theme roles and the wallpaper into the greeter cache when the installer made it writable for this user."""
+    values = prefs if values is None else values
+    cache = GREETER_CACHE if cache is None else cache
+    if not cache.is_dir() or not os.access(cache, os.W_OK): return False
+    theme = {key: values[key] for key in GREETER_KEYS if key in values}
+    source = str(values.get('wallpaperPath') or '')
+    if source.startswith('file://'):
+        path = pathlib.Path(urllib.parse.unquote(source[7:]))
+        if path.is_file() and path.suffix.lower() in ('.png','.jpg','.jpeg','.webp'):
+            target = cache / ('wallpaper' + path.suffix.lower())
+            try:
+                if not target.exists() or target.stat().st_size != path.stat().st_size or target.stat().st_mtime < path.stat().st_mtime:
+                    temp = target.with_suffix('.tmp'); shutil.copyfile(path, temp); temp.chmod(0o644); temp.replace(target)
+                theme['wallpaperPath'] = target.as_uri()
+            except OSError:
+                pass
+    temp = cache / 'theme.tmp'
+    try:
+        temp.write_text(json.dumps(theme, separators=JSON_SEPARATORS)); temp.chmod(0o644); temp.replace(cache / 'theme.json')
+    except OSError:
+        return False
+    return True
+
 def save():
     STORE.parent.mkdir(parents=True, exist_ok=True)
     temp = STORE.with_suffix('.tmp')
@@ -55,6 +81,7 @@ def save():
     temp.replace(STORE)
     emit({'event':'preferences', 'data':prefs.copy()})
     if system_osk: system_osk.refresh(prefs)
+    threading.Thread(target=sync_greeter_theme,args=(prefs.copy(),),daemon=True).start()
 
 def exit_with_parent():
     """Ask Linux to send SIGTERM to this child when the backend dies, so a reload never leaves an orphan keyboard."""
@@ -264,7 +291,7 @@ def settings(which):
         'terminal': [['kitty'], ['foot'], ['alacritty']],
         'browser': [['xdg-open','https://www.google.com']],
         'steam': [['steam','-gamepadui']],
-        'lock': [['hyprlock'], ['loginctl','lock-session']],
+        'lock': [['loginctl','lock-session'], ['hyprlock']],
     }
     for cmd in choices.get(which, []):
         if shutil.which(cmd[0]): spawn(cmd); return
@@ -624,6 +651,26 @@ def controllers():
         finally: f.close()
         time.sleep(2)
 
+def session_object_path(session_id):
+    """Encode a logind session ID as its D-Bus object path, like systemd's bus_path_encode."""
+    if not session_id: return ''
+    out=''.join(c if c.isalnum() and c.isascii() and not (i==0 and c.isdigit()) else '_%02x'%ord(c) for i,c in enumerate(session_id))
+    return '/org/freedesktop/login1/session/'+out
+
+def logind_locks(session_id=None, monitor=None):
+    """Follow logind Lock requests for this session, so loginctl lock-session and suspend open the Opal lock screen."""
+    path=session_object_path(session_id if session_id is not None else os.environ.get('XDG_SESSION_ID',''))
+    if not path or not shutil.which('gdbus'): return
+    try:
+        process=monitor or subprocess.Popen(['gdbus','monitor','--system','--dest','org.freedesktop.login1','--object-path',path],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    except OSError:
+        return
+    for line in process.stdout:
+        if line.startswith(path+':') and 'org.freedesktop.login1.Session.Lock ()' in line:
+            emit({'event':'lock'})
+        elif line.startswith(path+':') and 'org.freedesktop.login1.Session.Unlock ()' in line:
+            emit({'event':'unlock'})
+
 def main():
     import atexit, signal
     global system_osk
@@ -642,6 +689,7 @@ def main():
     system_osk.auto()
     threading.Thread(target=commands,daemon=True).start()
     threading.Thread(target=controllers,daemon=True).start()
+    threading.Thread(target=logind_locks,daemon=True).start()
     threading.Thread(target=lambda:emit({'event':'libraryArt','data':library_art()}),daemon=True).start()
     from hypr_events import listen as listen_hyprland
     threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()

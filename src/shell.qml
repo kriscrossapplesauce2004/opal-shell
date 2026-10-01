@@ -29,6 +29,7 @@ ShellRoot {
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
         function convergence():void {root.show("convergence");}
         function close():void {Hub.close();}
+        function lock():void {Hub.lock();}
         function navigate(key:string):void {Hub.navigate(key);}
         function search(text:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openSection("apps");Hub.query=text;if(text.startsWith("="))Hub.command({action:"calculate",text:text.slice(1).trim()});}
         function inspect():string {return JSON.stringify({page:Hub.page,mode:Hub.prefs.mode,apps:Hub.apps.length,query:Hub.query,controller:Hub.controller,notifications:Hub.unread,gameSession:Hub.gameSession,status:Hub.status});}
@@ -130,6 +131,8 @@ ShellRoot {
         Loader {anchors.fill:parent;active:Hub.osd!=="";sourceComponent:Component {VolumeOsd {}}}
     }
     WorkspaceOsd {}
+    LockScreen {}
+    PolkitDialog {}
     AudioDrawer {}
     ShadeWindow {}
     PowerProfileWindow {}
