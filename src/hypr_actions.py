@@ -101,3 +101,16 @@ class HyprActions:
         else:
             verb='movetoworkspace' if follow else 'movetoworkspacesilent'
             self.runner(['hyprctl','dispatch',verb,str(number)+',address:'+address])
+
+    _OUTPUT=re.compile(r'[A-Za-z0-9._-]{1,64}')
+    def rotate(self,output,transform):
+        """Rotate one output and its touch input. Transform is Hyprland's 0-3 (0, 90, 180, 270 degrees)."""
+        if not isinstance(output,str) or self._OUTPUT.fullmatch(output) is None:raise ValueError('Invalid output')
+        if type(transform) is not int or not 0<=transform<=3:raise ValueError('Invalid rotation')
+        if self.is_lua():
+            self.runner(['hyprctl','eval','hl.monitor({output="'+output+'",mode="preferred",position="auto",scale="auto",transform='+str(transform)+'}); '
+                         'hl.config({input={touchdevice={transform='+str(transform)+',output="'+output+'"}}})'])
+        else:
+            self.runner(['hyprctl','keyword','monitor',output+',preferred,auto,auto,transform,'+str(transform)])
+            self.runner(['hyprctl','keyword','input:touchdevice:transform',str(transform)])
+

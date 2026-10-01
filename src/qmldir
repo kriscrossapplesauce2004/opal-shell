@@ -83,3 +83,4 @@ PolkitCard 1.0 PolkitCard.qml
 GreeterController 1.0 GreeterController.qml
 LockController 1.0 LockController.qml
 GameCover 1.0 GameCover.qml
+PhoneWidget 1.0 PhoneWidget.qml

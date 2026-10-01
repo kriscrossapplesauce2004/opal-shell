@@ -30,6 +30,21 @@ def spawn(args):
 BAR_STYLES = ('islands','dock','split','edge')
 SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery')
 SHEET_SECTION_DEFAULT = ('sliders','tiles','media','notifications')
+PHONE_WIDGETS = ('glance','stack','media','calendar','battery','focus')
+def valid_phone_home(value):
+    """Phone home layout: up to 8 pages of widgets and items; items are app ids or small folders."""
+    def app_id(v): return isinstance(v,str) and 0<len(v)<300
+    def item(v):
+        if app_id(v): return True
+        return isinstance(v,dict) and set(v)=={'folder','apps'} and isinstance(v['folder'],str) and len(v['folder'])<=40 and isinstance(v['apps'],list) and 0<len(v['apps'])<=24 and all(map(app_id,v['apps']))
+    if not isinstance(value,dict) or set(value)!={'pages'} or not isinstance(value['pages'],list) or not 0<len(value['pages'])<=8: return False
+    for page in value['pages']:
+        if not isinstance(page,dict) or set(page)!={'widgets','items'}: return False
+        widgets,items=page['widgets'],page['items']
+        if not isinstance(widgets,list) or len(widgets)>4 or len(set(widgets))!=len(widgets) or not all(w in PHONE_WIDGETS for w in widgets): return False
+        if not isinstance(items,list) or len(items)>48 or not all(map(item,items)): return False
+    return True
+
 def load():
     base = {'mode':'auto', 'palette':0, 'light':False, 'dnd':False, 'glass':0.78, 'favorites':[], 'recent':[], 'wallpaper':0, 'pinsConfigured':False, 'taskbarAutoHide':False, 'taskbarLabels':True, 'phoneButtons':False, 'controllerLayout':'standard'}
     base['displayModes'] = {}
@@ -41,6 +56,7 @@ def load():
     base['barStyle'] = 'islands'
     base['iconStyle'] = 'raw'
     base['gamePins'] = []
+    base['autoRotate'] = True
     base['sheetSections'] = list(SHEET_SECTION_DEFAULT)
     base['quickTiles'] = list(QUICK_TILE_DEFAULT)
     base['phoneRows'] = 5
@@ -345,7 +361,8 @@ def commands():
             c=json.loads(line); action=c.get('action')
             if action=='preference':
                 key=c.get('key'); value=c.get('value')
-                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = valid or key=='phoneHome' and valid_phone_home(value)
                 valid = valid or key=='gamePins' and isinstance(value,list) and len(value)<=256 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='sheetSections' and isinstance(value,list) and len(value)<=len(SHEET_SECTION_IDS) and all(v in SHEET_SECTION_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='quickTiles' and isinstance(value,list) and len(value)<=len(QUICK_TILE_IDS) and all(v in QUICK_TILE_IDS for v in value) and len(set(value))==len(value)
@@ -408,6 +425,9 @@ def commands():
                         elif action=='pin': items.append(app)
                         if action=='recent': items.insert(0,app)
                         prefs[key]=items[:24]; save()
+            elif action=='rotate':
+                try: hypr_actions.rotate(c.get('output'),c.get('transform'))
+                except (ValueError,OSError,subprocess.SubprocessError) as error: emit({'event':'message','text':str(error)})
             elif action in ('focus-window','workspace','move-window'):
                 try:
                     if action=='focus-window':hypr_actions.focus(c.get('address'))
@@ -691,6 +711,18 @@ def controllers():
         finally: f.close()
         time.sleep(2)
 
+ORIENTATIONS = {'normal':0,'left-up':1,'bottom-up':2,'right-up':3}
+def orientation_watch(process=None):
+    """Follow iio-sensor-proxy through monitor-sensor and report accelerometer orientation. Quiet when there is no sensor."""
+    if process is None:
+        if not shutil.which('monitor-sensor'): return
+        try: process=subprocess.Popen(['monitor-sensor','--accel'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+        except OSError: return
+    for line in process.stdout:
+        match=re.search(r'(?:orientation changed|orientation): ([a-z-]+)',line)
+        if match and match.group(1) in ORIENTATIONS:
+            emit({'event':'orientation','value':match.group(1),'transform':ORIENTATIONS[match.group(1)]})
+
 def session_object_path(session_id):
     """Encode a logind session ID as its D-Bus object path, like systemd's bus_path_encode."""
     if not session_id: return ''
@@ -730,6 +762,7 @@ def main():
     threading.Thread(target=commands,daemon=True).start()
     threading.Thread(target=controllers,daemon=True).start()
     threading.Thread(target=logind_locks,daemon=True).start()
+    threading.Thread(target=orientation_watch,daemon=True).start()
     threading.Thread(target=publish_games,daemon=True).start()
     from hypr_events import listen as listen_hyprland
     threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()

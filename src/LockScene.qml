@@ -74,6 +74,16 @@ FocusScope {
         Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durLong) } }
     }
     MouseArea { anchors.fill: parent; onClicked: { if (scene.confirmPower !== "") scene.confirmPower = ""; else scene.reveal(); } }
+    // Touch: swipe up to reveal the password pill.
+    DragHandler {
+        target: null; xAxis.enabled: false
+        onActiveChanged: if (!active && translation.y < -60) scene.reveal()
+    }
+    MText {
+        visible: !scene.revealed && !scene.greeter
+        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 96
+        text: "Swipe up or press any key"; role: "label"; color: Theme.alpha("#ffffff", .7)
+    }
 
     // Clock hero. It moves up and shrinks when the auth column appears.
     Column {

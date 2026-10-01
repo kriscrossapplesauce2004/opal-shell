@@ -56,5 +56,17 @@ class LockAndGreeterTests(unittest.TestCase):
                 self.assertEqual(greeter_info.remembered(), {'user': 'melissa', 'session': 'hyprland'})
 
 
+class PhoneHomeValidationTests(unittest.TestCase):
+    def test_accepts_pages_widgets_and_folders(self):
+        layout = {'pages': [{'widgets': ['glance', 'stack'], 'items': ['firefox', {'folder': 'Games', 'apps': ['steam', 'prism']}]}, {'widgets': [], 'items': []}]}
+        self.assertTrue(backend.valid_phone_home(layout))
+
+    def test_rejects_unknown_widgets_and_bad_folders(self):
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': ['evil'], 'items': []}]}))
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'folder': 'x', 'apps': []}]}]}))
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'folder': 'x', 'apps': ['a'], 'run': 'rm'}]}]}))
+        self.assertFalse(backend.valid_phone_home({'pages': []}))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -103,6 +103,17 @@ Scope {
     property bool clipboardCloseAfterCopy: true
     property var gameArt: ({})
     // Console library from game_library.py. Launching sends only the id.
+    // Auto-rotate: only the touch display in phone layout follows the accelerometer.
+    property int orientation: -1
+    function applyOrientation(transform) {
+        // The first reading is a baseline: startup never rewrites a monitor rule unless the device is already turned.
+        const first=orientation<0;
+        const changed=orientation!==transform;
+        orientation=transform;
+        if(prefs.autoRotate===false||!changed||first&&transform===0)return;
+        const phone=Quickshell.screens.find(s=>layoutFor(s.width,s.height,s.name)==="phone"&&(!prefs.phoneDisplay||s.name===prefs.phoneDisplay));
+        if(phone)command({action:"rotate",output:phone.name,transform:transform});
+    }
     property var games: []
     function launchGame(game) { if(!game)return; command({action:"game-launch",id:game.id}); close(); }
     function gameRunning(game) { return !!game&&!!game.windowClass&&windows.some(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
@@ -331,11 +342,29 @@ Scope {
         focusWindow(g.windows[(index+1)%g.windows.length]);
     }
     // Menu entries: quick entries become large buttons, chip entries share a labelled row, checked entries show a switch.
+    // Phone home layout: pages of widgets and items. An item is an app id or a folder {folder, apps}.
+    readonly property var phoneWidgetKinds:["glance","stack","media","calendar","battery","focus"]
+    readonly property var phoneHome:{
+        const saved=prefs.phoneHome;
+        if(saved&&Array.isArray(saved.pages)&&saved.pages.length)return saved;
+        const ids=favoriteApps.slice(4).map(a=>a.id).concat(recentApps.filter(a=>favoriteApps.indexOf(a)<0).map(a=>a.id)).slice(0,16);
+        return {pages:[{widgets:["glance","stack"],items:ids}]};
+    }
+    function setPhoneHome(layout) { set("phoneHome",{pages:layout.pages.filter((p,i)=>i===0||p.widgets.length||p.items.length)}); }
+    function homeHas(id) { return phoneHome.pages.some(p=>p.items.some(item=>item===id||(item.apps||[]).indexOf(id)>=0)); }
+    function addToHome(app) {
+        if(!app||homeHas(app.id))return;
+        const layout=JSON.parse(JSON.stringify(phoneHome));
+        const last=layout.pages[layout.pages.length-1];
+        if(last.items.length>=24)layout.pages.push({widgets:[],items:[app.id]});else last.items.push(app.id);
+        setPhoneHome(layout);message("Added to Home");
+    }
     function appMenu(app) {
         if(!app)return [];
         const matching=windows.filter(w=>appForWindow(w)===app);
         let entries=[{text:matching.length ? "New window" : "Open",icon:"add",quick:true,run:()=>launchNew(app)},
                      {text:pinned(app) ? "Unpin" : "Pin",icon:pinned(app) ? "keep_off" : "keep",quick:true,run:()=>pin(app)}];
+        if(prefs.mode==="phone"||prefs.mode==="auto")entries.push({text:homeHas(app.id) ? "On Home" : "Add to Home",icon:"add_to_home_screen",run:()=>addToHome(app)});
         if(matching.length) entries.push({text:matching.length===1 ? "Close" : "Close all",icon:"close",quick:true,danger:true,run:()=>matching.forEach(w=>closeWindow(w))});
         (app.actions||[]).forEach(a=>entries.push({text:a.name,icon:"bolt",run:()=>{a.execute();close();}}));
         matching.forEach(w=>entries.push({text:w.title||app.name,detail:w.workspace ? "Workspace "+w.workspace : "",icon:"desktop",run:()=>focusWindow(w)}));
@@ -450,6 +479,7 @@ Scope {
                     else if(e.event === "systemOsk") {h.systemOskAvailable=!!e.available;h.systemOskRunning=!!e.running;h.systemOskVisible=!!e.visible;h.systemOskDetail=e.detail||"";}
                     else if(e.event === "libraryArt") h.gameArt=e.data;
                     else if(e.event === "gameLibrary") h.games=e.data;
+                    else if(e.event === "orientation") h.applyOrientation(e.transform);
                     else if(e.event === "navigation" && h.prefs.mode === "console") { if(e.key==="home") h.toggle("launcher"); else if(h.page!=="") h.navigate(e.key); }
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;
                     else if(e.event === "clipboard") {
