@@ -22,7 +22,7 @@ TOOLS = {
                        lambda a: ipc('setPreference', a['key'], json.dumps(a['value']))),
     'open_panel': ('Open or close an Opal panel.', schema({'panel': {'type': 'string', 'enum': list(PANELS)}}, ('panel',)), lambda a: ipc(a['panel'])),
     'set_layout': ('Switch the shell layout.', schema({'layout': {'type': 'string', 'enum': list(LAYOUTS)}}, ('layout',)), lambda a: ipc(LAYOUTS[a['layout']])),
-    'list_notifications': ('List notifications in the Opal inbox.', schema(), lambda a: ipc('notifications')),
+    'list_notifications': ('List notifications in the Opal inbox.', schema(), lambda a: ipc('listNotifications')),
     'list_windows': ('List open windows.', schema(), lambda a: ipc('windows')),
     'media': ('Control the active media player.', schema({'action': {'type': 'string', 'enum': ['play-pause', 'next', 'previous']}}, ('action',)), lambda a: ipc('media', a['action'])),
     'set_volume': ('Set output volume, 0 to 100.', schema({'value': {'type': 'integer', 'minimum': 0, 'maximum': 100}}, ('value',)), lambda a: ipc('volume', int(a['value']))),
