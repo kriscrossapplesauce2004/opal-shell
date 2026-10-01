@@ -39,9 +39,12 @@ QtObject {
     readonly property color surfaceLow: mix(base,primaryContainer,light ? .08 : .06)
     readonly property color surfaceHighest: mix(base,primaryContainer,light ? .36 : .28)
     readonly property color secondaryContainer: mix(base,secondary,light ? .42 : .26)
-    readonly property color onSecondaryContainer: light ? mix(secondary,"#000000",.62) : mix(secondary,"#ffffff",.55)
+    // QML reads "on" + capital names as signal handlers, so the colours live under "Ink" names with aliases.
+    readonly property color secondaryInk: mix(secondary, light ? "#000000" : "#ffffff", light ? .62 : .55)
+    readonly property alias onSecondaryContainer: theme.secondaryInk
     readonly property color tertiaryContainer: mix(base,tertiary,light ? .45 : .28)
-    readonly property color onTertiaryContainer: light ? mix(tertiary,"#000000",.62) : mix(tertiary,"#ffffff",.55)
+    readonly property color tertiaryInk: mix(tertiary, light ? "#000000" : "#ffffff", light ? .62 : .55)
+    readonly property alias onTertiaryContainer: theme.tertiaryInk
     // Glass roles for islands and cards that sit on the wallpaper.
     readonly property color glassIsland: mix(mix(base,"#ffffff",light ? .25 : .06),light ? primaryContainer : primary,light ? .5 : .24)
     readonly property color glassRaised: mix(mix(base,"#ffffff",light ? .3 : .08),light ? "#ffffff" : primaryContainer,light ? .62 : .42)

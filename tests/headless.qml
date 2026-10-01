@@ -292,6 +292,11 @@ ShellRoot {
         }
         function next() {
             if(step>=cases.length) {console.log("OFFSCREEN_TESTS_COMPLETE");Qt.quit();return;}
+            // Every "on" colour must contrast with its container; a stuck binding shows up as black on dark.
+            Qt.callLater(()=>{const T=Opal.Theme;const lin=v=>v<=.03928 ? v/12.92 : Math.pow((v+.055)/1.055,2.4);const lum=c=>{c=Qt.color(c);return .2126*lin(c.r)+.7152*lin(c.g)+.0722*lin(c.b);};
+                [["onSecondaryContainer","secondaryContainer"],["onTertiaryContainer","tertiaryContainer"],["onContainer","primaryContainer"],["onPrimary","primary"],["text","base"]].forEach(([fg,bg])=>{
+                    const l1=lum(T[fg]),l2=lum(T[bg]);const ratio=(Math.max(l1,l2)+.05)/(Math.min(l1,l2)+.05);
+                    if(ratio<4.5)console.error("ASSERTION_FAILED: low contrast "+fg+" "+T[fg]+" on "+bg+" "+T[bg]+" ("+ratio.toFixed(2)+") palette "+Opal.Hub.prefs.palette+" dynamic "+!!Opal.Hub.prefs.dynamicColors+" light "+T.light+" in "+cases[step].name);});});
             const test=cases[step];
             view.sourceComponent=null;
             width=test.w;height=test.h;musicVolume=40;
