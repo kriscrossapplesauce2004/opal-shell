@@ -138,9 +138,40 @@ ShellRoot {
         color:"transparent"
         Loader {anchors.fill:parent;active:Hub.osd!=="";sourceComponent:Component {VolumeOsd {}}}
     }
+    // First start: a quiet card offers the tour. It never takes the keyboard.
+    PanelWindow {
+        id:tourPrompt
+        property bool dismissed:false
+        screen:Hub.chooseScreen()
+        visible:Hub.preferencesLoaded&&Hub.prefs.onboarded!==true&&!dismissed&&Hub.page===""&&tourDelay.elapsed
+        anchors {bottom:true;right:true}
+        margins {bottom:90;right:18}
+        implicitWidth:360;implicitHeight:tourCard.implicitHeight
+        exclusionMode:ExclusionMode.Ignore
+        WlrLayershell.layer:WlrLayer.Overlay
+        WlrLayershell.namespace:"opal-toast"
+        WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
+        color:"transparent"
+        Timer {id:tourDelay;property bool elapsed:false;interval:4000;running:Hub.preferencesLoaded;onTriggered:elapsed=true}
+        Rectangle {
+            id:tourCard;anchors.fill:parent;implicitHeight:tourColumn.implicitHeight+32;radius:Theme.shapeXl;color:Theme.primaryContainer
+            ColumnLayout {id:tourColumn;anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;anchors.margins:16;spacing:6
+                RowLayout {spacing:10
+                    Glyph {name:"auto_awesome";font.pixelSize:22;color:Theme.onContainer}
+                    MText {text:"Opal has a new look";role:"titleS";color:Theme.onContainer}}
+                MText {Layout.fillWidth:true;wrapMode:Text.Wrap;text:"Take a one-minute tour to pick your bar, icons and theme.";role:"bodyS";color:Theme.alpha(Theme.onContainer,.85)}
+                RowLayout {Layout.fillWidth:true;Layout.topMargin:4
+                    Item {Layout.fillWidth:true}
+                    MButton {text:"Not now";compact:true;ink:Theme.onContainer;onClicked:{tourPrompt.dismissed=true;Hub.set("onboarded",true);}}
+                    MButton {text:"Take the tour";compact:true;filled:true;onClicked:{tourPrompt.dismissed=true;Hub.targetScreen=tourPrompt.screen;Hub.page="welcome";}}
+                }
+            }
+        }
+    }
     WorkspaceOsd {}
     LockScreen {}
     PolkitDialog {}
+    SystemServices {}
     AudioDrawer {}
     ShadeWindow {}
     PowerProfileWindow {}
@@ -219,12 +250,12 @@ ShellRoot {
             readonly property bool phone:overlay.layoutMode==="phone"
             readonly property bool game:overlay.layoutMode==="console"
             readonly property bool launcher:Hub.page==="launcher"
-            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : Hub.page==="settings" ? 880 : launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="convergence"||Hub.page==="wallpaper" ? 800 : Hub.page==="appearance" ? 660 : 490)
+            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : Hub.page==="settings" ? 880 : launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="convergence"||Hub.page==="wallpaper" ? 800 : Hub.page==="appearance"||Hub.page==="welcome" ? 660 : 490)
             readonly property real contentFit:overlayContent.item&&overlayContent.item.fitHeight!==undefined ? overlayContent.item.fitHeight : 0
             height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : Hub.page==="settings" ? 720 : Hub.page==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
             Behavior on height {enabled:overlay.visible;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            x:phone||game&&launcher ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||Hub.page==="settings"||Hub.page==="appearance"||Hub.page==="convergence"||Hub.page==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
-            y:phone||game&&launcher ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||Hub.page==="settings" ? Math.max(60,(overlay.height-height)/2) : 62
+            x:phone||game&&launcher ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||Hub.page==="settings"||Hub.page==="appearance"||Hub.page==="welcome"||Hub.page==="convergence"||Hub.page==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
+            y:phone||game&&launcher ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||Hub.page==="settings"||Hub.page==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
             radius:phone||game&&launcher ? 0 : overlay.desktopStart ? 28 : overlay.searchPanel ? 32 : 36
             translucency:phone&&launcher ? Math.min(.35,Hub.prefs.glass) : Hub.prefs.glass
             border.width:phone&&launcher ? 0 : 1
@@ -234,7 +265,7 @@ ShellRoot {
                 anchors.fill:parent;anchors.topMargin:panel.phone ? 48 : 0;anchors.bottomMargin:panel.phone ? (Hub.prefs.phoneButtons ? 64 : 48) : 0;active:overlay.visible
                 onLoaded:contentArrival.restart()
                 NumberAnimation {id:contentArrival;target:overlayContent;property:"opacity";from:0;to:1;duration:Theme.motion(180)}
-                sourceComponent:Hub.page==="search" ? (panel.phone ? mobileComponent : searchComponent) : Hub.page==="settings" ? settingsComponent : Hub.page==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : Hub.page==="clipboard" ? clipboardComponent : Hub.page==="appearance" ? appearanceComponent : Hub.page==="convergence" ? convergenceComponent : Hub.page==="wallpaper" ? wallpaperComponent : Hub.page==="windows" ? windowsComponent : controlsComponent
+                sourceComponent:Hub.page==="search" ? (panel.phone ? mobileComponent : searchComponent) : Hub.page==="settings" ? settingsComponent : Hub.page==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : Hub.page==="clipboard" ? clipboardComponent : Hub.page==="appearance" ? appearanceComponent : Hub.page==="convergence" ? convergenceComponent : Hub.page==="wallpaper" ? wallpaperComponent : Hub.page==="windows" ? windowsComponent : Hub.page==="welcome" ? welcomeComponent : controlsComponent
             }
             PhoneStatus {visible:panel.phone;anchors.top:parent.top;width:parent.width;height:48;output:overlay.screen}
             PhoneNavigation {visible:panel.phone;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight;output:overlay.screen}
@@ -248,6 +279,7 @@ ShellRoot {
             WindowSwitcher {Layout.fillWidth:true;Layout.fillHeight:true;layoutMode:panel.game ? "console" : panel.phone ? "phone" : "desktop";focus:true}
         }}
         Component {id:wallpaperComponent;WallpaperPicker {}}
+        Component {id:welcomeComponent;Onboarding {}}
         Component {id:searchComponent;SearchPanel {}}
         Component {id:settingsComponent;Settings {}}
         Component {id:convergenceComponent;Convergence {}}

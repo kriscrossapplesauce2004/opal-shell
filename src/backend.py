@@ -45,6 +45,22 @@ def valid_phone_home(value):
         if not isinstance(items,list) or len(items)>48 or not all(map(item,items)): return False
     return True
 
+import system_tools
+TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
+PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
+def valid_schedules(value):
+    """Night light, dark mode and Do not disturb schedules: sun times or custom times."""
+    if not isinstance(value,dict) or not set(value)<={'nightLight','darkMode','dnd'}: return False
+    for item in value.values():
+        if not isinstance(item,dict) or not set(item)<={'enabled','mode','from','to','temperature'}: return False
+        if type(item.get('enabled',False)) is not bool or item.get('mode','custom') not in ('sun','custom'): return False
+        if any(k in item and not (isinstance(item[k],str) and TIME.fullmatch(item[k])) for k in ('from','to')): return False
+        if 'temperature' in item and (type(item['temperature']) is not int or not 2500<=item['temperature']<=6500): return False
+    return True
+def valid_profiles(value):
+    if not isinstance(value,dict) or len(value)>10: return False
+    return all(isinstance(name,str) and 0<len(name)<=40 and isinstance(saved,dict) and set(saved)<=set(PROFILE_KEYS) for name,saved in value.items())
+
 def load():
     base = {'mode':'auto', 'palette':0, 'light':False, 'dnd':False, 'glass':0.78, 'favorites':[], 'recent':[], 'wallpaper':0, 'pinsConfigured':False, 'taskbarAutoHide':False, 'taskbarLabels':True, 'phoneButtons':False, 'controllerLayout':'standard'}
     base['displayModes'] = {}
@@ -57,6 +73,9 @@ def load():
     base['iconStyle'] = 'raw'
     base['gamePins'] = []
     base['autoRotate'] = True
+    base['themeExport'] = []
+    base['schedules'] = {}
+    base['profiles'] = {}
     base['sheetSections'] = list(SHEET_SECTION_DEFAULT)
     base['quickTiles'] = list(QUICK_TILE_DEFAULT)
     base['phoneRows'] = 5
@@ -65,6 +84,7 @@ def load():
     except (OSError, ValueError): pass
     return base
 prefs = load()
+night_light = system_tools.NightLight()
 GREETER_CACHE = pathlib.Path(os.environ.get('OPAL_GREETER_CACHE', '/var/cache/opal-greeter'))
 GREETER_KEYS = ('light','palette','dynamicColors','dynamicPalette','colorScheme','wallpaperDim','reduceMotion')
 def sync_greeter_theme(values=None, cache=None):
@@ -361,7 +381,10 @@ def commands():
             c=json.loads(line); action=c.get('action')
             if action=='preference':
                 key=c.get('key'); value=c.get('value')
-                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate','onboarded') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = valid or key=='themeExport' and isinstance(value,list) and all(v in system_tools.TARGETS for v in value) and len(set(value))==len(value)
+                valid = valid or key=='schedules' and valid_schedules(value)
+                valid = valid or key=='profiles' and valid_profiles(value)
                 valid = valid or key=='phoneHome' and valid_phone_home(value)
                 valid = valid or key=='gamePins' and isinstance(value,list) and len(value)<=256 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='sheetSections' and isinstance(value,list) and len(value)<=len(SHEET_SECTION_IDS) and all(v in SHEET_SECTION_IDS for v in value) and len(set(value))==len(value)
@@ -440,6 +463,30 @@ def commands():
             elif action=='claude-ask' and isinstance(c.get('text'),str) and 0<len(c['text'])<8000:
                 threading.Thread(target=ask_claude,args=(c['text'],int(c.get('id') or 0)),daemon=True).start()
             elif action=='claude-stop': stop_claude()
+            elif action=='theme-export':
+                def export(c=c):
+                    try: emit({'event':'themeExport','done':system_tools.export_theme(c.get('colors'),[t for t in (c.get('targets') or []) if t in system_tools.TARGETS])})
+                    except (ValueError,OSError) as error: emit({'event':'message','text':'Theme export failed: '+str(error)})
+                threading.Thread(target=export,daemon=True).start()
+            elif action=='theme-export-remove':
+                try: system_tools.remove_export([t for t in (c.get('targets') or []) if t in system_tools.TARGETS])
+                except OSError as error: emit({'event':'message','text':str(error)})
+            elif action=='updates': threading.Thread(target=lambda:emit(dict(system_tools.updates(),event='updates')),daemon=True).start()
+            elif action=='health': emit(dict(system_tools.health(),event='health'))
+            elif action=='system-update':
+                command=system_tools.update_command()
+                if command: spawn(command)
+                else: emit({'event':'message','text':'No terminal found to run the update'})
+            elif action=='monitors': threading.Thread(target=lambda:emit({'event':'monitors','data':system_tools.monitors()}),daemon=True).start()
+            elif action=='monitors-apply':
+                try: system_tools.apply_monitors(c.get('displays'),c.get('keep') is True); emit({'event':'monitorsApplied','keep':c.get('keep') is True})
+                except (ValueError,OSError) as error: emit({'event':'message','text':str(error)})
+                threading.Thread(target=lambda:(time.sleep(1),emit({'event':'monitors','data':system_tools.monitors()})),daemon=True).start()
+            elif action=='night-light':
+                if not night_light.set(c.get('enabled') is True,c.get('temperature') if type(c.get('temperature')) is int else 4000): emit({'event':'message','text':'Night light needs hyprsunset'})
+            elif action=='sun-times':
+                where=system_tools.zone_coordinates(); times=system_tools.sun_times(*where) if where else None
+                emit({'event':'sun','sunrise':times[0] if times else '07:00','sunset':times[1] if times else '19:00','estimated':times is None})
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
             elif action=='game-launch': launch_game(c.get('id'))
             elif action=='system-osk' and c.get('verb') in ('show','hide','toggle'):
@@ -767,6 +814,22 @@ def stop_claude():
         process.terminate()
     CLAUDE['process'] = None
 
+def health_watch():
+    """Check disks and temperatures every five minutes and updates every three hours; warn once per condition."""
+    warned=set(); last_updates=0
+    time.sleep(60)
+    while True:
+        report=system_tools.health(); emit(dict(report,event='health'))
+        for disk in report['disks']:
+            key='disk-'+disk['label']
+            if disk['percent']>=92 and key not in warned: warned.add(key); emit({'event':'message','text':f"{disk['label']} disk is {disk['percent']}% full"})
+            elif disk['percent']<88: warned.discard(key)
+        if report['hottest']>=90 and 'hot' not in warned: warned.add('hot'); emit({'event':'message','text':f"Running hot: {report['hottest']}°C"})
+        elif report['hottest']<80: warned.discard('hot')
+        if time.time()-last_updates>3*3600:
+            last_updates=time.time(); emit(dict(system_tools.updates(),event='updates'))
+        time.sleep(300)
+
 def session_object_path(session_id):
     """Encode a logind session ID as its D-Bus object path, like systemd's bus_path_encode."""
     if not session_id: return ''
@@ -807,6 +870,7 @@ def main():
     threading.Thread(target=controllers,daemon=True).start()
     threading.Thread(target=logind_locks,daemon=True).start()
     threading.Thread(target=orientation_watch,daemon=True).start()
+    threading.Thread(target=health_watch,daemon=True).start()
     threading.Thread(target=publish_games,daemon=True).start()
     from hypr_events import listen as listen_hyprland
     threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()

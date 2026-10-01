@@ -20,15 +20,20 @@ Item {
             {id:"bluetooth",title:"Connected devices",icon:"bluetooth",detail:"Bluetooth and pairing"}]},
         {title:"Device",items:[
             {id:"sound",title:"Sound",icon:"volume",detail:"Volume, outputs and microphone"},
+            {id:"screens",title:"Screens",icon:"monitor",detail:"Arrangement, resolution and scale"},
             {id:"display",title:"Displays & convergence",icon:"convergence",detail:"Layouts for every screen"},
             {id:"power",title:"Battery & power",icon:"battery",detail:"Profiles and staying awake"}]},
         {title:"Personal",items:[
             {id:"appearance",title:"Wallpaper & style",icon:"palette",detail:"Colours, wallpaper and glass"},
             {id:"taskbar",title:"Shelf",icon:"desktop",detail:"Alignment, labels and hiding"},
             {id:"phone",title:"Phone & navigation",icon:"phone",detail:"Gestures, buttons and keyboard"},
-            {id:"notifications",title:"Notifications",icon:"bell",detail:"Do not disturb and inbox"}]},
+            {id:"notifications",title:"Notifications",icon:"bell",detail:"Do not disturb and inbox"},
+            {id:"schedules",title:"Night light & schedules",icon:"nightlight",detail:"Warm screen, dark theme and quiet hours"},
+            {id:"apptheme",title:"Theme for apps",icon:"format_paint",detail:"GTK, Kitty, Qt and window borders"},
+            {id:"profiles",title:"Profiles",icon:"style",detail:"Save and switch whole setups"}]},
         {title:"System",items:[
             {id:"accessibility",title:"Accessibility",icon:"accessibility_new",detail:"Motion and readable surfaces"},
+            {id:"system",title:"Updates & health",icon:"system_update",detail:"Updates, storage and temperatures"},
             {id:"about",title:"About this device",icon:"info",detail:"System, shell and live usage"}]}
     ]
     readonly property var sections:groups.reduce((all,g)=>all.concat(g.items),[])
@@ -117,7 +122,7 @@ Item {
                 Loader {
                     id:page
                     Layout.fillWidth:true;Layout.fillHeight:true
-                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="display" ? displayPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
+                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="display" ? displayPage : Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
                     // Pages slide in from the side on every section change.
                     onLoaded:{pageIn.restart();}
                     ParallelAnimation {
@@ -231,6 +236,11 @@ Item {
     }}
     Component {id:stylePage;Appearance {compact:settings.narrow;embedded:true}}
     Component {id:displayPage;Convergence {embedded:true}}
+    Component {id:screensPage;SettingsScreens {}}
+    Component {id:schedulesPage;SettingsSchedules {}}
+    Component {id:appThemePage;SettingsAppTheme {}}
+    Component {id:profilesPage;SettingsProfiles {}}
+    Component {id:systemPage;SettingsSystem {}}
     Component {id:connectionPage;ConnectionPanel {kind:Hub.settingsSection==="network" ? "wifi" : "bluetooth";embedded:true;backAction:()=>{Hub.settingsSection="";}}}
     Component {id:soundPage;Flickable {contentHeight:sound.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
         ScrollBar.vertical:ScrollBar {}

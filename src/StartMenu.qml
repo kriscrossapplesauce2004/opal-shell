@@ -35,7 +35,8 @@ FocusScope {
         {id:"clipboard",name:"Clipboard history",detail:"Your session clipboard",icon:"clipboard",keywords:"copy paste text"},
         {id:"screenshot",name:"Take a screenshot",detail:"Capture your screen",icon:"capture",keywords:"screen image capture"},
         {id:"lock",name:"Lock device",detail:"Lock your current session",icon:"lock",keywords:"secure screen"},
-        {id:"focus",name:"Start focus timer",detail:"25 minutes without distractions",icon:"timer",keywords:"pomodoro concentrate"}
+        {id:"focus",name:"Start focus timer",detail:"25 minutes without distractions",icon:"timer",keywords:"pomodoro concentrate"},
+        {id:"welcome",name:"Opal tour",detail:"Pick your bar, icons and theme",icon:"auto_awesome",keywords:"setup onboarding welcome tour"}
     ]
     readonly property var results:searching&&!calculator&&!web&&!claude ? Search.search(query,scope,Hub.appSearchIndex,Hub.windows,actions,Hub.favoriteApps.map(a=>a.id),Hub.prefs.recent||[]) : []
     readonly property var selected:results[selection]||null

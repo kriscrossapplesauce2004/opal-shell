@@ -84,3 +84,10 @@ GreeterController 1.0 GreeterController.qml
 LockController 1.0 LockController.qml
 GameCover 1.0 GameCover.qml
 PhoneWidget 1.0 PhoneWidget.qml
+SystemServices 1.0 SystemServices.qml
+SettingsScreens 1.0 SettingsScreens.qml
+SettingsAppTheme 1.0 SettingsAppTheme.qml
+SettingsProfiles 1.0 SettingsProfiles.qml
+SettingsSchedules 1.0 SettingsSchedules.qml
+SettingsSystem 1.0 SettingsSystem.qml
+Onboarding 1.0 Onboarding.qml

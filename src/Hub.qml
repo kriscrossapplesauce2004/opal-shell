@@ -122,6 +122,11 @@ Scope {
     property bool claudeError: false
     function askClaude(text) { const t=text.trim();if(!t)return;claudeRequest++;claudeAnswer="";claudeTools=[];claudeError=false;claudeBusy=true;command({action:"claude-ask",text:t,id:claudeRequest}); }
     function stopClaude() { command({action:"claude-stop"});claudeBusy=false; }
+    // System reports from system_tools.py.
+    property var health: ({disks:[],temperatures:{},hottest:0})
+    property var updates: ({pacman:null,flatpak:null})
+    property var monitors: []
+    property var sun: ({sunrise:"07:00",sunset:"19:00",estimated:true})
     property var games: []
     function launchGame(game) { if(!game)return; command({action:"game-launch",id:game.id}); close(); }
     function gameRunning(game) { return !!game&&!!game.windowClass&&windows.some(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
@@ -487,6 +492,10 @@ Scope {
                     else if(e.event === "systemOsk") {h.systemOskAvailable=!!e.available;h.systemOskRunning=!!e.running;h.systemOskVisible=!!e.visible;h.systemOskDetail=e.detail||"";}
                     else if(e.event === "libraryArt") h.gameArt=e.data;
                     else if(e.event === "gameLibrary") h.games=e.data;
+                    else if(e.event === "health") h.health={disks:e.disks,temperatures:e.temperatures,hottest:e.hottest};
+                    else if(e.event === "updates") h.updates={pacman:e.pacman,flatpak:e.flatpak};
+                    else if(e.event === "monitors") h.monitors=e.data;
+                    else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}
                     else if(e.event === "orientation") h.applyOrientation(e.transform);
                     else if(e.event === "navigation" && h.prefs.mode === "console") { if(e.key==="home") h.toggle("launcher"); else if(h.page!=="") h.navigate(e.key); }

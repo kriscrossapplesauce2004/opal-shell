@@ -69,3 +69,5 @@ bind("XF86AudioNext", "playerctl next")
 bind("XF86AudioPrev", "playerctl previous")
 bind("XF86MonBrightnessUp", "brightnessctl set +5%")
 bind("XF86MonBrightnessDown", "brightnessctl set 5%-")
+-- Display settings saved from Opal.
+pcall(dofile, os.getenv("HOME") .. "/.config/hypr/opal-monitors.lua")
