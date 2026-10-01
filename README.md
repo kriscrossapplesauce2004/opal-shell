@@ -1,5 +1,18 @@
 # Opal / Expressive
 
+## October 2026 overhaul
+
+- **Design**: tonal surfaces with little glass, restrained motion (no overshoot), Google Sans Flex type scale with variable axes (`Theme.type`, `MText.role`).
+- **Bar**: four styles (`barStyle`: islands, dock, split, edge). Live activity pill for media and focus; volume and workspace changes show inside the bar; the app strip hugs its content and drops titles when crowded.
+- **Notifications and controls**: compact tonal toasts; inbox grouped by app; controls and notifications are one sheet with reorderable, optional sections (calendar, monitor, clipboard, focus, batteries, your devices).
+- **Start**: category rail, hero greeting and clock, `!` asks Claude through the Claude Code CLI with the Opal MCP server attached. Icons: original, backplate or themed (`iconStyle`).
+- **Lock and login**: `LockScreen` (session lock + PAM, Super+L, logind Lock/Unlock) and a greetd greeter sharing `LockScene`. Install the greeter with `opal greeter` (sudo); revert with `opal greeter --revert`. `PolkitDialog` replaces hyprpolkitagent while Opal runs.
+- **Phone**: editable home pages with widgets, folders and drag to reorder; auto-rotate through iio-sensor-proxy; swipe up on the lock screen.
+- **Console**: library from Steam, Steam shortcuts, Prism Launcher, Heroic, Lutris and RetroArch (`game_library.py`), cover grid, rebuilt Play hub.
+- **System**: theme export to GTK, Kitty, Qt and window borders; profiles; night light, dark mode and Do not disturb schedules (sun times from the time zone); updates and health; screen arrangement with keep-or-revert; first-start tour.
+- **Opal Link** (`opal_link.py`): a KDE Connect protocol 8 device that can import your KDE Connect identity, so paired phones keep working. Opal devices also share what they are doing for "Open here" continuity.
+- **Opal MCP server** (`opal_mcp.py`): registered with `claude mcp add` by the installer, so `claude` can read and change the shell.
+
 A Material 3 Expressive-inspired Quickshell, with Pixel-style quick settings, a tablet-style app shelf, dynamic color palettes and genuinely translucent compositor-blurred surfaces. This is an independent shell, not Google software.
 
 ## Start / restore
@@ -101,7 +114,7 @@ Quickshell + Qt Quick Controls + Wayland layer-shell + Python 3. No Hyprland QML
 
 Optional Linux tools: wpctl, playerctl, nmcli, bluetoothctl, brightnessctl, powerprofilesctl, grim, wl-copy, notify-send. Network and Bluetooth settings stay inside Quick Settings, using nmcli and bluetoothctl adapters. Wi-Fi supports visible personal/open networks and saved credentials; enterprise/hidden network configuration is not yet embedded. Bluetooth PIN/passkey confirmation still needs an existing system agent. Credentials are not saved by Opal (NetworkManager may retain its connection profile). Quick Settings includes microphone mute; advanced audio settings elsewhere still open pavucontrol. Screenshots go to Pictures/Screenshots. The media card may load the art URI supplied by your active player. Web search is only on explicit action. No weather or online recommendations are fabricated.
 
-Not bundled: lock screen (uses existing hyprlock), polkit agent, screen recorder, or a full controller mapper. The installer now treats Squeekboard as an Opal runtime dependency where the supported package manager provides it; environments without Squeekboard keep the shell-local fallback and report the system keyboard as unavailable. Existing DMS-only shortcuts outside the remapped set remain unavailable while DMS is paused.
+Not bundled: a screen recorder or a full controller mapper. Opal now ships its own lock screen, greetd greeter and polkit agent (see below). The installer now treats Squeekboard as an Opal runtime dependency where the supported package manager provides it; environments without Squeekboard keep the shell-local fallback and report the system keyboard as unavailable. Existing DMS-only shortcuts outside the remapped set remain unavailable while DMS is paused.
 
 ## Source
 
