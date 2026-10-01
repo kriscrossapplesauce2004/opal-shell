@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,8 +13,13 @@ import time
 
 
 def run():
-    fixture = str((Path(__file__).resolve().parent.parent / 'notifications-test.qml'))
+    source = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix='opal-notifications-') as tmp:
+        # Keep imports inside Quickshell's config root in an isolated copy.
+        config = Path(tmp) / 'fixture'
+        shutil.copytree(source / 'src', config / 'src', ignore=shutil.ignore_patterns('__pycache__'))
+        fixture = str(config / 'notifications-test.qml')
+        shutil.copy2(source / 'tests' / 'notifications-test.qml', fixture)
         env = dict(os.environ, HOME=tmp, XDG_CONFIG_HOME=tmp+'/config',
                    XDG_DATA_HOME=tmp+'/data', XDG_RUNTIME_DIR=tmp+'/runtime',
                    QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software')

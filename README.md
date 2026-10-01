@@ -8,21 +8,35 @@ A Material 3 Expressive-inspired Quickshell, with Pixel-style quick settings, a 
 
 ## Install
 
-From a checkout, run `./install.sh` to install the shell into
-`~/.config/quickshell/opal` and the `opal` command into `~/.local/bin`. Existing
-shell files are moved to a timestamped backup under
+From a checkout, run `./install.sh`. It installs missing dependencies through
+pacman, dnf, or apt where those packages exist, installs the shell into
+`~/.config/quickshell/opal`, and puts `opal` in `~/.local/bin`. For a Lua-based
+Hyprland config, it also adds an idempotent, reversible runtime-marker hook to
+`~/.config/hypr/hyprland.lua`; the hook only loads Opal bindings while Opal is
+on. Existing shell and Hyprland config files are backed up under
 `~/.local/state/opal/pre-deploy-*-install`; preferences are preserved. Use
-`./install.sh --restart` to install and reload the running shell in one step.
+`./install.sh --restart` to install and reload in one step, `--no-deps` to skip
+package installation, or `--no-hyprland` to leave Hyprland untouched.
+
+## Material 3 Expressive glass refresh
+
+- Shared tokens in `Theme.qml`: an M3 surface-container ramp, secondary/tertiary containers, glass island/raised/highlight roles, an error role, shape scale and expressive motion curves.
+- Every `Surface` gets a soft top sheen. `MButton` uses M3 state layers (8% hover, 14% press), a shape-bounded press pulse and an offset focus ring. `Chip` is a themed assist/filter chip.
+- The shelf is a set of translucent glass islands: a Start circle with a live dot that morphs while Start is open, a search pill with an inner field plus clipboard and screenshot shortcuts, circular app bubbles whose focused state morphs to a squircle, a notification island with an unread count, a status island (low-battery and volume-level icons) and a stronger clock island.
+- The control panel has round header actions, network and active-app chips, pill-to-squircle tile morphs, thick sliders with in-track icons and M3 stop indicators, and it sizes itself to its content instead of leaving empty space.
+- Desktop widgets: a recent-apps card, an analog clock in a four-lobe cookie shape (seconds hand hidden with reduced motion), a date blob with a scalloped month badge, a glass quick-action toolbar and now playing. Widget cards blur the wallpaper region behind them (`Frost.qml`), because compositor blur cannot reach inside the wallpaper surface.
+- Media cards show album art inside the disc and as a blurred ambient tint, both masked to shape. Launcher and search filters use icon filter chips. The volume OSD uses glass and has a compositor blur rule.
+- GPU-only effects (wallpaper frost, art masks) are not visible in software offscreen renders; there the cards fall back to their tint. `tests/headless.qml` includes `reference-desktop-*` composite scenes over a generated shoreline photo.
 
 ## Shortcuts and layouts
 
 - Super+Space: launcher. Super+Comma: shade. Super+N: inbox.
-- `opal phone` / Super+Ctrl+P: compact touch-sized app drawer, home clock, bottom Android-style navigation.
+- `opal phone` / Super+Ctrl+P: compact touch-sized app drawer, home clock, bottom Android-style navigation, and an adaptive shell-local keyboard for Opal search fields.
 - `opal console` / Super+Ctrl+G: large game-first library, Steam Big Picture button, keyboard / joystick navigation.
 - `opal desktop` / Super+Ctrl+D: restore desktop layout.
-- `opal appearance`: personalize colors, light/dark, glass density, wallpaper composition, layout.
+- `opal appearance`: personalize colors, light/dark, glass density, local wallpaper images, layout.
 - `opal close`: dismiss overlay. `opal inspect`: read-only JSON diagnostics.
-- All three layouts are shell layouts, not compositor display rotations or replacements for applications' own UI. Phone mode does not add an on-screen keyboard.
+- All three layouts are shell layouts, not compositor display rotations or replacements for applications' own UI. Phone mode keeps a shell-local keyboard as a fallback, while Opal also starts Squeekboard as the real Wayland input method when it is installed.
 
 ## Docking and convergence
 
@@ -38,11 +52,13 @@ Choosing Phone targets the invoking display (remembered as phoneDisplay); other 
 
 ## Shelf dragging
 
+Desktop has no top bar. Separate bottom islands hold the launcher/search and circular app icons on the left, with tray, sound, connectivity, battery and clock on the right. There is no shared dock background. The control center, audio drawer, power picker and notifications open above the bottom controls. Phone retains its own status and navigation bars.
+
 Drag taskbar icons horizontally to reorder them. The dragged item lifts, neighbors animate aside, and edges auto-scroll. Drop order is persisted separately from favorites and never moves application windows. A drag suppresses click-to-launch; releasing outside the strip cancels. Ctrl+Left/Right on a focused task also reorders it. New motion respects the reduced-motion preference; auto-hide stays inhibited while dragging or using a task context menu.
 
 ## Wallpaper studio
 
-Appearance → Wallpaper studio opens a local thumbnail gallery with built-in artwork, folder browsing and individual image selection. The large preview includes a sample shell surface. Crop/fit and image dimming are draft-only until Apply; Reset restores the saved selection. Gallery discovery is bounded to 120 images / 3,000 entries / three directory levels, skips hidden files and symlink traversal, and never downloads assets. Default roots include Pictures, Pictures/Wallpapers, ~/wallpapers and system wallpaper directories. Image previews are decoded asynchronously at bounded thumbnail sizes. Wallpaper and preview settings are applied together in one preference write.
+Appearance → Wallpaper studio opens a local thumbnail gallery with folder browsing and individual image selection. No procedural wallpaper artwork is bundled; without an image, the background is a solid theme color. The large preview includes a sample shell surface. Crop/fit and image dimming are draft-only until Apply; Reset restores the saved selection. Gallery discovery is bounded to 120 images / 3,000 entries / three directory levels, skips hidden files and symlink traversal, and never downloads assets. Default roots include Pictures, Pictures/Wallpapers, ~/wallpapers and system wallpaper directories. Image previews are decoded asynchronously at bounded thumbnail sizes. Wallpaper and preview settings are applied together in one preference write.
 
 Phone-mode app drawers use a centered maximum-width area and at most seven columns on large displays, with separate category filters. The normal desktop launcher layout is unchanged.
 
@@ -56,6 +72,12 @@ App grid with fuzzy-ranked search, categories, recently launched apps, and pinne
 - `? search terms`: explicit Google search in your default browser.
 - Apps / At a glance / Open / Style navigation rail (segmented toolbar in phone mode).
 - Open lists and focuses live Hyprland windows; other compositors get an explicit unsupported message.
+
+## Shell-local keyboard
+
+Phone search, launcher search, clipboard filtering and console search share the same adaptive keyboard. It uses Material You dynamic colors, touch-width-aware key sizing, key previews, one-shot Shift and Caps Lock, numbers/symbols, cursor movement, held Backspace repeat and a context-specific action key. Editing is selection-aware and deletes common Unicode grapheme sequences such as emoji and combining characters as a unit instead of blindly removing one UTF-16 code unit. Controller search keeps D-pad navigation and selected-key highlighting. Reduced-motion settings apply to keyboard shape and press animations, and secure consumers can disable key previews.
+
+The shell-local keyboard only edits eligible Opal QML text controls and remains the fallback when the system input method is unavailable. When Squeekboard is installed, Opal launches it through an isolated Material You theme wrapper and controls its real session D-Bus interface. Squeekboard then uses the compositor input-method/text-input protocols for ordinary application fields instead of key injection or clipboard replacement. Quick Settings and phone controls expose manual show/hide alongside normal focus-driven visibility.
 
 ## Useful things
 
@@ -79,8 +101,51 @@ Quickshell + Qt Quick Controls + Wayland layer-shell + Python 3. No Hyprland QML
 
 Optional Linux tools: wpctl, playerctl, nmcli, bluetoothctl, brightnessctl, powerprofilesctl, grim, wl-copy, notify-send. Network and Bluetooth settings stay inside Quick Settings, using nmcli and bluetoothctl adapters. Wi-Fi supports visible personal/open networks and saved credentials; enterprise/hidden network configuration is not yet embedded. Bluetooth PIN/passkey confirmation still needs an existing system agent. Credentials are not saved by Opal (NetworkManager may retain its connection profile). Quick Settings includes microphone mute; advanced audio settings elsewhere still open pavucontrol. Screenshots go to Pictures/Screenshots. The media card may load the art URI supplied by your active player. Web search is only on explicit action. No weather or online recommendations are fabricated.
 
-Not bundled: lock screen (uses existing hyprlock), polkit agent, an on-screen keyboard, screen recorder, or a full controller mapper. Existing DMS-only shortcuts outside the remapped set remain unavailable while DMS is paused.
+Not bundled: lock screen (uses existing hyprlock), polkit agent, screen recorder, or a full controller mapper. The installer now treats Squeekboard as an Opal runtime dependency where the supported package manager provides it; environments without Squeekboard keep the shell-local fallback and report the system keyboard as unavailable. Existing DMS-only shortcuts outside the remapped set remain unavailable while DMS is paused.
 
 ## Source
+
+### Compact shell refresh
+
+Start uses a bounded 560 × 590 panel, with category and A–Z app filters,
+search across apps/windows/actions, compact recent-app cards and confirmed
+session actions. The taskbar supports centered applications, optional titles,
+window-count badges, a date clock, and direct notification/settings access.
+
+The compact control panel uses mixed-width tiles, small header actions and
+brightness/volume tracks. Edit lets you add, remove and reorder tiles; even an
+empty selection is preserved. Unsupported keyboard and power controls stay
+disabled. Settings brings connectivity, audio, style, taskbar, phone navigation,
+notifications, accessibility, power and display convergence into one searchable
+surface. Open it from Start, the control panel, the desktop context menu or
+`quickshell ipc -c opal call opal settings`.
+
+Phone home has a bottom favorites dock and search target, a filtered A–Z drawer,
+adjustable app density, contextual Back, and a combined controls/notification
+shade. All new surfaces use shared Theme roles, including the saved shell-wide
+Matugen palette. Offscreen previews copy only theme preferences into temporary
+state; they do not deploy or restart the desktop.
+
+```text
+src/                 Runtime QML module, Python adapters, assets and Hyprland hook
+tests/               Python suites, isolated QML fixtures and render runner
+tools/install.sh     Installer implementation
+install.sh           Stable installer entry point
+```
+
+Runtime files stay together
+in `src/` so QML singleton registration and relative backend/asset URLs work
+without an import-path shim. Only `src/` is deployed, flat, to the live shell;
+test fixtures and tooling are not installed.
+
+From this directory, validate with:
+
+```sh
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 tests/test_notifications.py
+bash tests/render-offscreen.sh
+```
+
+The following filenames are relative to `src/`:
 
 `Theme.qml`, `Surface.qml`, `MButton.qml`, `QuickTile.qml`, `ExpressiveSlider.qml`, `Flower.qml`: design system. `Launcher.qml`, `QuickSettings.qml`, `Dashboard.qml`, `Appearance.qml`: screens. `Hub.qml`: UI state and IPC bridge. `backend.py`: safe JSON-lines adapters and atomic preferences. `shell.qml`: panel/layer layout. `hyprland.lua`: reversible compositor overrides.

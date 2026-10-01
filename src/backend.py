@@ -1,0 +1,652 @@
+#!/usr/bin/env python3
+"""Opal's optional Linux adapters. JSON-lines only; no shell-evaluated user input."""
+import sys, os, json, subprocess, threading, time, pathlib, shutil, glob, select, struct, math, ast, operator, re
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+from wallpaper_service import DEFAULTS as WALLPAPER_DEFAULTS, local_image, generate, valid_preference, image_library, browse_images
+HOME = pathlib.Path.home()
+STORE = HOME / '.local/state/opal/preferences.json'
+lock = threading.Lock()
+prefs_lock = threading.Lock()
+JSON_SEPARATORS = (',', ':')
+system_osk = None
+# Quick Settings tile identifiers. The shell can reorder or hide these, but not add unknown ones.
+QUICK_TILE_IDS = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard','motion','capture','autohide','clipboard','focus','convergence')
+QUICK_TILE_DEFAULT = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard')
+def emit(data):
+    with lock:
+        print(json.dumps(data), flush=True)
+@lru_cache(maxsize=64)
+def command_available(name):
+    return bool(shutil.which(name))
+
+def run(*args, timeout=1.4):
+    if not command_available(args[0]): return ''
+    try: return subprocess.check_output(args, stderr=subprocess.DEVNULL, timeout=timeout).decode().strip()
+    except (OSError, subprocess.SubprocessError): return ''
+def spawn(args):
+    try: subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError: emit({'event':'message', 'text':f'{args[0]} is not installed'})
+def load():
+    base = {'mode':'auto', 'palette':0, 'light':False, 'dnd':False, 'glass':0.78, 'favorites':[], 'recent':[], 'wallpaper':0, 'pinsConfigured':False, 'taskbarAutoHide':False, 'taskbarLabels':True, 'phoneButtons':False, 'controllerLayout':'standard'}
+    base['displayModes'] = {}
+    base['phoneDisplay'] = ''
+    base['taskbarOrder'] = []
+    base['reduceMotion'] = False
+    base['taskbarCenter'] = False
+    base['taskbarClockDate'] = True
+    base['quickTiles'] = list(QUICK_TILE_DEFAULT)
+    base['phoneRows'] = 5
+    base.update(WALLPAPER_DEFAULTS)
+    try: base.update(json.loads(STORE.read_text()))
+    except (OSError, ValueError): pass
+    return base
+prefs = load()
+def save():
+    STORE.parent.mkdir(parents=True, exist_ok=True)
+    temp = STORE.with_suffix('.tmp')
+    temp.write_text(json.dumps(prefs, separators=JSON_SEPARATORS))
+    temp.replace(STORE)
+    emit({'event':'preferences', 'data':prefs.copy()})
+    if system_osk: system_osk.refresh(prefs)
+
+def exit_with_parent():
+    """Ask Linux to send SIGTERM to this child when the backend dies, so a reload never leaves an orphan keyboard."""
+    try:
+        import ctypes, signal as signals
+        ctypes.CDLL('libc.so.6',use_errno=True).prctl(1,signals.SIGTERM,0,0,0)
+    except (OSError,AttributeError):
+        pass
+
+VIRTUAL_KEYBOARD_WORDS=('virtual','uinput','ydotool','input-remapper','keyd','kanata','power button','sleep button','video bus','consumer control','system control','hotkeys','wmi')
+
+def physical_keyboard_present(devices=None):
+    """Report a real hardware keyboard: a kernel keyboard handler with LED support that is not a known virtual device."""
+    try:
+        text=devices if devices is not None else pathlib.Path('/proc/bus/input/devices').read_text(errors='replace')
+    except OSError:
+        return False
+    for block in text.split('\n\n'):
+        name=re.search(r'^N: Name="([^"]*)"',block,re.M)
+        handlers=re.search(r'^H: Handlers=(.*)$',block,re.M)
+        events=re.search(r'^B: EV=([0-9a-f]+)',block,re.M)
+        if not (name and handlers and events):continue
+        if 'kbd' not in handlers.group(1).split():continue
+        # EV bit 17 is LED: full keyboards have lock lights, media buttons and remotes do not.
+        if not int(events.group(1),16)&(1<<17):continue
+        if any(word in name.group(1).lower() for word in VIRTUAL_KEYBOARD_WORDS):continue
+        return True
+    return False
+
+def keyboard_command():
+    """Return the system keyboard argument list and its name. Borealis is preferred; Squeekboard is the fallback."""
+    override=os.environ.get('OPAL_KEYBOARD','')
+    candidates=[override] if override else []
+    candidates+=[shutil.which('opal-keyboard') or '',str(HOME/'.local'/'bin'/'opal-keyboard')]
+    for path in candidates:
+        if path and os.access(path,os.X_OK) and pathlib.Path(path).is_file():
+            # Borealis reads the Opal preference file itself, so it needs no theme wrapper.
+            return [path],'Borealis'
+    squeekboard=shutil.which('squeekboard')
+    launcher=pathlib.Path(__file__).with_name('osk_theme.py')
+    if squeekboard and launcher.is_file():
+        return [sys.executable,str(launcher),'--preferences',str(STORE),'--',squeekboard],'Squeekboard'
+    return None,'No system keyboard is installed (Borealis or Squeekboard)'
+
+class SystemOsk:
+    def __init__(self):
+        self.process = None
+        self.generation = 0
+        self.signature = ''
+        self.name = 'System keyboard'
+        self.hardware = False
+        self.explicit = False
+        self.lock = threading.Lock()
+
+    def theme_signature(self, values):
+        subset={key:values.get(key) for key in ('light','palette','dynamicColors','dynamicPalette','colorScheme')}
+        return json.dumps(subset, sort_keys=True, separators=JSON_SEPARATORS)
+
+    def publish(self, available, running, detail='', visible=False):
+        emit({'event':'systemOsk','available':bool(available),'running':bool(running),'visible':bool(visible),'detail':detail})
+
+    def visible(self):
+        commands=[]
+        if command_available('gdbus'):
+            commands.append(['gdbus','call','--session','--dest','sm.puri.OSK0','--object-path','/sm/puri/OSK0','--method','org.freedesktop.DBus.Properties.Get','sm.puri.OSK0','Visible'])
+        if command_available('busctl'):
+            commands.append(['busctl','--user','get-property','sm.puri.OSK0','/sm/puri/OSK0','sm.puri.OSK0','Visible'])
+        for command in commands:
+            try:
+                reply=subprocess.check_output(command,stderr=subprocess.DEVNULL,timeout=.8,text=True).strip().lower()
+            except (OSError,subprocess.SubprocessError):
+                continue
+            if 'true' in reply:return True
+            if 'false' in reply:return False
+        return None
+
+    def wait_ready(self, process, generation):
+        for _ in range(40):
+            with self.lock:
+                if generation!=self.generation or process is not self.process:return
+            if process.poll() is not None:return
+            visible=self.visible()
+            if visible is not None:
+                self.publish(True,True,'Wayland input method',visible)
+                return
+            time.sleep(.1)
+        self.publish(True,False,self.name+' did not register its session D-Bus service')
+
+    def set_visible(self, visible):
+        if not self.process or self.process.poll() is not None:
+            if not visible:return True
+            self.start(explicit=True)
+        deadline=time.monotonic()+2.5
+        while time.monotonic()<deadline:
+            if self.visible() is not None:break
+            time.sleep(.05)
+        commands=[]
+        value='true' if visible else 'false'
+        if command_available('gdbus'):
+            commands.append(['gdbus','call','--session','--dest','sm.puri.OSK0','--object-path','/sm/puri/OSK0','--method','sm.puri.OSK0.SetVisible',value])
+        if command_available('busctl'):
+            commands.append(['busctl','--user','call','sm.puri.OSK0','/sm/puri/OSK0','sm.puri.OSK0','SetVisible','b',value])
+        for command in commands:
+            try:
+                subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=1,check=True)
+                self.publish(True,True,'Wayland input method',visible)
+                return True
+            except (OSError,subprocess.SubprocessError):
+                continue
+        self.publish(bool(keyboard_command()[0]),False,'System keyboard control is unavailable')
+        return False
+
+    def toggle(self):
+        visible=self.visible()
+        return self.set_visible(not bool(visible))
+
+    def auto(self):
+        """Run the keyboard only without a hardware keyboard, and follow keyboard hotplug."""
+        threading.Thread(target=self.follow_hardware,daemon=True).start()
+
+    def follow_hardware(self):
+        last=None
+        while True:
+            present=physical_keyboard_present()
+            if present!=last:
+                last=present
+                self.hardware=present
+                with self.lock: running=bool(self.process and self.process.poll() is None)
+                if present and running and not self.explicit:
+                    self.stop()
+                    self.publish(True,False,'Hidden while a hardware keyboard is connected')
+                elif not present and not running:
+                    self.start()
+                elif present and not running:
+                    self.publish(bool(keyboard_command()[0]),False,'Hidden while a hardware keyboard is connected')
+            time.sleep(3)
+
+    def start(self, explicit=False):
+        self.explicit=explicit
+        if os.environ.get('OPAL_SYSTEM_OSK','1') in ('0','false','no'):
+            self.publish(False,False,'System keyboard disabled by OPAL_SYSTEM_OSK')
+            return
+        command,name=keyboard_command()
+        if not command:
+            self.publish(False,False,name)
+            return
+        # With a hardware keyboard, Borealis only appears on request, never on text focus.
+        if name=='Borealis' and physical_keyboard_present():
+            command=command+['--manual']
+        with self.lock:
+            if self.process and self.process.poll() is None: return
+            self.generation+=1
+            generation=self.generation
+            self.name=name
+            try:
+                self.process=subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,preexec_fn=exit_with_parent)
+            except OSError as error:
+                self.process=None
+                self.publish(True,False,str(error))
+                return
+            process=self.process
+            self.signature=self.theme_signature(prefs)
+        self.publish(True,False,'Starting Wayland input method')
+        threading.Thread(target=self.wait_ready,args=(process,generation),daemon=True).start()
+        threading.Thread(target=self.watch,args=(process,generation),daemon=True).start()
+
+    def watch(self, process, generation):
+        code=process.wait()
+        with self.lock:
+            if generation!=self.generation or process is not self.process: return
+            self.process=None
+        detail=self.name+' exited' if code==0 else f'{self.name} exited with status {code}'
+        self.publish(True,False,detail)
+
+    def stop(self):
+        with self.lock:
+            self.generation+=1
+            process=self.process
+            self.process=None
+        if not process or process.poll() is not None: return
+        process.terminate()
+        try: process.wait(timeout=1.5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            try: process.wait(timeout=.5)
+            except subprocess.TimeoutExpired: pass
+
+    def restart(self):
+        self.stop()
+        self.start()
+
+    def refresh(self, values):
+        signature=self.theme_signature(values)
+        if signature==self.signature: return
+        self.signature=signature
+        with self.lock: running=bool(self.process and self.process.poll() is None)
+        # Borealis follows theme changes itself; only the Squeekboard wrapper needs a restart.
+        if running and self.name!='Borealis': threading.Thread(target=self.restart,daemon=True).start()
+
+def settings(which):
+    choices = {
+        'network': [['nm-connection-editor'], ['systemsettings','kcm_networkmanagement'], ['kitty','-e','nmtui']],
+        'bluetooth': [['blueman-manager'], ['systemsettings','kcm_bluetooth']],
+        'audio': [['pavucontrol'], ['systemsettings','kcm_pulseaudio']],
+        'display': [['systemsettings','kcm_kscreen']],
+        'files': [['xdg-open',str(HOME)]],
+        'terminal': [['kitty'], ['foot'], ['alacritty']],
+        'browser': [['xdg-open','https://www.google.com']],
+        'steam': [['steam','-gamepadui']],
+        'lock': [['hyprlock'], ['loginctl','lock-session']],
+    }
+    for cmd in choices.get(which, []):
+        if shutil.which(cmd[0]): spawn(cmd); return
+    emit({'event':'message','text':'No compatible application installed'})
+
+CALCULATOR_OPS = {ast.Add:operator.add, ast.Sub:operator.sub, ast.Mult:operator.mul, ast.Div:operator.truediv, ast.Mod:operator.mod, ast.Pow:operator.pow}
+def calculate(expr):
+    # Deliberately tiny calculator, never Python eval or shell execution.
+    def visit(n):
+        if isinstance(n,ast.Constant) and type(n.value) in (int,float): return n.value
+        if isinstance(n,ast.UnaryOp) and isinstance(n.op,(ast.UAdd,ast.USub)): return visit(n.operand) * (-1 if isinstance(n.op,ast.USub) else 1)
+        if isinstance(n,ast.BinOp) and type(n.op) in CALCULATOR_OPS:
+            a,b=visit(n.left),visit(n.right)
+            if abs(a)>1e15 or abs(b)>1e15 or isinstance(n.op,ast.Pow) and abs(b)>12: raise ValueError()
+            return CALCULATOR_OPS[type(n.op)](a,b)
+        raise ValueError()
+    try:
+        if len(expr)>100: raise ValueError()
+        value=visit(ast.parse(expr,mode='eval').body)
+        if isinstance(value,complex) or not math.isfinite(value) or abs(value)>1e18: raise ValueError()
+        return format(value,'.12g')
+    except Exception: return ''
+
+from clipboard_service import ClipboardHistory
+clipboard = ClipboardHistory(emit)
+from connectivity import Connectivity
+connectivity = Connectivity(emit)
+from hypr_actions import HyprActions
+from power_status import (connected_bluetooth_devices, cpu_governor,
+                          merge_batteries, parse_bluetooth_battery,
+                          parse_upower_batteries, primary_battery,
+                          system_batteries)
+hypr_actions = HyprActions()
+
+
+def publish_wallpapers(c):
+    try:
+        if c.get('browse'):
+            data=browse_images(c.get('folder',''))
+        else:
+            data={'items':image_library(c.get('folder',''), prefs.get('wallpaperPath','')), 'folders':[], 'folder':'', 'parent':''}
+        emit({'event':'wallpapers','request':c.get('request'), **data, 'error':''})
+    except (ValueError, OSError) as error:
+        emit({'event':'wallpapers','request':c.get('request'), 'items':[], 'error':str(error)})
+
+
+def commands():
+    for line in sys.stdin:
+        try:
+            c=json.loads(line); action=c.get('action')
+            if action=='preference':
+                key=c.get('key'); value=c.get('value')
+                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = valid or key=='quickTiles' and isinstance(value,list) and len(value)<=len(QUICK_TILE_IDS) and all(v in QUICK_TILE_IDS for v in value) and len(set(value))==len(value)
+                valid = valid or key=='phoneRows' and type(value)==int and 4<=value<=7
+                valid = valid or valid_preference(key, value)
+                valid = valid or key=='taskbarOrder' and isinstance(value,list) and len(value)<=128 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
+                valid = valid or key=='phoneDisplay' and isinstance(value,str) and 0<len(value)<=128 and all(ch.isalnum() or ch in '_.:-' for ch in value)
+                valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
+                if valid:
+                    with prefs_lock: prefs[key]=value; save()
+            elif action=='display-layouts':
+                from display_layouts import publish
+                runtime=os.environ.get('XDG_RUNTIME_DIR')
+                if runtime and publish(runtime,c.get('mode'),c.get('displays')) and os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and shutil.which('hyprctl'):
+                    subprocess.run(['hyprctl','reload','config-only'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
+            elif action=='wallpaper-list':
+                threading.Thread(target=publish_wallpapers,args=(c,),daemon=True).start()
+            elif action=='wallpaper':
+                try:
+                    path = local_image(c.get('path')) if c.get('path') else None
+                    extra={}
+                    for key in ('wallpaperFit','wallpaperDim','wallpaper'):
+                        if key not in c: continue
+                        value=c[key]
+                        if not (type(value) is int and 0<=value<=3 if key=='wallpaper' else valid_preference(key,value)):
+                            raise ValueError('Invalid wallpaper preview settings.')
+                        extra[key]=value
+                    with prefs_lock:
+                        prefs.update(extra)
+                        prefs['wallpaperPath'] = path.as_uri() if path else ''
+                        save()
+                    emit({'event':'message','text':'Wallpaper updated' if path else 'Plain background restored'})
+                except (ValueError, OSError) as error:
+                    emit({'event':'message','text':str(error)})
+            elif action=='matugen':
+                emit({'event':'themeBusy','busy':True})
+                try:
+                    path = local_image(prefs.get('wallpaperPath'))
+                    palette = generate(path, prefs.get('colorScheme','scheme-tonal-spot'))
+                    with prefs_lock:
+                        prefs['dynamicPalette'] = palette
+                        prefs['dynamicColors'] = True
+                        save()
+                    emit({'event':'message','text':'Wallpaper colors applied · light and dark palettes ready'})
+                except Exception as error:
+                    emit({'event':'message','text':str(error) if isinstance(error, ValueError) else 'Matugen could not read this image or generate colors. Previous colors kept.'})
+                finally:
+                    emit({'event':'themeBusy','busy':False})
+            elif action in ('pin','recent'):
+                app=c.get('id','')
+                if isinstance(app,str) and 0<len(app)<300:
+                    with prefs_lock:
+                        key='favorites' if action=='pin' else 'recent'
+                        items=list(prefs[key])
+                        if action=='pin' and not prefs.get('pinsConfigured'):
+                            defaults=c.get('initial',[])
+                            if isinstance(defaults,list): items=[i for i in defaults[:24] if isinstance(i,str) and len(i)<300]
+                            prefs['pinsConfigured']=True
+                        if app in items: items.remove(app)
+                        elif action=='pin': items.append(app)
+                        if action=='recent': items.insert(0,app)
+                        prefs[key]=items[:24]; save()
+            elif action in ('focus-window','workspace','move-window'):
+                try:
+                    if action=='focus-window':hypr_actions.focus(c.get('address'))
+                    elif action=='move-window':hypr_actions.move(c.get('address'),c.get('number'),c.get('follow') is True)
+                    else:hypr_actions.workspace(c.get('number'))
+                except (ValueError,OSError,subprocess.SubprocessError) as error:
+                    emit({'event':'message','text':str(error)})
+            elif action=='connectivity': connectivity.request(c)
+            elif action=='settings': settings(c.get('which'))
+            elif action=='system-osk' and c.get('verb') in ('show','hide','toggle'):
+                if not system_osk:
+                    emit({'event':'systemOsk','available':False,'running':False,'visible':False,'detail':'System keyboard is not initialized'})
+                elif c.get('verb')=='toggle': system_osk.toggle()
+                else: system_osk.set_visible(c.get('verb')=='show')
+            elif action=='volume': run('wpctl','set-volume','-l','1','@DEFAULT_AUDIO_SINK@',str(max(0,min(100,int(c['value']))))+'%')
+            elif action=='mute': run('wpctl','set-mute','@DEFAULT_AUDIO_SINK@','toggle')
+            elif action=='mic': run('wpctl','set-mute','@DEFAULT_AUDIO_SOURCE@','toggle')
+            elif action=='brightness': run('brightnessctl','set',str(max(1,min(100,int(c['value']))))+'%')
+            elif action=='wifi': run('nmcli','radio','wifi','off' if c.get('enabled') else 'on')
+            elif action=='bluetooth': run('bluetoothctl','power','off' if c.get('enabled') else 'on')
+            elif action=='media' and c.get('verb') in ('play-pause','next','previous'): run('playerctl',c['verb'])
+            elif action=='profile' and c.get('value') in ('power-saver','balanced','performance'): run('powerprofilesctl','set',c['value'])
+            elif action=='screenshot':
+                time.sleep(.5)
+                folder=HOME/'Pictures/Screenshots'; folder.mkdir(parents=True,exist_ok=True)
+                dest=str(folder/time.strftime('Opal-%Y%m%d-%H%M%S.png'))
+                if shutil.which('grim'):
+                    try:
+                        subprocess.run(['grim',dest],check=True,timeout=5)
+                        emit({'event':'message','text':'Screenshot saved to Pictures/Screenshots'})
+                    except Exception: emit({'event':'message','text':'Screenshot failed'})
+            elif action=='power' and c.get('verb') in ('suspend','reboot','poweroff'): spawn(['systemctl',c['verb']])
+            elif action=='power' and c.get('verb')=='logout':
+                if shutil.which('hyprctl'): spawn(['hyprctl','dispatch','exit'])
+                else:
+                    sid=os.environ.get('XDG_SESSION_ID','')
+                    spawn(['loginctl','terminate-session',sid] if sid else ['loginctl','terminate-user',os.environ.get('USER','')])
+            elif action=='calculate': emit({'event':'calculation','query':c.get('text',''),'result':calculate(c.get('text',''))})
+            elif action=='clipboard':
+                if shutil.which('wl-copy'): subprocess.run(['wl-copy'],input=str(c.get('text','')).encode('utf-8'),timeout=2)
+            elif action=='clipboard-list': clipboard.publish()
+            elif action=='clipboard-copy': clipboard.copy(c.get('id',''))
+            elif action=='clipboard-delete': clipboard.delete(c.get('id',''))
+            elif action=='clipboard-clear': clipboard.clear()
+            elif action=='clipboard-pause' and type(c.get('paused')) is bool: clipboard.set_paused(c['paused'])
+            elif action=='web': spawn(['xdg-open','https://www.google.com/search?q='+__import__('urllib.parse',fromlist=['quote']).quote(str(c.get('text','')))])
+        except Exception as e: emit({'event':'message','text':'That action could not be completed'})
+
+last_cpu=None
+status_workers=ThreadPoolExecutor(max_workers=8, thread_name_prefix='opal-status')
+status_cache={}
+status_cache_lock=threading.Lock()
+connected_battery_cache={'signature':(), 'time':0, 'items':[]}
+connected_battery_cache_lock=threading.Lock()
+
+def status_probe(specs):
+    futures={}
+    values={}
+    now=time.monotonic()
+    with status_cache_lock:
+        for key,args,ttl in specs:
+            cached=status_cache.get(key)
+            if ttl and cached and now-cached[0] < ttl:
+                values[key]=cached[1]
+            else:
+                futures[key]=status_workers.submit(run,*args)
+    for key,future in futures.items():
+        try: value=future.result()
+        except Exception: value=''
+        values[key]=value
+        for spec_key,_,ttl in specs:
+            if spec_key==key and ttl:
+                with status_cache_lock: status_cache[key]=(time.monotonic(),value)
+                break
+    return values
+
+
+def connected_bluetooth_batteries(rows):
+    """Read connected Bluetooth battery levels at a bounded refresh rate."""
+    devices = connected_bluetooth_devices(rows)
+    signature = tuple(address for address, _ in devices)
+    now = time.monotonic()
+    with connected_battery_cache_lock:
+        cached = connected_battery_cache
+        if cached['signature'] == signature and now-cached['time'] < 20:
+            return cached['items']
+    futures = [(address, name, status_workers.submit(run, 'bluetoothctl', 'info', address)) for address, name in devices[:8]]
+    batteries = []
+    for address, name, future in futures:
+        try:
+            battery = parse_bluetooth_battery(address, name, future.result())
+        except Exception:
+            battery = None
+        if battery:
+            batteries.append(battery)
+    with connected_battery_cache_lock:
+        connected_battery_cache.update(signature=signature, time=now, items=batteries)
+    return batteries
+
+def status():
+    global last_cpu
+    # Compositor fields arrive independently from hypr_events, never from this poll.
+    s={'volume':0,'muted':False,'network':'Offline','wifi':False,'bluetooth':False,'track':'','artist':'','art':'','playing':False,'battery':-1,'batteries':[],'charging':False,'brightness':-1,'cpu':0,'memory':0,'profile':'','governor':'','uptime':''}
+    values=status_probe([
+        ('volume',('wpctl','get-volume','@DEFAULT_AUDIO_SINK@'),0),
+        ('audioOutput',('wpctl','inspect','@DEFAULT_AUDIO_SINK@'),10),
+        ('mic',('wpctl','get-volume','@DEFAULT_AUDIO_SOURCE@'),0),
+        ('network',('nmcli','-t','-f','NAME,TYPE','connection','show','--active'),3),
+        ('wifi',('nmcli','radio','wifi'),3),
+        ('bluetooth',('bluetoothctl','show'),5),
+        ('media',('playerctl','metadata','--format','{{title}}\n{{artist}}\n{{mpris:artUrl}}\n{{status}}'),0),
+        ('profile',('powerprofilesctl','get'),10),
+        ('upower',('upower','-d'),20),
+        ('connectedBluetooth',('bluetoothctl','devices','Connected'),20),
+    ])
+    v=values['volume']
+    try: s['volume']=round(float(v.split()[1])*100)
+    except (ValueError,IndexError): pass
+    s['muted']='MUTED' in v
+    description=re.search(r'node\.description\s*=\s*"([^"]+)"',values['audioOutput'])
+    s['audioOutput']=description.group(1) if description else ''
+    s['micMuted']='MUTED' in values['mic']
+    n=values['network']
+    s['network']=next((l.rsplit(':',1)[0] for l in n.splitlines() if not l.endswith(':loopback')),'Offline')
+    s['wifi']=values['wifi']=='enabled'
+    s['bluetooth']='Powered: yes' in values['bluetooth']
+    meta=values['media'].splitlines()
+    if meta:
+        for i,k in enumerate(('track','artist','art')):
+            if len(meta)>i: s[k]=meta[i]
+        s['playing']=len(meta)>3 and meta[3]=='Playing'
+    batteries=merge_batteries(system_batteries(), parse_upower_batteries(values['upower']), connected_bluetooth_batteries(values['connectedBluetooth']))
+    s['batteries']=batteries
+    s['battery'],s['charging']=primary_battery(batteries)
+    for b in glob.glob('/sys/class/backlight/*'):
+        try: s['brightness']=round(int(pathlib.Path(b,'brightness').read_text())/int(pathlib.Path(b,'max_brightness').read_text())*100)
+        except (OSError,ValueError,ZeroDivisionError): pass
+    try:
+        cpu=list(map(int,pathlib.Path('/proc/stat').read_text().splitlines()[0].split()[1:8])); total=sum(cpu); idle=cpu[3]+cpu[4]
+        if last_cpu and total>last_cpu[0]: s['cpu']=round(100*(1-(idle-last_cpu[1])/(total-last_cpu[0])))
+        last_cpu=(total,idle)
+        mem={l.split(':')[0]:int(l.split()[1]) for l in pathlib.Path('/proc/meminfo').read_text().splitlines()}
+        s['memory']=round(100*(1-mem['MemAvailable']/mem['MemTotal']))
+        hrs=int(float(pathlib.Path('/proc/uptime').read_text().split()[0]))//3600
+        s['uptime']=str(hrs)+'h'
+    except (OSError,ValueError,KeyError): pass
+    s['profile']=values['profile']
+    s['governor']=cpu_governor()
+    return s
+
+def library_art():
+    """Index existing local Steam artwork. Never download assets."""
+    result={}
+    bases=[HOME/'.local/share/Steam/appcache/librarycache', HOME/'.steam/steam/appcache/librarycache']
+    seen=set()
+    for base in bases:
+        try:
+            resolved=base.resolve()
+            if resolved in seen or not base.is_dir(): continue
+            seen.add(resolved)
+            def add(path_entry, appid):
+                if not appid.isdigit(): return
+                name=path_entry.name.rsplit('.',1)[0].lower()
+                kind='cover' if '600x900' in name or 'library_capsule' in name else 'hero' if 'library_hero' in name and 'blur' not in name else 'header' if 'library_header' in name else None
+                if kind: result.setdefault(appid,{})[kind]=pathlib.Path(path_entry.path).resolve().as_uri()
+            directories=[]
+            with os.scandir(base) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        add(entry, entry.name.split('_',1)[0])
+                    elif entry.is_dir():
+                        directories.append((entry, entry.name, 0))
+            while directories:
+                entry, appid, depth=directories.pop()
+                try:
+                    with os.scandir(entry.path) as entries:
+                        for path_entry in entries:
+                            if path_entry.is_file():
+                                add(path_entry, appid)
+                            elif depth < 1 and path_entry.is_dir():
+                                directories.append((path_entry, appid, depth+1))
+                except OSError:
+                    continue
+        except OSError: continue
+    return result
+
+def controllers():
+    from controller_mapping import device_maps, button_action, axis_orientation
+    # Linux joystick API, read-only. Never grabs devices or injects global input.
+    while True:
+        paths=glob.glob('/dev/input/js*')
+        f=None
+        name=''
+        for p in paths:
+            candidate=None
+            try:
+                import fcntl
+                candidate=open(p,'rb',buffering=0)
+                buf=bytearray(128)
+                fcntl.ioctl(candidate.fileno(), 0x80000000 | (128<<16) | (ord('j')<<8) | 0x13, buf)
+                candidate_name=bytes(buf).split(b'\0',1)[0].decode(errors='replace')
+                buttons=bytearray(1)
+                fcntl.ioctl(candidate.fileno(), 0x80016a12, buttons)
+                # Absolute pointer devices can expose js nodes too; they are not gamepads.
+                if buttons[0]<6 or any(word in candidate_name.lower() for word in ('pointer','mouse','keyboard')):
+                    candidate.close(); continue
+                f=candidate; name=candidate_name; break
+            except OSError:
+                if candidate: candidate.close()
+        emit({'event':'controller','connected':f is not None,'name':name})
+        if f is None: time.sleep(5); continue
+        try:
+            button_codes,axis_codes=device_maps(f)
+            previous={}
+            held={}
+            while True:
+                now=time.monotonic()
+                wait=max(0,min((due-now for _,due in held.values()),default=2))
+                if not select.select([f],[],[],wait)[0]:
+                    now=time.monotonic()
+                    for axis,(key,due) in list(held.items()):
+                        if now>=due:
+                            emit({'event':'navigation','key':key})
+                            held[axis]=(key,now+.13)
+                    continue
+                data=f.read(8)
+                if len(data)!=8: break
+                _,value,kind,number=struct.unpack('IhBB',data)
+                if kind & 0x80: continue
+                nav=None
+                if kind==1 and value==1:
+                    nav=button_action(number,prefs.get('controllerLayout','standard'),button_codes)
+                orientation=axis_orientation(number,axis_codes) if kind==2 else None
+                if orientation:
+                    direction=0 if abs(value)<16000 else (1 if value>0 else -1)
+                    if direction and previous.get(number)!=direction:
+                        nav=('right' if direction>0 else 'left') if orientation=='horizontal' else ('down' if direction>0 else 'up')
+                        held[number]=(nav,time.monotonic()+.38)
+                    elif not direction: held.pop(number,None)
+                    previous[number]=direction
+                if nav: emit({'event':'navigation','key':nav})
+        except OSError: pass
+        finally: f.close()
+        time.sleep(2)
+
+def main():
+    import atexit, signal
+    global system_osk
+    system_osk=SystemOsk()
+    atexit.register(clipboard.stop)
+    atexit.register(system_osk.stop)
+    atexit.register(status_workers.shutdown, wait=False, cancel_futures=True)
+    def shutdown(signum, frame):
+        clipboard.stop()
+        system_osk.stop()
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+    threading.Thread(target=clipboard.watch,daemon=True).start()
+    emit({'event':'preferences','data':prefs})
+    system_osk.auto()
+    threading.Thread(target=commands,daemon=True).start()
+    threading.Thread(target=controllers,daemon=True).start()
+    threading.Thread(target=lambda:emit({'event':'libraryArt','data':library_art()}),daemon=True).start()
+    from hypr_events import listen as listen_hyprland
+    threading.Thread(target=listen_hyprland, args=(emit,), daemon=True).start()
+    last_published=None
+    while True:
+        try:
+            current=status()
+            if current != last_published:
+                emit({'event':'status','data':current})
+                last_published=current
+        except Exception: pass
+        time.sleep(2)
+
+if __name__ == '__main__':
+    main()

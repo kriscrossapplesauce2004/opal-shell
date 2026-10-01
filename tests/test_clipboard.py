@@ -7,7 +7,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'src'))
 from clipboard_service import ClipboardHistory, MAX_BYTES, MAX_ITEMS, capture
 
 
@@ -26,6 +26,49 @@ class ClipboardTests(unittest.TestCase):
         for number in range(40):
             self.history.add(f'entry {number}')
         self.assertEqual(len(self.history.items), MAX_ITEMS)
+        self.assertEqual(len(self.history._by_text), MAX_ITEMS)
+        self.assertEqual(len(self.history._by_id), MAX_ITEMS)
+
+    def test_large_ingest_keeps_indexes_bounded_and_exact(self):
+        values = [
+            f'generated {number % 211:03d} :: https://example.test/{number % 211}'
+            if number % 4 == 0 else
+            f'generated {number:06d}\nline {number % 19}'
+            for number in range(10_000)
+        ]
+        for value in values:
+            self.history.add(value)
+        self.assertEqual(len(self.history.items), MAX_ITEMS)
+        self.assertEqual(len(self.history._by_text), MAX_ITEMS)
+        self.assertEqual(len(self.history._by_id), MAX_ITEMS)
+        for entry in self.history.items:
+            self.assertIs(self.history._by_text[entry['text']], entry)
+            self.assertIs(self.history._by_id[entry['id']], entry)
+
+        exact = '  generated exact\nline\t'
+        self.assertTrue(self.history.add(exact))
+        identity = self.history.items[0]['id']
+        self.assertTrue(self.history.add(exact))
+        self.assertEqual(self.history.items[0]['id'], identity)
+        self.assertEqual(self.history.items[0]['text'], exact)
+
+    def test_delete_and_clear_release_bounded_indexes(self):
+        for number in range(MAX_ITEMS):
+            self.history.add(f'entry {number}')
+        removed = self.history.items[5]['id']
+        self.history.delete(removed)
+        self.assertNotIn(removed, self.history._by_id)
+        self.assertEqual(len(self.history.items), len(self.history._by_id))
+        self.assertEqual(len(self.history.items), len(self.history._by_text))
+        self.history.clear()
+        self.assertEqual(self.history.items, [])
+        self.assertEqual(self.history._by_id, {})
+        self.assertEqual(self.history._by_text, {})
+
+    def test_published_items_are_snapshots(self):
+        self.history.add('snapshot value')
+        self.events[-1]['items'][0]['text'] = 'changed event only'
+        self.assertEqual(self.history.items[0]['text'], 'snapshot value')
 
     def test_preserves_whitespace_but_rejects_binary_large_and_sensitive_data(self):
         self.assertTrue(self.history.add('  exact\ntext\t'))
@@ -34,6 +77,13 @@ class ClipboardTests(unittest.TestCase):
             self.assertFalse(self.history.add(value))
         self.assertFalse(self.history.add('do not retain', sensitive=True))
         self.assertEqual(len(self.history.items), 1)
+
+    def test_filtering_uses_encoded_size_and_keeps_unicode_exact(self):
+        value = 'é' * (MAX_BYTES // 2)
+        self.assertTrue(self.history.add(value))
+        self.assertEqual(self.history.items[0]['text'], value)
+        self.assertFalse(self.history.add(value + 'é'))
+        self.assertFalse(self.history.add('x' * MAX_BYTES + 'é'))
 
     def test_pause_blocks_collection_clear_does_not_clear_system_clipboard(self):
         self.history.add('remember')
