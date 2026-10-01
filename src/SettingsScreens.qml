@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 // Display arrangement, resolution, scale and rotation. Changes revert after 15 seconds unless you keep them.
 Flickable {
     id: page
@@ -39,6 +40,14 @@ Flickable {
                 MButton { text: "Revert"; compact: true; onClicked: page.revert() }
                 MButton { text: "Keep"; compact: true; filled: true; onClicked: page.keep() } }
         }
+        // Layout for the whole shell.
+        MText { text: "Layout"; role: "label"; color: Theme.primary; Layout.leftMargin: 6 }
+        SegmentedButtons {
+            Layout.fillWidth: true; current: Hub.prefs.mode || "auto"
+            options: [{value: "auto", label: "Flow", icon: "auto_awesome"}, {value: "desktop", label: "Desktop", icon: "desktop_windows"}, {value: "phone", label: "Phone", icon: "smartphone"}, {value: "console", label: "Play", icon: "sports_esports"}]
+            onPicked: value => Hub.mode(value)
+        }
+        MText { text: Hub.prefs.mode === "auto" ? "Flow: each screen picks its own layout below." : "Every screen uses this layout. Choose Flow to set screens one by one."; role: "bodyS"; color: Theme.subtext; Layout.leftMargin: 6; Layout.bottomMargin: 6; wrapMode: Text.Wrap; Layout.fillWidth: true }
         MText { visible: page.draft.length === 0; text: "No displays reported. Display settings need Hyprland."; role: "bodyS"; color: Theme.subtext; Layout.leftMargin: 6 }
         // Arrangement: drag displays; they snap to each other's edges.
         Rectangle {
@@ -86,7 +95,24 @@ Flickable {
                     MText { text: page.current ? page.current.description : ""; role: "labelS"; color: Theme.subtext; Layout.fillWidth: true } }
                 MSwitch { visible: page.draft.length > 1; checked: page.current ? !page.current.disabled : true; onToggled: value => page.edit({disabled: !value}) }
             }
-            MText { text: "Resolution"; role: "label"; color: Theme.primary; Layout.leftMargin: 6 }
+            MText { text: "This screen becomes"; role: "label"; color: Theme.primary; Layout.leftMargin: 6 }
+            SegmentedButtons {
+                Layout.fillWidth: true; enabledAll: Hub.prefs.mode === "auto"
+                current: page.current ? ((Hub.prefs.displayModes || {})[page.current.name] || "auto") : "auto"
+                options: [{value: "auto", label: "Auto", icon: "auto_awesome"}, {value: "desktop", label: "Desktop", icon: "desktop_windows"}, {value: "phone", label: "Touch", icon: "smartphone"}, {value: "console", label: "Play", icon: "sports_esports"}]
+                onPicked: value => { if (page.current && Hub.prefs.mode === "auto") Hub.displayMode(page.current.name, value); }
+            }
+            MText { text: "When it connects"; role: "label"; color: Theme.primary; Layout.leftMargin: 6; Layout.topMargin: 6 }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 8
+                readonly property var saved: page.current ? (Hub.prefs.dockChoices || {})[page.current.name] : null
+                MText { Layout.fillWidth: true; wrapMode: Text.Wrap; role: "bodyS"; color: Theme.subtext
+                    text: parent.saved ? "Starts with your saved setup: " + ({desktop: "Desktop", console: "Play", phone: "Touch", mirror: "Mirror"})[parent.saved.mode] + ", phone as " + ({trackpad: "trackpad", screen: "second screen", panel: "control panel"})[parent.saved.phoneMode] + "." : "Shows the dock menu so you can choose." }
+                MButton { visible: !!parent.saved; text: "Forget"; compact: true; onClicked: { const next = Object.assign({}, Hub.prefs.dockChoices || {}); delete next[page.current.name]; Hub.set("dockChoices", next); } }
+                MButton { text: "Show dock menu"; icon: "cast_connected"; compact: true; tonal: true
+                    onClicked: { const screen = Quickshell.screens.find(s => page.current && s.name === page.current.name); if (screen) { Hub.close(); Hub.dockScreen = screen; Hub.dockNotice = true; } } }
+            }
+            MText { text: "Resolution"; role: "label"; color: Theme.primary; Layout.leftMargin: 6; Layout.topMargin: 6 }
             ComboBox {
                 id: modeBox
                 Layout.fillWidth: true; implicitHeight: 48

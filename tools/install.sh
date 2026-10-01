@@ -248,9 +248,12 @@ install_borealis() {
     build_dir="$state_dir/keyboard-build"
     echo "Building the Borealis keyboard..."
     if cmake -S "$keyboard_source" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >"$build_dir.log" 2>&1 &&
-       cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" --target opal-keyboard >>"$build_dir.log" 2>&1; then
+       cmake --build "$build_dir" -j"$(nproc 2>/dev/null || echo 4)" --target opal-keyboard opal-pointer >>"$build_dir.log" 2>&1; then
         install -m 0755 "$build_dir/opal-keyboard" "$bin_dir/opal-keyboard.tmp"
         mv -- "$bin_dir/opal-keyboard.tmp" "$bin_dir/opal-keyboard"
+        # Trackpad helper for docked phones.
+        install -m 0755 "$build_dir/opal-pointer" "$bin_dir/opal-pointer.tmp"
+        mv -- "$bin_dir/opal-pointer.tmp" "$bin_dir/opal-pointer"
         echo "Installed Borealis keyboard to $bin_dir/opal-keyboard"
     else
         echo "Borealis build failed; see $build_dir.log. The previous keyboard, if any, is kept." >&2

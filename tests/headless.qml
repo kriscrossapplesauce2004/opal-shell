@@ -27,6 +27,9 @@ ShellRoot {
             {name:"greeter",ui:"lock",w:1440,h:900,greeter:true},
             {name:"greeter-whats-new",ui:"lock",w:1440,h:900,greeter:true,whatsNew:true,light:true},
             {name:"polkit",ui:"polkit",w:640,h:520},
+            {name:"dock-menu",ui:"dockmenu",w:1280,h:720},
+            {name:"dock-menu-light",ui:"dockmenu",w:1280,h:720,light:true},
+            {name:"phone-docked",ui:"phonedock",w:400,h:860},
             {name:"bar-islands",ui:"bars",w:1440,h:300,music:true,barStyle:"islands"},
             {name:"bar-islands-light",ui:"bars",w:1440,h:300,light:true,tide:true,barStyle:"islands"},
             {name:"bar-dock",ui:"bars",w:1440,h:300,barStyle:"dock"},
@@ -47,7 +50,7 @@ ShellRoot {
             {name:"settings-power",ui:"settings",w:360,h:740,section:"power"},
             {name:"compact-control-panel",ui:"shade",w:420,h:520},
             {name:"compact-control-panel-light",ui:"shade",w:420,h:520,light:true},
-            {name:"settings-screens",ui:"settings",w:980,h:800,section:"screens",monitors:true},
+            {name:"settings-displays",ui:"settings",w:980,h:900,section:"displays",monitors:true},
             {name:"settings-schedules",ui:"settings",w:980,h:800,section:"schedules",light:true,schedules:true},
             {name:"settings-apptheme",ui:"settings",w:980,h:800,section:"apptheme"},
             {name:"settings-profiles",ui:"settings",w:980,h:800,section:"profiles",profiles:true},
@@ -275,6 +278,8 @@ ShellRoot {
             Opal.Surface {anchors.fill:parent;radius:0
                 Opal.Onboarding {anchors.fill:parent;step:fixture.cases[fixture.step].step||0}}
         }}
+        Component {id:dockMenuView;Opal.DockScene {output:"HDMI-A-1";description:"Living room TV";apps:[{address:"0x1",title:"Mozilla Firefox",className:"firefox"},{address:"0x3",title:"Deltarune",className:"steam_app_1"}];modes:["3840x2160@60.00Hz","1920x1080@60.00Hz"];remembered:({mode:"console",phoneMode:"trackpad",resolution:"",scale:1})}}
+        Component {id:phoneDockView;Opal.PhoneDockPanel {}}
         Component {id:barsView;Item {
             Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
             Opal.WorkspacePill {visible:!!fixture.cases[fixture.step].pill;anchors.horizontalCenter:parent.horizontalCenter;y:10;shown:2}
@@ -356,6 +361,7 @@ ShellRoot {
             if(test.profiles)Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{profiles:{"Work":{barStyle:"edge",light:true},"Gaming night":{barStyle:"dock",light:false}}});
             if(test.health)Qt.callLater(()=>{Opal.Hub.health={disks:[{label:"System",total:495810760704,used:415556063232,percent:84}],temperatures:{k10temp:58,amdgpu:52,nvme:41},hottest:58};Opal.Hub.updates={pacman:12,flatpak:3};});
             if(test.link){Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{linkEnabled:true});linkFixture.restart();}
+            if(test.ui==="phonedock"){Opal.Hub.docked=true;Opal.Hub.dockOutput="HDMI-A-1";Opal.Hub.phoneDockMode="trackpad";}
             if(test.ui==="lock")Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{wallpaperPath:"file://"+Quickshell.env("HOME")+"/Ocean.png",wallpaperDim:0});
             if(test.ui==="reference"||test.ui==="bars") {
                 Opal.Hub.apps=[{id:"firefox",name:"Firefox",genericName:"Web browser",icon:"firefox",keywords:["internet"],categories:["Network"],execute:()=>{}},{id:"files",name:"Files",genericName:"File manager",icon:"system-file-manager",keywords:["folders"],categories:["System"],execute:()=>{}},{id:"terminal",name:"Terminal",genericName:"Command line",icon:"utilities-terminal",keywords:["shell"],categories:["System"],execute:()=>{}},{id:"code",name:"Visual Studio Code",genericName:"Code editor",icon:"code",keywords:["editor"],categories:["Development"],execute:()=>{}},{id:"music",name:"Music",icon:"multimedia-player",keywords:[],categories:["AudioVideo"],execute:()=>{}},{id:"notes",name:"Notes",icon:"text-editor",keywords:[],categories:["Office"],execute:()=>{}}];
@@ -379,7 +385,7 @@ ShellRoot {
                 Opal.Hub.query=test.searchText||"";Opal.Hub.page="launcher";Opal.Hub.launcherSection="apps";
                 Opal.Hub.claudeAnswer=test.claude ? "Done. Your bar is now a **dock**: one pill with apps on the left and status on the right." : "";Opal.Hub.claudeTools=test.claude ? ["get preferences","set preference"] : [];
             }
-            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{

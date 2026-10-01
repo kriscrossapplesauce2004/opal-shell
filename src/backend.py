@@ -57,6 +57,13 @@ def valid_schedules(value):
         if any(k in item and not (isinstance(item[k],str) and TIME.fullmatch(item[k])) for k in ('from','to')): return False
         if 'temperature' in item and (type(item['temperature']) is not int or not 2500<=item['temperature']<=6500): return False
     return True
+def valid_dock_choices(value):
+    if not isinstance(value,dict) or len(value)>16: return False
+    for name,c in value.items():
+        if not isinstance(name,str) or not re.fullmatch(r'[A-Za-z0-9._-]{1,64}',name) or not isinstance(c,dict) or set(c)-{'mode','phoneMode','resolution','scale'}: return False
+        if c.get('mode') not in ('desktop','console','phone','mirror') or c.get('phoneMode') not in ('trackpad','screen','panel'): return False
+        if not isinstance(c.get('resolution',''),str) or len(c.get('resolution',''))>40 or type(c.get('scale',1)) not in (int,float) or not .5<=c.get('scale',1)<=4: return False
+    return True
 def valid_profiles(value):
     if not isinstance(value,dict) or len(value)>10: return False
     return all(isinstance(name,str) and 0<len(name)<=40 and isinstance(saved,dict) and set(saved)<=set(PROFILE_KEYS) for name,saved in value.items())
@@ -395,6 +402,7 @@ def commands():
                 valid = valid or key=='themeExport' and isinstance(value,list) and all(v in system_tools.TARGETS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='schedules' and valid_schedules(value)
                 valid = valid or key=='profiles' and valid_profiles(value)
+                valid = valid or key=='dockChoices' and valid_dock_choices(value)
                 valid = valid or key=='phoneHome' and valid_phone_home(value)
                 valid = valid or key=='gamePins' and isinstance(value,list) and len(value)<=256 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='sheetSections' and isinstance(value,list) and len(value)<=len(SHEET_SECTION_IDS) and all(v in SHEET_SECTION_IDS for v in value) and len(set(value))==len(value)
@@ -497,6 +505,7 @@ def commands():
             elif action=='sun-times':
                 where=system_tools.zone_coordinates(); times=system_tools.sun_times(*where) if where else None
                 emit({'event':'sun','sunrise':times[0] if times else '07:00','sunset':times[1] if times else '19:00','estimated':times is None})
+            elif action in ('pointer','pointer-start','pointer-stop'): pointer_command(c)
             elif isinstance(action,str) and action.startswith('link-'):
                 threading.Thread(target=link_command,args=(c,),daemon=True).start()
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
@@ -841,6 +850,45 @@ def health_watch():
         if time.time()-last_updates>3*3600:
             last_updates=time.time(); emit(dict(system_tools.updates(),event='updates'))
         time.sleep(300)
+
+# ---------- Docked trackpad ----------
+POINTER = {'process': None}
+def pointer_command(c):
+    """Forward validated trackpad commands to opal-pointer, which runs only while the phone is a trackpad."""
+    action = c.get('action')
+    process = POINTER['process']
+    if action == 'pointer-stop':
+        if process and process.poll() is None:
+            try: process.stdin.close()
+            except OSError: pass
+            process.terminate()
+        POINTER['process'] = None
+        return
+    if action == 'pointer-start':
+        output = c.get('output')
+        if not isinstance(output, str) or not re.fullmatch(r'[A-Za-z0-9._-]{1,64}', output): return
+        if not process or process.poll() is not None:
+            helper = shutil.which('opal-pointer') or str(HOME / '.local/bin/opal-pointer')
+            if not os.path.exists(helper): emit({'event':'message','text':'The trackpad helper is not installed'}); return
+            try: process = subprocess.Popen([helper], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True, bufsize=1)
+            except OSError as error: emit({'event':'message','text':str(error)}); return
+            POINTER['process'] = process
+        line = 'output ' + output
+    elif action == 'pointer':
+        op = c.get('op')
+        if not process or process.poll() is not None: return
+        if op in ('move', 'scroll'):
+            dx, dy = c.get('dx'), c.get('dy')
+            if type(dx) not in (int, float) or type(dy) not in (int, float) or abs(dx) > 4000 or abs(dy) > 4000: return
+            line = '%s %.2f %.2f' % (op, dx, dy)
+        elif op in ('down', 'up', 'click') and c.get('button') in ('left', 'right', 'middle'):
+            line = op + ' ' + c['button']
+        else:
+            return
+    else:
+        return
+    try: process.stdin.write(line + '\n'); process.stdin.flush()
+    except (OSError, ValueError): POINTER['process'] = None
 
 # ---------- Opal Link ----------
 LINK = {'service': None}

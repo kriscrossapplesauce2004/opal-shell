@@ -11,7 +11,8 @@ Scope {
     property var connectivity: ({wifi:{items:[],busy:false,error:"",powered:false},bluetooth:{items:[],busy:false,error:"",powered:false}})
     property string controlDetail: ""
     property string settingsSection: ""
-    function openSettings(section) { settingsSection=section||"";page="settings"; }
+    function openSettings(section) { settingsSection=section==="display"||section==="screens" ? "displays" : section||"";page="settings"; }
+
     property bool taskbarContextOpen:false
     property var taskbarContextScreen:null
     property real taskbarContextX:0
@@ -58,7 +59,8 @@ Scope {
     // Wheel input changes the volume but does not open the drawer.
     function audioScroll(steps,screen) {osdScreen=screen||chooseScreen();volume(Math.max(0,Math.min(100,status.volume+steps*2)));}
     property string page: ""
-    onPageChanged:if(page!=="") {closeAudio();closePowerProfile();}
+    // The old convergence page now lives in Settings → Displays.
+    onPageChanged:{if(page==="convergence"){settingsSection="displays";page="settings";return;}if(page!=="") {closeAudio();closePowerProfile();}}
     property string category: "All apps"
     property string query: ""
     property string calculation: ""
@@ -210,13 +212,56 @@ Scope {
         const names=screens.map(s=>s.name);
         const added=screens.filter(s=>knownDisplays.indexOf(s.name)<0);
         knownDisplays=names;
-        if(dockScreen&&names.indexOf(dockScreen.name)<0) {dockNotice=false;dockScreen=null;}
-        if(added.length) {dockScreen=added[added.length-1];dockNotice=true;dockTimer.restart();}
+        if(dockScreen&&names.indexOf(dockScreen.name)<0) {
+            const gone=dockScreen.name;
+            dockNotice=false;dockScreen=null;
+            if(docked&&dockOutput===gone) {
+                docked=false;command({action:"pointer-stop"});phoneDark=false;
+                const next=Object.assign({},sessionModes);delete next[gone];sessionModes=next;
+                message("Undocked. Your apps are back on the phone.");
+            }
+        }
+        if(added.length) {dockScreen=added[added.length-1];dockNotice=true;dockTimer.restart();command({action:"monitors"});}
     }
     Timer {interval:3000;running:true;onTriggered:{h.knownDisplays=h.displayTopology.slice();h.displaysReady=true;}}
-    Timer {id:dockTimer;interval:30000;onTriggered:h.dockNotice=false}
+    Timer {id:dockTimer;interval:120000;onTriggered:h.dockNotice=false}
     function pauseDockNotice(){if(dockNotice)dockTimer.stop();}
     function resumeDockNotice(){if(dockNotice)dockTimer.restart();}
+    // Docking: the dock menu's choice for a connected screen, and the phone's role while docked.
+    property var sessionModes: ({})
+    property bool docked: false
+    property string dockOutput: ""
+    property string phoneDockMode: "trackpad"
+    property bool phoneDark: false
+    readonly property var phoneScreen: Quickshell.screens.find(s=>(!dockScreen||s.name!==dockScreen.name)&&layoutFor(s.width,s.height,s.name)==="phone")||null
+    function setPhoneDockMode(next) {
+        phoneDockMode=next;
+        if(next==="trackpad"&&docked)command({action:"pointer-start",output:dockOutput});
+        else command({action:"pointer-stop"});
+    }
+    function applyDock(choice) {
+        if(!dockScreen)return;
+        const out=dockScreen.name;
+        const phone=phoneScreen ? phoneScreen.name : "";
+        const monitor=monitors.find(m=>m.name===out);
+        if(choice.mode==="mirror"&&phone) {
+            command({action:"monitors-apply",displays:[{name:out,mode:"preferred",x:monitor ? monitor.x : 0,y:monitor ? monitor.y : 0,scale:1,transform:0,mirror:phone}],keep:false});
+        } else {
+            const modes=Object.assign({},sessionModes);modes[out]=choice.mode==="mirror" ? "desktop" : choice.mode;sessionModes=modes;
+            if(monitor&&(choice.resolution&&choice.resolution!=="preferred"||choice.scale!==monitor.scale))
+                command({action:"monitors-apply",displays:[{name:out,mode:choice.resolution&&choice.resolution!=="preferred" ? choice.resolution.replace("Hz","") : monitor.width+"x"+monitor.height+"@"+monitor.refresh.toFixed(2),x:monitor.x,y:monitor.y,scale:choice.scale||1,transform:monitor.transform,mirror:"none"}],keep:false});
+            const target=(status.monitors||[]).find(m=>m.name===out);
+            if(target&&target.workspace>0)(choice.apps||[]).forEach(address=>command({action:"move-window",address:address,number:target.workspace,follow:false}));
+        }
+        if(choice.remember) {
+            const saved=Object.assign({},prefs.dockChoices||{});
+            saved[out]={mode:choice.mode,phoneMode:choice.phoneMode,resolution:choice.resolution||"",scale:choice.scale||1};
+            set("dockChoices",saved);
+        }
+        docked=!!phone;dockOutput=out;dockNotice=false;dockTimer.stop();
+        if(phone)setPhoneDockMode(choice.phoneMode||"trackpad");
+        targetScreen=dockScreen;
+    }
     function useDockedWorkspace(phoneScreen) {
         if(!dockScreen)return;
         const overrides=Object.assign({},prefs.displayModes||{});
@@ -341,6 +386,8 @@ Scope {
         set("displayModes",overrides);
     }
     function layoutFor(width,height,name) {
+        // A dock choice for this session wins over everything else.
+        if(name&&sessionModes[name])return sessionModes[name];
         if(prefs.mode==="phone"&&name) {
             const phoneName=prefs.phoneDisplay||(Quickshell.screens[0] ? Quickshell.screens[0].name : "");
             return name===phoneName ? "phone" : "desktop";

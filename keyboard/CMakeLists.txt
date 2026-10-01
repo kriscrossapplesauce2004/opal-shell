@@ -9,7 +9,7 @@ pkg_check_modules(WAYLAND REQUIRED IMPORTED_TARGET wayland-client)
 pkg_check_modules(XKB REQUIRED IMPORTED_TARGET xkbcommon)
 find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
 set(protocol_sources)
-foreach(protocol input-method-unstable-v2 virtual-keyboard-unstable-v1)
+foreach(protocol input-method-unstable-v2 virtual-keyboard-unstable-v1 wlr-virtual-pointer-unstable-v1)
     set(xml ${CMAKE_CURRENT_SOURCE_DIR}/protocols/${protocol}.xml)
     add_custom_command(OUTPUT ${protocol}.h ${protocol}.c
         COMMAND ${WAYLAND_SCANNER} client-header ${xml} ${protocol}.h
@@ -21,6 +21,11 @@ add_library(opal-input STATIC InputMethod.cpp InputMethod.h Keymap.cpp Keymap.h 
 target_include_directories(opal-input PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(opal-input PUBLIC Qt6::Core Qt6::DBus PkgConfig::WAYLAND PkgConfig::XKB)
 target_compile_options(opal-input PRIVATE -Wall -Wextra -Wpedantic)
+# Trackpad helper for docked phones: plain C, no Qt.
+add_executable(opal-pointer pointer.c wlr-virtual-pointer-unstable-v1.c wlr-virtual-pointer-unstable-v1.h)
+target_include_directories(opal-pointer PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(opal-pointer PRIVATE PkgConfig::WAYLAND)
+target_compile_options(opal-pointer PRIVATE -Wall -Wextra)
 qt_add_executable(opal-keyboard main.cpp)
 qt_add_resources(opal-keyboard keyboard PREFIX / FILES Main.qml Keyboard.qml Key.qml SuggestionStrip.qml)
 target_link_libraries(opal-keyboard PRIVATE opal-input Qt6::Gui Qt6::Qml Qt6::Quick LayerShellQt::Interface)

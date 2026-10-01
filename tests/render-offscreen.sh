@@ -7,7 +7,8 @@ chmod 700 "$root/runtime"
 # Quickshell requires imports to remain below the entry point's directory.
 mkdir -p "$root/config"
 cp -a "$source_dir/src" "$root/config/src"
-cp "$source_dir/tests/headless.qml" "$root/config/headless.qml"
+entry=${OPAL_ENTRY:-headless.qml}
+cp "$source_dir/tests/$entry" "$root/config/$entry"
 # Small generated image fixtures exercise the gallery without reading user photos.
 python3 - "$root/home/Pictures/Wallpapers" "$HOME/.local/state/opal/preferences.json" "$root/home/.local/state/opal/preferences.json" <<'PY'
 import json, pathlib, struct, sys, zlib
@@ -65,7 +66,7 @@ env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
     XDG_CONFIG_HOME="$root/home/.config" XDG_DATA_HOME="$root/home/.local/share" \
     QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=software QT_LOGGING_RULES="qml.debug=true" \
     OPAL_TEST_OUTPUT="$root/images" DBUS_SESSION_BUS_ADDRESS="unix:path=$root/no-bus" \
-    timeout 90s quickshell -p "$root/config/headless.qml" > "$root/render.log" 2>&1
+    timeout ${OPAL_TIMEOUT:-90}s quickshell -p "$root/config/$entry" > "$root/render.log" 2>&1
 printf 'Log: %s/render.log\nImages: %s/images/\n' "$root" "$root"
 if grep -E 'TypeError|ReferenceError|ERROR|Unable to assign|Binding loop|ASSERTION_FAILED' "$root/render.log"; then
     exit 1

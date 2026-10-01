@@ -203,7 +203,8 @@ ShellRoot {
     ShadeWindow {}
     PowerProfileWindow {}
     TaskbarContextWindow {}
-    DockWelcomeWindow {}
+    DockWindow {}
+    PhoneDock {}
     PanelWindow {
         id:notificationPopups
         screen:Notifier.popupScreen || Quickshell.screens[0]

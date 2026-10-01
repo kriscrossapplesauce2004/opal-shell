@@ -93,3 +93,9 @@ SettingsSystem 1.0 SettingsSystem.qml
 Onboarding 1.0 Onboarding.qml
 LinkDevices 1.0 LinkDevices.qml
 SettingsLink 1.0 SettingsLink.qml
+ModeArt 1.0 ModeArt.qml
+DockScene 1.0 DockScene.qml
+DockWindow 1.0 DockWindow.qml
+PhoneDock 1.0 PhoneDock.qml
+PhoneDockPanel 1.0 PhoneDockPanel.qml
+DockTrackpad 1.0 DockTrackpad.qml

@@ -40,3 +40,12 @@ Device: /org/freedesktop/UPower/devices/mouse_test
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MergeByNameTest(unittest.TestCase):
+    def test_same_headset_from_two_sources_appears_once(self):
+        from power_status import merge_batteries
+        merged = merge_batteries([{'id': 'hid-aa', 'name': 'soundcore Q20i', 'percent': 20, 'source': 'system'}],
+                                 [{'id': 'AA:BB', 'name': 'soundcore Q20i', 'percent': 20, 'source': 'bluetooth'}])
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]['source'], 'system')

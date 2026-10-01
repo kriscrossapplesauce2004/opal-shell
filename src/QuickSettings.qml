@@ -29,7 +29,8 @@ Item {
     Connections {target:Hub;function onPageChanged(){if(Hub.page==="notifications")Qt.callLater(q.scrollToInbox);}}
     function scrollToInbox() {
         const item=sectionRepeater.itemAt(sections.indexOf("notifications"));
-        if(item)scroller.contentY=Math.max(0,Math.min(scroller.contentHeight-scroller.height,item.y));
+        // Only scroll when the content is taller than the sheet; otherwise the sheet already shows everything.
+        if(item&&scroller.contentHeight>scroller.height+1)scroller.contentY=Math.max(0,Math.min(scroller.contentHeight-scroller.height,item.y));
     }
     // Desktop sheets shrink to fit. Zero means the host picks the height.
     readonly property real fitHeight:!q.phone&&Hub.controlDetail===""&&q.confirm==="" ? main.implicitHeight+28 : 0
@@ -56,6 +57,9 @@ Item {
             Layout.fillWidth:true;Layout.fillHeight:true;Layout.preferredHeight:body.implicitHeight
             contentHeight:body.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
             Behavior on contentY {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+            // The sheet grows to fit after opening; never leave it scrolled past its end.
+            onHeightChanged:contentY=Math.max(0,Math.min(contentY,contentHeight-height))
+            onContentHeightChanged:contentY=Math.max(0,Math.min(contentY,contentHeight-height))
             ScrollBar.vertical:ScrollBar {}
             ColumnLayout {
                 id:body;width:parent.width;spacing:12
@@ -186,7 +190,7 @@ Item {
     }}
     Component {id:batterySection;ColumnLayout {spacing:6
         MText {text:"Batteries";role:"titleS";Layout.leftMargin:6}
-        Repeater {model:Hub.status.batteries||[]
+        Repeater {model:(Hub.status.batteries||[]).filter((b,i,all)=>all.findIndex(o=>o.name===b.name)===i)
             Rectangle {required property var modelData;Layout.fillWidth:true;implicitHeight:52;radius:Theme.shapeMd;color:Theme.level(3)
                 RowLayout {anchors.fill:parent;anchors.margins:12;spacing:10
                     Glyph {name:modelData.charging ? "charging" : "battery";font.pixelSize:19;color:Theme.primary}

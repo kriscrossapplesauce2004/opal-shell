@@ -21,8 +21,7 @@ Item {
             {id:"link",title:"Opal Link",icon:"devices",detail:"Your phone and other Opal devices"}]},
         {title:"Device",items:[
             {id:"sound",title:"Sound",icon:"volume",detail:"Volume, outputs and microphone"},
-            {id:"screens",title:"Screens",icon:"monitor",detail:"Arrangement, resolution and scale"},
-            {id:"display",title:"Displays & convergence",icon:"convergence",detail:"Layouts for every screen"},
+            {id:"displays",title:"Displays",icon:"monitor",detail:"Arrangement, docking and what each screen becomes"},
             {id:"power",title:"Battery & power",icon:"battery",detail:"Profiles and staying awake"}]},
         {title:"Personal",items:[
             {id:"appearance",title:"Wallpaper & style",icon:"palette",detail:"Colours, wallpaper and glass"},
@@ -123,7 +122,7 @@ Item {
                 Loader {
                     id:page
                     Layout.fillWidth:true;Layout.fillHeight:true
-                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="display" ? displayPage : Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="link" ? linkPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
+                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="displays"||Hub.settingsSection==="display"||Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="link" ? linkPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
                     // Pages slide in from the side on every section change.
                     onLoaded:{pageIn.restart();}
                     ParallelAnimation {

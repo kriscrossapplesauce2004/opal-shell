@@ -59,7 +59,7 @@ ColumnLayout {
         case "autohide":Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide);break;
         case "clipboard":Hub.toggleClipboard();break;
         case "focus":Hub.timerToggle();break;
-        case "convergence":Hub.openSettings("display");break;
+        case "convergence":Hub.openSettings("displays");break;
         }
     }
     function change(id) {let next=order.slice();const index=next.indexOf(id);if(index>=0)next.splice(index,1);else next.push(id);Hub.set("quickTiles",next);}

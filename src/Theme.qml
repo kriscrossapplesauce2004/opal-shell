@@ -65,6 +65,8 @@ QtObject {
     // Restrained motion: the spatial curve has no overshoot.
     readonly property var spatial: [0.2,0,0,1,1,1]
     readonly property var standard: [0.2,0,0,1,1,1]
+    // Springy curve with overshoot, used only by the convergence experience.
+    readonly property var springy: [0.34,1.56,0.64,1,1,1]
     readonly property int durShort: 140
     readonly property int durMedium: 240
     readonly property int durLong: 360
