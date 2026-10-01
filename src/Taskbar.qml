@@ -26,7 +26,7 @@ PanelWindow {
     }
     anchors {bottom:true;left:true;right:true}
     visible:!consoleMode&&!fullscreen
-    implicitHeight:phone ? (Hub.prefs.phoneButtons ? 64 : 48) : 64
+    implicitHeight:phone ? (Hub.prefs.phoneButtons ? 64 : 48) : Hub.prefs.barStyle==="edge" ? 52 : 64
     exclusiveZone:(autoHide||consoleMode||fullscreen) ? 0 : implicitHeight
     color:"transparent"
     WlrLayershell.namespace:"opal-shelf"

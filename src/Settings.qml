@@ -300,6 +300,10 @@ Item {
             }
             MText {visible:Hub.settingsSection==="power";Layout.fillWidth:true;Layout.leftMargin:6;text:"Sleep, restart and shut down ask for a second tap.";font.pixelSize:11;color:Theme.subtext}
             // Shelf.
+            SectionLabel {visible:Hub.settingsSection==="taskbar";text:"Bar style"}
+            SegmentedButtons {visible:Hub.settingsSection==="taskbar";Layout.fillWidth:true;Layout.bottomMargin:12;current:Hub.prefs.barStyle||"islands"
+                options:[{value:"islands",label:"Islands",icon:"view_column"},{value:"dock",label:"Dock",icon:"call_to_action"},{value:"split",label:"Split",icon:"splitscreen"},{value:"edge",label:"Edge",icon:"bottom_navigation"}]
+                onPicked:value=>Hub.set("barStyle",value)}
             SettingToggle {visible:Hub.settingsSection==="taskbar";Layout.fillWidth:true;first:true;last:false;icon:"vertical_align_bottom";title:"Hide the shelf automatically";description:"Move to the bottom edge to reveal it.";checked:!!Hub.prefs.taskbarAutoHide;onToggled:Hub.set("taskbarAutoHide",!checked)}
             SettingToggle {visible:Hub.settingsSection==="taskbar";Layout.fillWidth:true;first:false;last:false;icon:"format_align_center";title:"Center apps";description:"System controls stay on the right.";checked:!!Hub.prefs.taskbarCenter;onToggled:Hub.set("taskbarCenter",!checked)}
             SettingToggle {visible:Hub.settingsSection==="taskbar";Layout.fillWidth:true;first:false;last:false;icon:"label";title:"Window labels";description:"Titles appear when there is room.";checked:!!Hub.prefs.taskbarLabels;onToggled:Hub.set("taskbarLabels",!checked)}

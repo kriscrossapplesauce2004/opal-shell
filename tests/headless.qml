@@ -17,6 +17,12 @@ ShellRoot {
         property real musicVolume:40
         property var cases:[
             {name:"start-beauty",ui:"start",w:600,h:680},
+            {name:"bar-islands",ui:"bars",w:1440,h:300,music:true,barStyle:"islands"},
+            {name:"bar-islands-light",ui:"bars",w:1440,h:300,light:true,tide:true,barStyle:"islands"},
+            {name:"bar-dock",ui:"bars",w:1440,h:300,barStyle:"dock"},
+            {name:"bar-split",ui:"bars",w:1440,h:300,music:true,barStyle:"split"},
+            {name:"bar-edge",ui:"bars",w:1440,h:300,light:true,barStyle:"edge"},
+            {name:"bar-osd",ui:"bars",w:1440,h:300,barStyle:"islands",osd:true,flash:true},
             {name:"context-menus",ui:"menus",w:980,h:560},
             {name:"context-menus-light",ui:"menus",w:980,h:560,light:true},
             {name:"search-empty",ui:"search",w:1280,h:800},
@@ -223,6 +229,11 @@ ShellRoot {
             }
             Opal.DesktopShelf {id:referenceShelf;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:64}
         }}
+        Component {id:barsView;Item {
+            Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
+            Opal.DesktopShelf {visible:Opal.Hub.prefs.barStyle==="split";part:"top";anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:56}
+            Opal.DesktopShelf {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:Opal.Hub.prefs.barStyle==="edge" ? 52 : 64;flashWorkspace:fixture.cases[fixture.step].flash ? 3 : 0}
+        }}
         Component {id:workspaceView;Item {
             property alias shelf:workspaceShelf
             Opal.Wallpaper {anchors.fill:parent}
@@ -281,7 +292,7 @@ ShellRoot {
                 Opal.Hub.query=test.searchText||"";
                 if(test.searchText&&test.searchText.startsWith("12"))Opal.Hub.calculation="84";
             }
-            if(test.ui==="reference") {
+            if(test.ui==="reference"||test.ui==="bars") {
                 Opal.Hub.apps=[{id:"firefox",name:"Firefox",genericName:"Web browser",icon:"firefox",keywords:["internet"],categories:["Network"],execute:()=>{}},{id:"files",name:"Files",genericName:"File manager",icon:"system-file-manager",keywords:["folders"],categories:["System"],execute:()=>{}},{id:"terminal",name:"Terminal",genericName:"Command line",icon:"utilities-terminal",keywords:["shell"],categories:["System"],execute:()=>{}},{id:"code",name:"Visual Studio Code",genericName:"Code editor",icon:"code",keywords:["editor"],categories:["Development"],execute:()=>{}},{id:"music",name:"Music",icon:"multimedia-player",keywords:[],categories:["AudioVideo"],execute:()=>{}},{id:"notes",name:"Notes",icon:"text-editor",keywords:[],categories:["Office"],execute:()=>{}}];
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{palette:1,dynamicColors:!test.tide,desktopWidgets:true,recent:["files","code","firefox","notes"],favorites:["firefox","files"]});
                 Opal.Hub.status=Object.assign({},Opal.Hub.status,{battery:73,charging:true,wifi:true,network:"Oasis WLAN",bluetooth:false,brightness:58,volume:32,muted:false,profile:"balanced",hypr:true,workspace:2,workspaces:[1,2,3,5]});
@@ -291,6 +302,9 @@ ShellRoot {
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{palette:1});
                 Opal.Hub.status=Object.assign({},Opal.Hub.status,{battery:73,charging:true,wifi:true});
             }
+            Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{barStyle:test.barStyle||"islands"});
+            if(test.ui==="bars")Opal.Hub.compositorActive=true,Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:2},{title:"Mozilla Firefox",className:"firefox",address:"fixture-web",workspace:1}];
+            Opal.Hub.osdScreen=null;Opal.Hub.osd=test.osd ? "Volume" : "";
             if(test.music)Opal.Hub.status=Object.assign({},Opal.Hub.status,{track:"A little evening music",artist:"Local player",art:"file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-1.png",playing:true,volume:40,audioOutput:"Headphones"});
             if(test.ui==="osd")Opal.Hub.status=Object.assign({},Opal.Hub.status,{volume:64,muted:false,audioOutput:"Speakers · Built-in audio"});
             if(test.ui==="start") {
@@ -299,7 +313,7 @@ ShellRoot {
                 Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:2}];
                 Opal.Hub.query=test.searchText||"";Opal.Hub.page="launcher";Opal.Hub.launcherSection="apps";
             }
-            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {
                 view.item.menu.allApps=!!test.allApps;
                 Qt.callLater(()=>{
@@ -355,7 +369,7 @@ ShellRoot {
                 Qt.callLater(()=>{
                     const shelf=view.item.shelf;
                     if(shelf.leftIsland.x+shelf.leftIsland.width>shelf.rightIsland.x-8)console.error("ASSERTION_FAILED: shelf islands overlap");
-                    if(shelf.strip.labels!==!!Opal.Hub.prefs.taskbarLabels||!shelf.strip.islandStyle)console.error("ASSERTION_FAILED: shelf preferences not applied");
+                    if(shelf.strip.labels!==(!!Opal.Hub.prefs.taskbarLabels&&shelf.strip.groups.length<=6)||!shelf.strip.islandStyle)console.error("ASSERTION_FAILED: shelf preferences not applied");
                 });
             }
             if(test.ui==="phonebars") {

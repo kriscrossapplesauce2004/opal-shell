@@ -24,7 +24,9 @@ PanelWindow {
     WlrLayershell.namespace: "opal-toast"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     color: "transparent"
-    visible: pill.y > -pill.height
+    // Desktop bars show the workspace in the clock pill instead.
+    readonly property bool inBar: screen && Hub.layoutFor(screen.width, screen.height, screen.name) === "desktop" && (Hub.status.fullscreenMonitors || []).indexOf(screen.name) < 0
+    visible: pill.y > -pill.height && !inBar
     mask: Region {}
     // The first value after startup is only a baseline, so login and reload stay quiet.
     Connections {

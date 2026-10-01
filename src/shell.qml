@@ -91,6 +91,7 @@ ShellRoot {
                 Component {id:phoneStatusContent;PhoneStatus {anchors.fill:parent;output:statusbar.screen;fpsEnabled:root.fpsEnabled;fps:root.fps}}
             }
             Loader {active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {screen:output.modelData}}}
+            Loader {active:output.layoutMode==="desktop"&&Hub.prefs.barStyle==="split";sourceComponent:Component {TopBar {screen:output.modelData}}}
             PanelWindow {
                 screen:output.modelData
                 visible:Hub.toast!==""&&Hub.page===""&&!Hub.audioOpen
@@ -112,8 +113,11 @@ ShellRoot {
         }
     }
     PanelWindow {
+        id:volumeOsd
         screen:Hub.osdScreen||Hub.chooseScreen()
-        visible:Hub.osd!==""&&Hub.page===""&&!Hub.audioOpen
+        // Desktop bars show volume feedback in the status pill instead.
+        readonly property bool inBar:screen&&Hub.layoutFor(screen.width,screen.height,screen.name)==="desktop"&&(Hub.status.fullscreenMonitors||[]).indexOf(screen.name)<0
+        visible:Hub.osd!==""&&Hub.page===""&&!Hub.audioOpen&&!inBar
         anchors {bottom:true}
         margins.bottom:100
         implicitWidth:Math.min(340,screen ? screen.width-24 : 340)
