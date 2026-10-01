@@ -114,6 +114,14 @@ Scope {
         const phone=Quickshell.screens.find(s=>layoutFor(s.width,s.height,s.name)==="phone"&&(!prefs.phoneDisplay||s.name===prefs.phoneDisplay));
         if(phone)command({action:"rotate",output:phone.name,transform:transform});
     }
+    // Claude: "!" in search asks the Claude Code CLI. Answers stream in.
+    property int claudeRequest: 0
+    property string claudeAnswer: ""
+    property var claudeTools: []
+    property bool claudeBusy: false
+    property bool claudeError: false
+    function askClaude(text) { const t=text.trim();if(!t)return;claudeRequest++;claudeAnswer="";claudeTools=[];claudeError=false;claudeBusy=true;command({action:"claude-ask",text:t,id:claudeRequest}); }
+    function stopClaude() { command({action:"claude-stop"});claudeBusy=false; }
     property var games: []
     function launchGame(game) { if(!game)return; command({action:"game-launch",id:game.id}); close(); }
     function gameRunning(game) { return !!game&&!!game.windowClass&&windows.some(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
@@ -479,6 +487,7 @@ Scope {
                     else if(e.event === "systemOsk") {h.systemOskAvailable=!!e.available;h.systemOskRunning=!!e.running;h.systemOskVisible=!!e.visible;h.systemOskDetail=e.detail||"";}
                     else if(e.event === "libraryArt") h.gameArt=e.data;
                     else if(e.event === "gameLibrary") h.games=e.data;
+                    else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}
                     else if(e.event === "orientation") h.applyOrientation(e.transform);
                     else if(e.event === "navigation" && h.prefs.mode === "console") { if(e.key==="home") h.toggle("launcher"); else if(h.page!=="") h.navigate(e.key); }
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;

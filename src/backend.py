@@ -437,6 +437,9 @@ def commands():
                     emit({'event':'message','text':str(error)})
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
+            elif action=='claude-ask' and isinstance(c.get('text'),str) and 0<len(c['text'])<8000:
+                threading.Thread(target=ask_claude,args=(c['text'],int(c.get('id') or 0)),daemon=True).start()
+            elif action=='claude-stop': stop_claude()
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
             elif action=='game-launch': launch_game(c.get('id'))
             elif action=='system-osk' and c.get('verb') in ('show','hide','toggle'):
@@ -722,6 +725,47 @@ def orientation_watch(process=None):
         match=re.search(r'(?:orientation changed|orientation): ([a-z-]+)',line)
         if match and match.group(1) in ORIENTATIONS:
             emit({'event':'orientation','value':match.group(1),'transform':ORIENTATIONS[match.group(1)]})
+
+CLAUDE = {'process': None, 'id': 0}
+CLAUDE_PROMPT = ("You are answering inside Opal, the user's desktop shell launcher. Keep answers short and plain. "
+                 "When the user asks to change the shell, use the opal tools.")
+def ask_claude(text, request):
+    """Stream an answer from the Claude Code CLI (the user's own subscription) with the Opal MCP server attached."""
+    stop_claude()
+    if not shutil.which('claude'): emit({'event':'claude','id':request,'text':'Claude Code is not installed.','done':True,'error':True}); return
+    server = str(pathlib.Path(__file__).resolve().with_name('opal_mcp.py'))
+    config = json.dumps({'mcpServers': {'opal': {'command': 'python3', 'args': [server]}}})
+    command = ['claude', '-p', text, '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--no-session-persistence',
+               '--strict-mcp-config', '--mcp-config', config, '--allowedTools', 'mcp__opal', '--append-system-prompt', CLAUDE_PROMPT]
+    try: process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, text=True, cwd=str(HOME))
+    except OSError as error: emit({'event':'claude','id':request,'text':str(error),'done':True,'error':True}); return
+    CLAUDE['process'], CLAUDE['id'] = process, request
+    answer, tools = '', []
+    for line in process.stdout:
+        try: event = json.loads(line)
+        except ValueError: continue
+        kind = event.get('type')
+        if kind == 'stream_event':
+            delta = event.get('event', {}).get('delta', {})
+            if delta.get('type') == 'text_delta':
+                answer += delta.get('text', '')
+                emit({'event':'claude','id':request,'text':answer,'tools':tools,'done':False})
+        elif kind == 'assistant':
+            for block in event.get('message', {}).get('content', []):
+                if block.get('type') == 'tool_use':
+                    tools.append(block.get('name', '').replace('mcp__opal__', '').replace('_', ' '))
+                    emit({'event':'claude','id':request,'text':answer,'tools':tools,'done':False})
+        elif kind == 'result':
+            final = event.get('result') if isinstance(event.get('result'), str) else answer
+            emit({'event':'claude','id':request,'text':final or answer,'tools':tools,'done':True,'error':bool(event.get('is_error'))})
+    process.wait()
+    if CLAUDE['process'] is process: CLAUDE['process'] = None
+
+def stop_claude():
+    process = CLAUDE.get('process')
+    if process and process.poll() is None:
+        process.terminate()
+    CLAUDE['process'] = None
 
 def session_object_path(session_id):
     """Encode a logind session ID as its D-Bus object path, like systemd's bus_path_encode."""

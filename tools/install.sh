@@ -225,6 +225,12 @@ case "${1:-on}" in
         ;;
 esac
 EOF
+# Register the Opal MCP server with Claude Code, so "claude" can drive the shell.
+if command -v claude >/dev/null 2>&1 && ! claude mcp get opal >/dev/null 2>&1; then
+    claude mcp add --scope user opal -- python3 "$config_dir/opal_mcp.py" >/dev/null 2>&1 &&
+        echo "Registered the Opal MCP server with Claude Code (remove with: claude mcp remove opal)" || true
+fi
+
 # The greeter command runs the installer from this checkout.
 tools_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 sed -i "s|@OPAL_TOOLS@|$tools_dir|" "$wrapper_tmp"

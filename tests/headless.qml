@@ -127,6 +127,7 @@ ShellRoot {
             {name:"start-windows",ui:"start",w:1280,h:800,searchText:"@ Project"},
             {name:"start-actions",ui:"start",w:1280,h:800,searchText:">"},
             {name:"start-empty",ui:"start",w:1280,h:800,searchText:"zzzzzzzz"},
+            {name:"start-claude",ui:"start",w:1280,h:800,searchText:"! make the bar a dock",claude:true},
             {name:"start-calculator",ui:"start",w:1280,h:800,searchText:"= 12 * (3 + 4)"},
             {name:"start-small",ui:"start",w:640,h:560,allApps:true},
             {name:"tile-editor",ui:"tiles",w:360,h:900}
@@ -351,6 +352,7 @@ ShellRoot {
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{palette:1,favorites:["firefox","files","terminal","code","music","notes"],pinsConfigured:true,recent:["code","firefox"]});
                 Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:2}];
                 Opal.Hub.query=test.searchText||"";Opal.Hub.page="launcher";Opal.Hub.launcherSection="apps";
+                Opal.Hub.claudeAnswer=test.claude ? "Done. Your bar is now a **dock**: one pill with apps on the left and status on the right." : "";Opal.Hub.claudeTools=test.claude ? ["get preferences","set preference"] : [];
             }
             view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {

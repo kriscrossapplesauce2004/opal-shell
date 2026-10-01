@@ -22,6 +22,7 @@ FocusScope {
     readonly property bool searching:query!==""
     readonly property bool calculator:query.startsWith("=")
     readonly property bool web:query.startsWith("?")
+    readonly property bool claude:query.startsWith("!")
     readonly property int columns:width<520 ? 4 : width>=850 ? 8 : 6
     readonly property var actions:[
         {id:"settings",name:"Settings",detail:"All your device preferences in one place",icon:"settings",keywords:"configure phone taskbar accessibility"},
@@ -36,7 +37,7 @@ FocusScope {
         {id:"lock",name:"Lock device",detail:"Lock your current session",icon:"lock",keywords:"secure screen"},
         {id:"focus",name:"Start focus timer",detail:"25 minutes without distractions",icon:"timer",keywords:"pomodoro concentrate"}
     ]
-    readonly property var results:searching&&!calculator&&!web ? Search.search(query,scope,Hub.appSearchIndex,Hub.windows,actions,Hub.favoriteApps.map(a=>a.id),Hub.prefs.recent||[]) : []
+    readonly property var results:searching&&!calculator&&!web&&!claude ? Search.search(query,scope,Hub.appSearchIndex,Hub.windows,actions,Hub.favoriteApps.map(a=>a.id),Hub.prefs.recent||[]) : []
     readonly property var selected:results[selection]||null
     readonly property var recent:Hub.recentApps.slice(0,4)
     onResultsChanged:{selection=0;resultList.positionViewAtBeginning();}
@@ -61,6 +62,7 @@ FocusScope {
     }
     function accept(fresh) {
         if(calculator){if(Hub.calculation!=="")Hub.command({action:"clipboard",text:Hub.calculation});}
+        else if(claude){if(query.slice(1).trim())Hub.askClaude(query.slice(1));}
         else if(web){if(query.slice(1).trim()){Hub.command({action:"web",text:query.slice(1).trim()});Hub.close();}}
         else invoke(selected,fresh);
     }
@@ -147,7 +149,7 @@ FocusScope {
             MButton {visible:menu.searching;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;anchors.rightMargin:5;icon:"close";compact:true;implicitWidth:36;tooltip:"Clear search";onClicked:{Hub.query="";searchField.forceActiveFocus();}}
         }
         RowLayout {
-            visible:menu.searching&&!menu.calculator&&!menu.web;Layout.fillWidth:true;spacing:6
+            visible:menu.searching&&!menu.calculator&&!menu.web&&!menu.claude;Layout.fillWidth:true;spacing:6
             Repeater {model:[{id:"all",name:"All"},{id:"app",name:"Apps"},{id:"window",name:"Windows"},{id:"action",name:"Actions"}]
                 Chip {required property var modelData;text:modelData.name;selected:menu.scope===modelData.id;glass:false;onClicked:{menu.scope=modelData.id;searchField.forceActiveFocus();}}
             }
@@ -206,7 +208,7 @@ FocusScope {
                     MText {visible:menu.recent.length===0;Layout.fillWidth:true;text:"Apps you open will appear here.";color:Theme.subtext;font.pixelSize:12}
                     // Search tools: each chip starts a search with its prefix, so the syntax is discoverable.
                     Flow {Layout.fillWidth:true;Layout.topMargin:4;spacing:6
-                        Repeater {model:[{text:"Calculate",prefix:"= ",icon:"calculate"},{text:"Actions",prefix:"> ",icon:"bolt"},{text:"Windows",prefix:"@ ",icon:"desktop"},{text:"Web",prefix:"? ",icon:"web"}]
+                        Repeater {model:[{text:"Calculate",prefix:"= ",icon:"calculate"},{text:"Actions",prefix:"> ",icon:"bolt"},{text:"Windows",prefix:"@ ",icon:"desktop"},{text:"Web",prefix:"? ",icon:"web"},{text:"Ask Claude",prefix:"! ",icon:"auto_awesome"}]
                             Chip {required property var modelData;text:modelData.text;icon:modelData.icon;trailingIcon:"";tooltip:"Start with "+modelData.prefix.trim();onClicked:{Hub.query=modelData.prefix;searchField.forceActiveFocus();}}
                         }
                     }
@@ -238,7 +240,7 @@ FocusScope {
                 }
             }
             ListView {
-                id:resultList;anchors.fill:parent;visible:menu.searching&&!menu.calculator&&!menu.web
+                id:resultList;anchors.fill:parent;visible:menu.searching&&!menu.calculator&&!menu.web&&!menu.claude
                 model:menu.results;clip:true;spacing:5;boundsBehavior:Flickable.StopAtBounds
                 ScrollBar.vertical:ScrollBar {}
                 delegate:Rectangle {
@@ -276,6 +278,42 @@ FocusScope {
                     MButton {anchors.horizontalCenter:parent.horizontalCenter;text:"Search the web instead";icon:"web";tonal:true;onClicked:{Hub.command({action:"web",text:menu.query});Hub.close();}}
                 }
             }
+            // Claude: Enter sends the question; the answer streams in below.
+            ColumnLayout {
+                visible:menu.searching&&menu.claude;anchors.fill:parent;spacing:12
+                RowLayout {Layout.fillWidth:true;spacing:10
+                    Rectangle {Layout.preferredWidth:36;Layout.preferredHeight:36;radius:Theme.shapeSm;color:Theme.tertiaryContainer
+                        Glyph {anchors.centerIn:parent;name:"auto_awesome";font.pixelSize:20;color:Theme.onTertiaryContainer}}
+                    MText {text:"Ask Claude";role:"title";Layout.fillWidth:true}
+                    MButton {visible:Hub.claudeBusy;text:"Stop";icon:"stop";compact:true;tonal:true;onClicked:Hub.stopClaude()}
+                    MButton {visible:!Hub.claudeBusy;text:"Ask";icon:"send";compact:true;filled:true;enabled:menu.query.slice(1).trim()!=="";onClicked:menu.accept(false)}
+                }
+                Flow {
+                    visible:Hub.claudeTools.length>0;Layout.fillWidth:true;spacing:6
+                    Repeater {model:Hub.claudeTools
+                        Rectangle {required property string modelData;height:26;width:toolText.implicitWidth+20;radius:13;color:Theme.level(3)
+                            MText {id:toolText;anchors.centerIn:parent;text:modelData;role:"labelS";color:Theme.subtext}}}
+                }
+                Rectangle {
+                    Layout.fillWidth:true;Layout.fillHeight:true;radius:Theme.shapeLg;color:Theme.level(3)
+                    Flickable {
+                        id:answerScroll;anchors.fill:parent;anchors.margins:16;clip:true;contentHeight:answerText.implicitHeight;boundsBehavior:Flickable.StopAtBounds
+                        onContentHeightChanged:if(Hub.claudeBusy)contentY=Math.max(0,contentHeight-height)
+                        ScrollBar.vertical:ScrollBar {}
+                        TextEdit {
+                            id:answerText;width:parent.width;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap
+                            textFormat:TextEdit.MarkdownText
+                            text:Hub.claudeAnswer!=="" ? Hub.claudeAnswer : Hub.claudeBusy ? "Thinking…" : "Type a question after ! and press Enter. Claude can also change Opal for you, like \"switch to dark mode\"."
+                            color:Hub.claudeError ? Theme.error : Hub.claudeAnswer!=="" ? Theme.text : Theme.subtext
+                            font.family:Theme.font;font.pixelSize:14
+                        }
+                    }
+                }
+                RowLayout {Layout.fillWidth:true
+                    MText {text:"Uses your Claude Code sign-in.";role:"labelS";color:Theme.subtext;Layout.fillWidth:true}
+                    MButton {visible:Hub.claudeAnswer!==""&&!Hub.claudeBusy;text:"Copy";icon:"copy";compact:true;onClicked:Hub.command({action:"clipboard",text:Hub.claudeAnswer})}
+                }
+            }
             ColumnLayout {
                 visible:menu.searching&&(menu.calculator||menu.web);anchors.fill:parent;spacing:16
                 Rectangle {Layout.fillWidth:true;Layout.preferredHeight:190;radius:24;color:Theme.primaryContainer
@@ -290,7 +328,7 @@ FocusScope {
             }
         }
         RowLayout {
-            visible:menu.searching&&!menu.calculator&&!menu.web&&!!menu.selected;Layout.fillWidth:true
+            visible:menu.searching&&!menu.calculator&&!menu.web&&!menu.claude&&!!menu.selected;Layout.fillWidth:true
             MText {Layout.fillWidth:true;text:"↑ ↓ choose · Enter open";font.pixelSize:11;color:Theme.subtext}
             MButton {visible:menu.selected&&menu.selected.kind==="app";text:menu.selected&&menu.selected.kind==="app"&&Hub.pinned(menu.selected.data) ? "Unpin" : "Pin";icon:"pin";compact:true;tonal:true;onClicked:if(menu.selected)Hub.pin(menu.selected.data)}
             MButton {text:"Open";icon:"next";compact:true;filled:true;onClicked:menu.accept(false)}
