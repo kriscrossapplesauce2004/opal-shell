@@ -20,22 +20,24 @@ class ConnectivityTests(unittest.TestCase):
         self.assertEqual(fields(r'*:Cafe\: west:80:WPA2:wlan0'), ['*', 'Cafe: west', '80', 'WPA2', 'wlan0'])
 
     def test_wifi_list(self):
-        events, _ = self.work({'kind': 'wifi'}, ['enabled', '*:Home:80:WPA2:wlan0\n:Home:50:WPA2:wlan0\n:Guest:90::wlan0'])
+        events, _ = self.work({'kind': 'wifi'}, ['enabled', '*:Home:80:WPA2:wlan0\n:Home:50:WPA2:wlan0\n:Guest:90::wlan0', 'Home:802-11-wireless\nWired:802-3-ethernet'])
         self.assertEqual(len(events[-1]['items']), 2)
         self.assertTrue(events[-1]['items'][0]['active'])
+        self.assertTrue(events[-1]['items'][0]['saved'])
+        self.assertFalse(events[-1]['items'][1]['saved'])
         self.assertFalse(events[-1]['busy'])
 
     def test_wifi_list_keeps_first_of_many_duplicate_ssids(self):
         rows = ['*:Office\\: floor:80:WPA2:wlan0']
         rows.extend(':Office\\: floor:20:WPA2:wlan0' for _ in range(500))
-        events, _ = self.work({'kind': 'wifi'}, ['enabled', '\n'.join(rows)])
+        events, _ = self.work({'kind': 'wifi'}, ['enabled', '\n'.join(rows), ''])
         self.assertEqual(events[-1]['items'], [{
-            'active': True, 'ssid': 'Office: floor', 'signal': '80',
-            'security': 'WPA2', 'device': 'wlan0',
+            'active': True, 'ssid': 'Office: floor', 'signal': 80,
+            'security': 'WPA2', 'device': 'wlan0', 'saved': False,
         }])
 
     def test_password_not_emitted(self):
-        events, run = self.work({'kind': 'wifi', 'verb': 'connect', 'ssid': 'Home', 'password': 'secret'}, ['', 'enabled', ''])
+        events, run = self.work({'kind': 'wifi', 'verb': 'connect', 'ssid': 'Home', 'password': 'secret'}, ['', 'enabled', '', ''])
         self.assertNotIn('secret', str(events))
         self.assertEqual(run.call_args_list[0].args[-2:], ('password', 'secret'))
 

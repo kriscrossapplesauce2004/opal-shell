@@ -10,10 +10,10 @@ Item {
     readonly property bool narrow:width<620
     property bool embedded:false
     readonly property var modes:[
-        {id:"auto",title:"Flow",icon:"auto_awesome",tag:"Adaptive",description:"Every screen finds its own fit: a touch home on small and portrait displays, a workspace on larger ones."},
-        {id:"desktop",title:"Workspace",icon:"desktop_windows",tag:"Desktop",description:"Windows up front, with the shelf, instant search and the control panel a click away."},
-        {id:"phone",title:"Touch",icon:"smartphone",tag:"Phone and tablet",description:"Edge-to-edge home, reachable controls and gesture navigation. Rotate for a two-column home."},
-        {id:"console",title:"Play",icon:"sports_esports",tag:"Controller",description:"A game-first library with large artwork, D-pad navigation and a session that keeps interruptions out."}
+        {id:"auto",title:"Flow",icon:"auto_awesome",tag:"Adaptive",description:"Each screen picks touch or desktop by its size."},
+        {id:"desktop",title:"Workspace",icon:"desktop_windows",tag:"Desktop",description:"Windows, a bar and search."},
+        {id:"phone",title:"Touch",icon:"smartphone",tag:"Phone and tablet",description:"A touch home with big targets."},
+        {id:"console",title:"Play",icon:"sports_esports",tag:"Controller",description:"Your games, controller first."}
     ]
     readonly property var choice:modes.find(m=>m.id===selected)||modes[0]
     readonly property var screenFocus:Quickshell.screens.find(s=>s.name===focusScreen)||Quickshell.screens[0]||null
@@ -147,7 +147,7 @@ Item {
                 SettingToggle {Layout.fillWidth:true;first:false;last:true;icon:"vertical_align_bottom";title:"Hide the shelf automatically";checked:!!Hub.prefs.taskbarAutoHide;onToggled:Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide)}
                 MText {text:"Glass · "+Math.round(Hub.prefs.glass*100)+"%";font.pixelSize:12;font.weight:Font.Medium;color:Theme.primary;Layout.leftMargin:6;Layout.topMargin:10}
                 ExpressiveSlider {Layout.fillWidth:true;implicitHeight:58;compact:true;trackHeight:46;icon:"opacity";iconAtHandle:true;from:45;to:100;value:Hub.prefs.glass*100;onMoved:Hub.set("glass",Math.round(value)/100)}
-                MText {Layout.fillWidth:true;Layout.topMargin:6;text:"A new display gets a short docking welcome. Positions, mirroring and resolution stay with the compositor; USB-C display-out needs compatible hardware.";wrapMode:Text.Wrap;font.pixelSize:11;color:Theme.subtext}
+                MText {Layout.fillWidth:true;Layout.topMargin:6;text:"New displays get a quick setup prompt.";wrapMode:Text.Wrap;font.pixelSize:11;color:Theme.subtext}
             }
         }
         MButton {

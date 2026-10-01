@@ -64,6 +64,8 @@ ShellRoot {
             {name:"desktop",ui:"desktop",w:960,h:650},
             {name:"desktop-light",ui:"desktop",w:960,h:740,light:true},
             {name:"wifi-phone",ui:"shade",w:360,h:640,detail:"wifi"},
+            {name:"bluetooth-devices",ui:"shade",w:400,h:640,detail:"bluetooth",devices:true},
+            {name:"wifi-networks-light",ui:"shade",w:400,h:640,detail:"wifi",devices:true,light:true},
             {name:"bluetooth-light",ui:"shade",w:490,h:740,detail:"bluetooth",light:true},
             {name:"workspace-dark",ui:"workspace",w:1440,h:900},
             {name:"workspace-light",ui:"workspace",w:1440,h:900,light:true},
@@ -259,6 +261,10 @@ ShellRoot {
                 Opal.Hub.compositorActive=false;Opal.Hub.compositorWindows=[];
             }
             Opal.Hub.controlDetail=test.detail||"";
+            if(test.devices)Qt.callLater(()=>{const c=Object.assign({},Opal.Hub.connectivity);
+                c.bluetooth=Object.assign({},c.bluetooth,{powered:true,busy:false,error:"",items:[{address:"AA",name:"soundcore Q20i",active:true,paired:true},{address:"BB",name:"Pixel Buds",active:false,paired:true},{address:"CC",name:"Living room speaker",active:false,paired:false}]});
+                c.wifi=Object.assign({},c.wifi,{powered:true,busy:false,error:"",items:[{ssid:"Home Wi-Fi",signal:82,security:"WPA2",device:"wlan0",active:true,saved:true},{ssid:"Office",signal:60,security:"WPA2",device:"wlan0",active:false,saved:true},{ssid:"Cafe guest",signal:30,security:"",device:"wlan0",active:false,saved:false}]});
+                Opal.Hub.connectivity=c;});
             if(test.ui==="clipboard"||test.ui==="dashboard") {
                 const samples=["A little thought worth keeping.","https://m3.material.io/","const idea = {\n  color: 'expressive',\n  mood: 'quiet'\n};","Meet at 16:30. Bring the good playlist."];
                 Opal.Hub.clipboardAvailable=true;

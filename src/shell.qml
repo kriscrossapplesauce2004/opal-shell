@@ -141,8 +141,8 @@ ShellRoot {
         readonly property bool phone:Hub.layoutFor(screen ? screen.width : 1920,screen ? screen.height : 1080,screen ? screen.name : "")==="phone"
         visible:Notifier.popups.length>0 && Hub.page===""&&!Hub.audioOpen
         anchors {top:notificationPopups.phone;bottom:!notificationPopups.phone;right:true}
-        margins {top:notificationPopups.phone ? 64 : 0;bottom:notificationPopups.phone ? 0 : 72;right:18}
-        implicitWidth:Math.min(390,screen ? screen.width-24 : 390)
+        margins {top:notificationPopups.phone ? 64 : 0;bottom:notificationPopups.phone ? 0 : 76;right:18}
+        implicitWidth:Math.min(360,screen ? screen.width-24 : 360)
         implicitHeight:Math.min(popupColumn.implicitHeight,screen ? screen.height-110 : 700)
         exclusionMode:ExclusionMode.Ignore
         WlrLayershell.layer:WlrLayer.Overlay
@@ -151,7 +151,7 @@ ShellRoot {
         color:"transparent"
         Flickable {
             anchors.fill:parent;contentHeight:popupColumn.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
-            Column {id:popupColumn;width:parent.width;spacing:10
+            Column {id:popupColumn;width:parent.width;spacing:8
                 Repeater {model:Notifier.popups;NotificationCard {required property var modelData;entry:modelData;popup:true;width:popupColumn.width}}
             }
         }

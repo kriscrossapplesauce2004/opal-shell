@@ -28,6 +28,8 @@ def spawn(args):
     try: subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     except OSError: emit({'event':'message', 'text':f'{args[0]} is not installed'})
 BAR_STYLES = ('islands','dock','split','edge')
+SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery')
+SHEET_SECTION_DEFAULT = ('sliders','tiles','media','notifications')
 def load():
     base = {'mode':'auto', 'palette':0, 'light':False, 'dnd':False, 'glass':0.78, 'favorites':[], 'recent':[], 'wallpaper':0, 'pinsConfigured':False, 'taskbarAutoHide':False, 'taskbarLabels':True, 'phoneButtons':False, 'controllerLayout':'standard'}
     base['displayModes'] = {}
@@ -37,6 +39,7 @@ def load():
     base['taskbarCenter'] = False
     base['taskbarClockDate'] = True
     base['barStyle'] = 'islands'
+    base['sheetSections'] = list(SHEET_SECTION_DEFAULT)
     base['quickTiles'] = list(QUICK_TILE_DEFAULT)
     base['phoneRows'] = 5
     base.update(WALLPAPER_DEFAULTS)
@@ -314,6 +317,7 @@ def commands():
             if action=='preference':
                 key=c.get('key'); value=c.get('value')
                 valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = valid or key=='sheetSections' and isinstance(value,list) and len(value)<=len(SHEET_SECTION_IDS) and all(v in SHEET_SECTION_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='quickTiles' and isinstance(value,list) and len(value)<=len(QUICK_TILE_IDS) and all(v in QUICK_TILE_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneRows' and type(value)==int and 4<=value<=7
                 valid = valid or valid_preference(key, value)

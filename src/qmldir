@@ -72,3 +72,5 @@ PhoneAppIcon 1.0 PhoneAppIcon.qml
 SmartStack 1.0 SmartStack.qml
 ContinuityStrip 1.0 ContinuityStrip.qml
 TopBar 1.0 TopBar.qml
+NotificationGroups 1.0 NotificationGroups.qml
+MSwitch 1.0 MSwitch.qml

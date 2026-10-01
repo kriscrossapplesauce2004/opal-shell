@@ -39,7 +39,7 @@ ColumnLayout {
         if(id==="keyboard")return Hub.systemOskAvailable ? state(id) ? "Visible" : "Ready" : "Unavailable";
         if(id==="saver"&&!Hub.status.profile)return "Unavailable";
         if(id==="capture")return "Capture screen";
-        if(id==="clipboard")return Hub.clipboardItems.length+" saved this session";
+        if(id==="clipboard")return Hub.clipboardItems.length+" items";
         if(id==="convergence")return "Layout & docking";
         if(id==="focus")return Math.ceil(Hub.focusSeconds/60)+" minutes";
         return state(id) ? "On" : "Off";

@@ -110,7 +110,7 @@ spacing:20
             }
             MButton {text:"RB";compact:true;tonal:true;tooltip:"Next category";onClicked:c.changeTab(1)}
             MText {visible:c.width>900;text:Qt.formatDateTime(Hub.now,"HH:mm");font.pixelSize:18;color:Theme.subtext}
-            MButton {icon:"volume";tooltip:"Sound & music · scroll for volume";scrollable:true;onScrolled:steps=>Hub.audioScroll(steps,Hub.chooseScreen());onClicked:Hub.toggleAudio(Hub.chooseScreen())}
+            MButton {icon:"volume";tooltip:"Sound";scrollable:true;onScrolled:steps=>Hub.audioScroll(steps,Hub.chooseScreen());onClicked:Hub.toggleAudio(Hub.chooseScreen())}
             MButton {icon:"desktop";tooltip:"App switcher";onClicked:Hub.page="windows"}
             MButton {icon:"settings";tooltip:"Play hub · Menu / Select";onClicked:c.openMenu()}
         }
@@ -147,7 +147,7 @@ fill:Theme.alpha(Theme.primary,.22);lobes:8;rotation:12}
         }
         HorizontalScroller {visible:!c.searching;Layout.fillWidth:true;Layout.preferredHeight:56;contentWidth:sessionRow.implicitWidth
             RowLayout {id:sessionRow;height:52;spacing:10
-                MButton {text:Hub.gameSession ? "End session · "+Hub.gameMinutes+"m" : "Start play session";icon:"game";filled:Hub.gameSession;tonal:true;tooltip:"Quiet popups, prevent idle and hide shelf; saved preferences stay untouched";onClicked:Hub.toggleGameSession()}
+                MButton {text:Hub.gameSession ? "End session · "+Hub.gameMinutes+"m" : "Start play session";icon:"game";filled:Hub.gameSession;tonal:true;tooltip:"Play session: no popups, no sleep";onClicked:Hub.toggleGameSession()}
                 MButton {text:"CPU "+Hub.status.cpu+"% · RAM "+Hub.status.memory+"%";icon:"cpu";tonal:true;onClicked:Hub.page="controls"}
                 MButton {visible:Hub.status.profile!=="";text:Hub.status.profile;icon:"battery";tonal:true;tooltip:"Switch power profile";onClicked:Hub.command({action:"profile",value:Hub.status.profile==="performance" ? "balanced" : "performance"})}
                 ExpressiveSlider {Layout.preferredWidth:190;value:Hub.status.volume;icon:"volume";onMoved:Hub.volume(value)}
