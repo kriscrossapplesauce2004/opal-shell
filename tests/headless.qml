@@ -17,6 +17,8 @@ ShellRoot {
         property real musicVolume:40
         property var cases:[
             {name:"start-beauty",ui:"start",w:600,h:680},
+            {name:"workspace-pill",ui:"bars",w:600,h:120,pill:true},
+            {name:"workspace-pill-light",ui:"bars",w:600,h:120,pill:true,light:true},
             {name:"bar-islands",ui:"bars",w:1440,h:300,music:true,barStyle:"islands"},
             {name:"bar-islands-light",ui:"bars",w:1440,h:300,light:true,tide:true,barStyle:"islands"},
             {name:"bar-dock",ui:"bars",w:1440,h:300,barStyle:"dock"},
@@ -172,7 +174,7 @@ ShellRoot {
         Component {id:startView;Item {
             property alias menu:startMenu
             Opal.Wallpaper {anchors.fill:parent;showWidgets:false}
-            Opal.Surface {x:18;y:parent.height-height-72;width:Math.min(560,parent.width-36);height:Math.min(590,parent.height-88);radius:28
+            Opal.Surface {x:18;y:parent.height-height-72;width:Math.min(760,parent.width-36);height:Math.min(620,parent.height-88);radius:28
                 Opal.StartMenu {id:startMenu;anchors.fill:parent}
             }
             Opal.DesktopShelf {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:64}
@@ -233,7 +235,8 @@ ShellRoot {
         }}
         Component {id:barsView;Item {
             Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
-            Opal.DesktopShelf {visible:Opal.Hub.prefs.barStyle==="split";part:"top";anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:56}
+            Opal.WorkspacePill {visible:!!fixture.cases[fixture.step].pill;anchors.horizontalCenter:parent.horizontalCenter;y:10;shown:2}
+            Opal.DesktopShelf {visible:Opal.Hub.prefs.barStyle==="split"&&!fixture.cases[fixture.step].pill;part:"top";anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:56}
             Opal.DesktopShelf {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:Opal.Hub.prefs.barStyle==="edge" ? 52 : 64;flashWorkspace:fixture.cases[fixture.step].flash ? 3 : 0}
         }}
         Component {id:workspaceView;Item {
@@ -321,7 +324,7 @@ ShellRoot {
             }
             view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {
-                view.item.menu.allApps=!!test.allApps;
+                view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{
                     const menu=view.item.menu;
                     if(test.searchText==="firefx"&&(!menu.selected||menu.selected.data.id!=="firefox"))console.error("ASSERTION_FAILED: start typo ranking");

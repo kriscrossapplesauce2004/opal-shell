@@ -74,3 +74,5 @@ ContinuityStrip 1.0 ContinuityStrip.qml
 TopBar 1.0 TopBar.qml
 NotificationGroups 1.0 NotificationGroups.qml
 MSwitch 1.0 MSwitch.qml
+AppIcon 1.0 AppIcon.qml
+WorkspacePill 1.0 WorkspacePill.qml

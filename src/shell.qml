@@ -208,9 +208,9 @@ ShellRoot {
             readonly property bool phone:overlay.layoutMode==="phone"
             readonly property bool game:overlay.layoutMode==="console"
             readonly property bool launcher:Hub.page==="launcher"
-            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 560 : Hub.page==="settings" ? 880 : launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="convergence"||Hub.page==="wallpaper" ? 800 : Hub.page==="appearance" ? 660 : 490)
+            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : Hub.page==="settings" ? 880 : launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="convergence"||Hub.page==="wallpaper" ? 800 : Hub.page==="appearance" ? 660 : 490)
             readonly property real contentFit:overlayContent.item&&overlayContent.item.fitHeight!==undefined ? overlayContent.item.fitHeight : 0
-            height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 590 : launcher ? 740 : Hub.page==="settings" ? 720 : Hub.page==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
+            height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : Hub.page==="settings" ? 720 : Hub.page==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
             Behavior on height {enabled:overlay.visible;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
             x:phone||game&&launcher ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||Hub.page==="settings"||Hub.page==="appearance"||Hub.page==="convergence"||Hub.page==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
             y:phone||game&&launcher ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||Hub.page==="settings" ? Math.max(60,(overlay.height-height)/2) : 62

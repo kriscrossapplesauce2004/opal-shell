@@ -6,8 +6,11 @@ import "StartSearch.js" as Search
 
 FocusScope {
     id:menu
-    property bool allApps:false
-    property string appCategory:"All apps"
+    // Rail selection: "pinned", "all" or a category name.
+    property string section:"pinned"
+    readonly property bool allApps:section!=="pinned"
+    readonly property string appCategory:section==="all"||section==="pinned" ? "All apps" : section
+    readonly property var rail:[{id:"pinned",name:"Pinned",icon:"keep"},{id:"all",name:"All apps",icon:"apps"},{id:"Games",name:"Games",icon:"sports_esports"},{id:"Create",name:"Create",icon:"brush"},{id:"Work",name:"Work",icon:"work"},{id:"Internet",name:"Internet",icon:"language"},{id:"System",name:"System",icon:"settings"}]
     property string letter:""
     readonly property var library:Hub.searchApps("",appCategory).filter(app=>!letter||app.name.toUpperCase().startsWith(letter))
     property string scope:"all"
@@ -41,7 +44,7 @@ FocusScope {
     function goBack() {
         if(confirmPower!==""){confirmPower="";return;}
         if(searching){Hub.query="";scope="all";searchField.forceActiveFocus();}
-        else if(allApps){allApps=false;searchField.forceActiveFocus();}
+        else if(allApps){section="pinned";searchField.forceActiveFocus();}
         else Hub.close();
     }
     function invoke(result, fresh) {
@@ -80,20 +83,52 @@ FocusScope {
         else if(event.text&&!(event.modifiers&(Qt.ControlModifier|Qt.AltModifier|Qt.MetaModifier))&&!searchField.activeFocus&&event.key!==Qt.Key_Return&&event.key!==Qt.Key_Enter&&event.key!==Qt.Key_Tab){searchField.forceActiveFocus();Hub.query+=event.text;event.accepted=true;}
     }
 
-    ColumnLayout {
+    RowLayout {
         enabled:menu.confirmPower===""
-        anchors.fill:parent;anchors.margins:20;spacing:14
-        RowLayout {Layout.fillWidth:true;visible:!menu.searching
-            ColumnLayout {Layout.fillWidth:true;spacing:3
-                MText {text:Hub.now.getHours()<12 ? "Good morning" : Hub.now.getHours()<18 ? "Good afternoon" : "Good evening";font.pixelSize:22;font.weight:Font.DemiBold}
-                MText {text:Qt.formatDateTime(Hub.now,"dddd, d MMMM");color:Theme.subtext;font.pixelSize:12}
+        anchors.fill:parent;anchors.margins:12;spacing:12
+    // Left rail: sections, then settings and session at the bottom.
+    ColumnLayout {
+        Layout.preferredWidth:164;Layout.minimumWidth:164;Layout.maximumWidth:164;Layout.fillWidth:false;Layout.fillHeight:true;spacing:2
+        Repeater {model:menu.rail
+            Rectangle {
+                required property var modelData
+                readonly property bool current:!menu.searching&&menu.section===modelData.id
+                Layout.fillWidth:true;Layout.preferredHeight:44;radius:height/2
+                color:current ? Theme.secondaryContainer : "transparent"
+                Rectangle {anchors.fill:parent;radius:parent.radius;color:Theme.stateLayer;opacity:railMouse.pressed ? .12 : railMouse.containsMouse ? .06 : 0}
+                Row {anchors.verticalCenter:parent.verticalCenter;x:14;spacing:12
+                    Glyph {name:modelData.icon;font.pixelSize:20;color:parent.parent.current ? Theme.onSecondaryContainer : Theme.subtext;anchors.verticalCenter:parent.verticalCenter}
+                    MText {text:modelData.name;role:"label";font.weight:parent.parent.current ? Font.DemiBold : Font.Medium;color:parent.parent.current ? Theme.onSecondaryContainer : Theme.text;anchors.verticalCenter:parent.verticalCenter}
+                }
+                MouseArea {id:railMouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;onClicked:{Hub.query="";menu.section=modelData.id;menu.letter="";searchField.forceActiveFocus();}}
+                Accessible.role:Accessible.Button;Accessible.name:modelData.name
             }
-            MButton {icon:"settings";compact:true;tooltip:"Settings";onClicked:Hub.openSettings()}
+        }
+        Item {Layout.fillHeight:true}
+        RowLayout {Layout.fillWidth:true;spacing:0
+            MButton {icon:"settings";compact:true;implicitWidth:40;ink:Theme.subtext;tooltip:"Settings";onClicked:Hub.openSettings()}
+            MButton {icon:"folder";compact:true;implicitWidth:40;ink:Theme.subtext;tooltip:"Files";onClicked:Hub.settings("files")}
+            MButton {icon:"lock";compact:true;implicitWidth:40;ink:Theme.subtext;tooltip:"Lock";onClicked:Hub.settings("lock")}
+            MButton {icon:"power";compact:true;implicitWidth:40;ink:Theme.subtext;tooltip:"Power";onClicked:menu.confirmPower="menu"}
+        }
+    }
+    ColumnLayout {
+        Layout.fillWidth:true;Layout.fillHeight:true;spacing:12
+        // Hero: greeting and clock in a bold colour block.
+        Rectangle {
+            visible:!menu.searching
+            Layout.fillWidth:true;Layout.preferredHeight:112
+            radius:Theme.shapeXl;color:Theme.primaryContainer
+            ColumnLayout {anchors.left:parent.left;anchors.verticalCenter:parent.verticalCenter;anchors.leftMargin:24;spacing:0
+                MText {text:Hub.now.getHours()<12 ? "Good morning" : Hub.now.getHours()<18 ? "Good afternoon" : "Good evening";role:"headline";color:Theme.onContainer}
+                MText {text:Qt.formatDateTime(Hub.now,"dddd d MMMM");role:"label";color:Theme.alpha(Theme.onContainer,.75)}
+            }
+            MText {visible:parent.width>=520;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;anchors.rightMargin:24;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"displayM";font.features:{"tnum":1};color:Theme.onContainer}
         }
         Rectangle {
-            Layout.fillWidth:true;Layout.preferredHeight:54;radius:27
-            color:Theme.alpha(Theme.light ? "#ffffff" : Theme.glassRaised,searchField.activeFocus ? (Theme.light ? .92 : .85) : (Theme.light ? .72 : .6))
-            border.width:searchField.activeFocus ? 2 : 1;border.color:searchField.activeFocus ? Theme.primary : Theme.glassEdge
+            Layout.fillWidth:true;Layout.preferredHeight:52;radius:26
+            color:Theme.level(searchField.activeFocus ? 4 : 3)
+            border.width:searchField.activeFocus ? 2 : 0;border.color:Theme.primary
             Behavior on color {ColorAnimation {duration:Theme.motion(160)}}
             Glyph {x:18;anchors.verticalCenter:parent.verticalCenter;name:"search";color:Theme.primary}
             TextField {
@@ -127,8 +162,7 @@ FocusScope {
                 ColumnLayout {
                     id:homeBody;width:home.width;spacing:12
                     RowLayout {Layout.fillWidth:true
-                        MText {text:"Pinned";font.pixelSize:18;font.weight:Font.DemiBold;Layout.fillWidth:true}
-                        MButton {text:"All apps";secondaryIcon:"next";tonal:true;compact:true;onClicked:menu.allApps=true}
+                        MText {text:"Pinned";role:"title";Layout.fillWidth:true}
                     }
                     GridLayout {
                         Layout.fillWidth:true;columns:menu.columns;columnSpacing:4;rowSpacing:4;uniformCellWidths:true
@@ -149,12 +183,12 @@ FocusScope {
                     }
                     MText {visible:Hub.favoriteApps.length===0;Layout.fillWidth:true;text:"Make this space yours. Right-click an app to pin it here.";wrapMode:Text.Wrap;color:Theme.subtext}
                     RowLayout {Layout.fillWidth:true;Layout.topMargin:8
-                        MText {text:"Recently opened";font.pixelSize:16;font.weight:Font.DemiBold;Layout.fillWidth:true}
+                        MText {text:"Recent";role:"title";Layout.fillWidth:true}
                         MButton {icon:"desktop";text:"Open windows";compact:true;onClicked:Hub.page="windows"}
                     }
                     GridLayout {Layout.fillWidth:true;columns:2;uniformCellWidths:true;columnSpacing:8;rowSpacing:8
                         Repeater {model:menu.recent
-                            Rectangle {required property var modelData;Layout.fillWidth:true;Layout.preferredHeight:58;radius:18;color:Theme.alpha(Theme.light ? "#ffffff" : Theme.glassRaised,Theme.light ? .66 : .5);border.width:1;border.color:Theme.glassEdge
+                            Rectangle {required property var modelData;Layout.fillWidth:true;Layout.preferredHeight:58;radius:Theme.shapeLg;color:Theme.level(3)
                                 RowLayout {anchors.fill:parent;anchors.margins:12;spacing:10
                                     Item {Layout.preferredWidth:28;Layout.preferredHeight:28
                                         Image {id:recentIcon;anchors.fill:parent;source:Quickshell.iconPath(modelData.icon,true);asynchronous:true}
@@ -181,20 +215,13 @@ FocusScope {
             ColumnLayout {
                 visible:!menu.searching&&menu.allApps;anchors.fill:parent;spacing:10
                 RowLayout {Layout.fillWidth:true
-                    MButton {icon:"back";text:"Pinned";compact:true;onClicked:menu.allApps=false}
-                    MText {text:"All apps · "+Hub.apps.length;Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;color:Theme.subtext}
-                }
-                Flickable {Layout.fillWidth:true;Layout.preferredHeight:36;contentWidth:categories.width;clip:true;flickableDirection:Flickable.HorizontalFlick
-                    Row {id:categories;spacing:4
-                        Repeater {model:["All apps","Games","Create","Work","Internet","System"]
-                            MButton {required property string modelData;text:modelData;compact:true;implicitHeight:32;filled:menu.appCategory===modelData;onClicked:{menu.appCategory=modelData;menu.letter="";}}
-                        }
-                    }
+                    MText {text:menu.section==="all" ? "All apps" : menu.section;role:"title";Layout.fillWidth:true}
+                    MText {text:menu.library.length+" apps";role:"label";color:Theme.subtext}
                 }
                 Flickable {Layout.fillWidth:true;Layout.preferredHeight:32;contentWidth:letters.width;clip:true;flickableDirection:Flickable.HorizontalFlick
                     Row {id:letters;spacing:2
                         Repeater {model:["All","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
-                            MButton {required property string modelData;text:modelData;compact:true;implicitWidth:32;implicitHeight:30;filled:menu.letter===(modelData==="All" ? "" : modelData);onClicked:{menu.letter=modelData==="All" ? "" : modelData;appGrid.positionViewAtBeginning();}}
+                            MButton {required property string modelData;text:modelData;compact:true;implicitWidth:modelData==="All" ? 48 : 32;implicitHeight:30;filled:menu.letter===(modelData==="All" ? "" : modelData);onClicked:{menu.letter=modelData==="All" ? "" : modelData;appGrid.positionViewAtBeginning();}}
                         }
                     }
                 }
@@ -268,17 +295,10 @@ FocusScope {
             MButton {visible:menu.selected&&menu.selected.kind==="app";text:menu.selected&&menu.selected.kind==="app"&&Hub.pinned(menu.selected.data) ? "Unpin" : "Pin";icon:"pin";compact:true;tonal:true;onClicked:if(menu.selected)Hub.pin(menu.selected.data)}
             MButton {text:"Open";icon:"next";compact:true;filled:true;onClicked:menu.accept(false)}
         }
-        Rectangle {Layout.fillWidth:true;Layout.preferredHeight:1;color:Theme.outline}
-        RowLayout {Layout.fillWidth:true;spacing:8
-            MButton {text:"Settings";icon:"settings";compact:true;tonal:true;onClicked:Hub.openSettings()}
-            MButton {icon:"folder";compact:true;tooltip:"File manager";onClicked:Hub.settings("files")}
-            Item {Layout.fillWidth:true}
-            MButton {icon:"lock";compact:true;tooltip:"Lock device";onClicked:Hub.settings("lock")}
-            MButton {icon:"power";compact:true;tooltip:"Session and power";onClicked:menu.confirmPower="menu"}
-        }
+    }
     }
     Rectangle {
-        visible:menu.confirmPower!=="";anchors.fill:parent;radius:28;color:Theme.alpha(Theme.base,.98)
+        visible:menu.confirmPower!=="";anchors.fill:parent;radius:28;color:Theme.level(2)
         MouseArea {anchors.fill:parent}
         ColumnLayout {anchors.centerIn:parent;width:parent.width-64;spacing:12
             MText {Layout.fillWidth:true;text:menu.confirmPower==="menu" ? "Session and power" : "Confirm "+menu.confirmPower+"?";font.pixelSize:24;wrapMode:Text.Wrap}

@@ -17,7 +17,7 @@ PanelWindow {
     function count(n) { return Hub.windows.filter(w => w.workspace === n).length; }
     anchors { top: true }
     margins.top: 0
-    implicitWidth: numbers.length * 34 + 24
+    implicitWidth: pill.width + 24
     implicitHeight: 72
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
@@ -43,40 +43,5 @@ PanelWindow {
         }
     }
     Timer { id: hide; interval: 1300; onTriggered: osd.out = false }
-    Island {
-        id: pill
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: parent.width - 12; height: 44
-        y: osd.out ? 14 : -height - 4
-        Behavior on y { NumberAnimation { duration: Theme.motion(osd.out ? 420 : 260); easing.type: osd.out ? Easing.OutCubic : Easing.InCubic; easing.overshoot: 1.1 } }
-        Rectangle {
-            x: 6 + osd.activeIndex * 34 + 2; anchors.verticalCenter: parent.verticalCenter
-            width: 30; height: 30; radius: 10
-            color: Theme.light ? Theme.containerInk : Theme.primary
-            Behavior on x { NumberAnimation { duration: Theme.motion(360); easing.type: Easing.OutCubic; easing.overshoot: 1.2 } }
-        }
-        Row {
-            x: 6; anchors.verticalCenter: parent.verticalCenter
-            Repeater {
-                model: osd.numbers
-                Item {
-                    id: slot
-                    required property int modelData
-                    required property int index
-                    readonly property bool current: index === osd.activeIndex
-                    readonly property int windows: osd.count(modelData)
-                    width: 34; height: 34
-                    MText {
-                        anchors.centerIn: parent; anchors.verticalCenterOffset: slot.windows > 0 ? -2 : 0
-                        text: slot.modelData; font.pixelSize: 13; font.weight: slot.current ? Font.Bold : Font.Medium
-                        color: slot.current ? (Theme.light ? Theme.primaryContainer : Theme.onPrimary) : slot.windows > 0 ? Theme.text : Theme.alpha(Theme.text, .4)
-                    }
-                    Row {
-                        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 6; spacing: 2
-                        Repeater { model: Math.min(3, slot.windows); Rectangle { width: 3; height: 3; radius: 1.5; color: slot.current ? (Theme.light ? Theme.primaryContainer : Theme.onPrimary) : Theme.text; opacity: slot.current ? 1 : .55 } }
-                    }
-                }
-            }
-        }
-    }
+    WorkspacePill { id: pill; anchors.horizontalCenter: parent.horizontalCenter; shown: osd.shown; out: osd.out }
 }

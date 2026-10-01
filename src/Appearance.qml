@@ -50,6 +50,14 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
         MText {text:"GLASS & MATERIAL";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MText {text:"Panel density · "+Math.round(Hub.prefs.glass*100)+"%";color:Theme.subtext}
         ExpressiveSlider {Layout.fillWidth:true;from:45;to:100;value:Hub.prefs.glass*100;icon:"sun";onMoved:Hub.set("glass",Math.round(value)/100)}
+        MText {text:"APP ICONS";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
+        SegmentedButtons {Layout.fillWidth:true;current:Hub.prefs.iconStyle||"raw"
+            options:[{value:"raw",label:"Original",icon:"apps"},{value:"squircle",label:"Backplate",icon:"rounded_corner"},{value:"themed",label:"Themed",icon:"palette"}]
+            onPicked:value=>Hub.set("iconStyle",value)}
+        MText {text:"BAR";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
+        SegmentedButtons {Layout.fillWidth:true;current:Hub.prefs.barStyle||"islands"
+            options:[{value:"islands",label:"Islands",icon:"view_column"},{value:"dock",label:"Dock",icon:"call_to_action"},{value:"split",label:"Split",icon:"splitscreen"},{value:"edge",label:"Edge",icon:"bottom_navigation"}]
+            onPicked:value=>Hub.set("barStyle",value)}
         MText {text:"LAYOUT";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         Repeater {model:a.layoutModes
             Rectangle {required property var modelData;Layout.fillWidth:true;height:84;radius:24;color:Hub.prefs.mode===modelData.id ? Theme.primaryContainer : Theme.alpha(Theme.surface,.6)
