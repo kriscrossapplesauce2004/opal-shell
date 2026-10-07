@@ -53,3 +53,26 @@ Tablet is part of phone mode. When the output is wide, phone mode becomes a tabl
 ## Integration
 
 Each workstream works on its own branch. Shared files (`Hub.qml`, `shell.qml`, `backend.py`, `qmldir`, `Theme.qml`) get small additive edits only. Put new logic in new files.
+
+### G. Rooms home (new phone style, chosen 2026-10-07)
+The design comes from three rounds of rendered prototypes. `tests/prototypes3.qml` is the visual reference. Renders are in `~/.local/state/opal/artifacts/launcher-prototypes/round3/`. Phone mode gets a `phoneStyle` preference: `classic` (the current home) or `rooms`. Phone and tablet use the same parts.
+- **Glance:** the date, a large clock and live chips (media, unread by app, focus timer, docked state) on a scrimmed wallpaper.
+- **Earlier chips:** finished things (closed apps, ended games, older files) appear as small chips with an app icon.
+- **Ladder:** 2–3 recent live or resumable items. Type size and opacity grow with recency, so the newest item is nearest the room.
+- **Rooms:** Hyprland workspaces are rooms. The current room is a card that draws its real tiling, using window geometry from `hyprctl clients` and live screencopy where available. The other rooms are chips under the card, with a "+ Room" chip. Swipe or tap a chip to change room.
+- **Pins and bar:** five traditional pinned icons, and the search bar (apps, files, rooms) with the app-drawer button.
+- **Drawer:** a Shelf-style sheet with filter chips (All, Running, Games, Files, Dev), Running | Continue cards, then a plain A–Z grid.
+- **Docked:** rooms live on the monitor, so on the phone they collapse into chips tagged with the monitor name, and the rest of the phone is the trackpad.
+- **Tablet:** glance, Earlier and Ladder in a left column; the room carousel at the right; room chips, pins and a centred bar.
+- **Morphs, highest priority first:**
+  1. Chip → sheet: tapping any chip grows it in place into its full controls, and it shrinks back to the chip.
+  2. Dock: room cards fly to the monitor and leave chips behind; on undock the chips grow back into cards.
+  3. Room card ⇄ room chip during a swipe.
+  4. A Ladder row → an Earlier chip as it ages.
+  Use Material 3 components and shared `Theme` motion, and respect reduced motion.
+
+### H. Quick Settings overhaul (phone and game)
+The mobile shade and quick settings, and the game-mode Quick Access, need the same chips-and-morph treatment: tiles that morph into detail sheets, chips for active state, controller-first in game mode.
+
+### I. Desktop with the Rooms paradigm (exploration)
+Apply Rooms, chips and morphing to desktop mode: workspaces as rooms in the shelf, Earlier chips, and a glance. Render prototypes first and choose with the user before building.
