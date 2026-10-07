@@ -93,11 +93,16 @@ def listen(emit):
             'workspaces': [w['id'] for w in query('workspaces') if w['id'] > 0],
             'fullscreenMonitors': fullscreen_monitors(monitors, clients),
             # Monitor names and active workspaces let the phone home show and move windows between screens.
-            'monitors': [{'name': m.get('name', ''), 'workspace': m.get('activeWorkspace', {}).get('id', 0)} for m in monitors],
+            # Geometry lets Rooms draw each workspace with its real tiling.
+            'monitors': [{'name': m.get('name', ''), 'workspace': m.get('activeWorkspace', {}).get('id', 0),
+                          'x': m.get('x', 0), 'y': m.get('y', 0), 'width': m.get('width', 0), 'height': m.get('height', 0),
+                          'scale': m.get('scale', 1) or 1, 'transform': m.get('transform', 0)} for m in monitors],
             'windows': [
                 {'title': w['title'], 'className': w['class'],
                  'address': w['address'], 'workspace': w['workspace']['id'],
-                 'monitor': names.get(w.get('monitor'), '')}
+                 'monitor': names.get(w.get('monitor'), ''),
+                 'at': w.get('at', [0, 0]), 'size': w.get('size', [0, 0]),
+                 'floating': bool(w.get('floating')), 'fullscreen': w.get('fullscreen', 0)}
                 for w in clients if w.get('mapped')
             ],
         }

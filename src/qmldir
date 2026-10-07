@@ -124,3 +124,8 @@ QaRow 1.0 QaRow.qml
 QuickAccess 1.0 QuickAccess.qml
 RoundedImage 1.0 RoundedImage.qml
 GameDetail 1.0 GameDetail.qml
+singleton Rooms 1.0 Rooms.qml
+MorphChip 1.0 MorphChip.qml
+RoomCard 1.0 RoomCard.qml
+RoomPreview 1.0 RoomPreview.qml
+RoomsHome 1.0 RoomsHome.qml
