@@ -144,13 +144,16 @@ Scope {
     function keyboardInset(screen) { return Hub.systemOskVisible && screen ? Math.round(screen.height * .38) : 0; }
     function applySplit() {
         if (!splitActive || !splitScreen) return;
-        Hub.command({action: "phone-split", output: splitScreen.name, left: splitLeft, right: splitRight, ratio: splitRatio, top: barHeight, bottom: navHeight + dockHeight(splitScreen), keyboard: keyboardInset(splitScreen)});
+        Hub.command({action: "phone-split", output: splitScreen.name, left: splitLeft, right: splitRight, ratio: splitRatio, top: barHeight, bottom: navFor(splitScreen), keyboard: keyboardInset(splitScreen), workspace: Number(Hub.status.workspace) || 0});
     }
-    function dockHeight(screen) { return isTablet(screen) ? 84 : 0; }
+    // The tablet dock is inside the navigation bar now, so there is no extra dock height.
+    function dockHeight(screen) { return 0; }
+    function navFor(screen) { return isTablet(screen) && Hub.prefs.tabletDock !== false ? 68 : navHeight; }
     function startSplit(screen, left, right) {
         if (!left || !right || left === right || !Hub.status.hypr) return false;
         splitScreen = screen; splitLeft = left; splitRight = right; splitActive = true;
         applySplit();
+        splitCheck.restart();
         return true;
     }
     function splitWithPrevious(screen) {
@@ -162,6 +165,16 @@ Scope {
         if (commit) { Hub.set("phoneSplitRatio", splitRatio); applySplit(); } else splitThrottle.start();
     }
     Timer { id: splitThrottle; interval: 70; onTriggered: s.applySplit() }
+    // A split that did not take hold (windows not floating side by side) ends, so no divider is left over an app.
+    Timer {
+        id: splitCheck; interval: 1500
+        onTriggered: {
+            if (!s.splitActive) return;
+            const ws = Hub.compositorWindows.filter(w => w.address === s.splitLeft || w.address === s.splitRight);
+            const placed = ws.length === 2 && ws.every(w => w.floating) && ws[0].workspace === ws[1].workspace;
+            if (!placed) { s.endSplit(); Hub.message("Split view could not place both windows"); }
+        }
+    }
     function endSplit() {
         if (!splitActive) return;
         Hub.command({action: "phone-unsplit", addresses: [splitLeft, splitRight], outputs: phoneScreens().map(sc => sc.name)});
@@ -170,7 +183,7 @@ Scope {
     function slideOver(screen, address) {
         if (!address || !Hub.status.hypr) return;
         slideAddress = address;
-        Hub.command({action: "phone-slideover", output: screen.name, address: address, fraction: .38, top: barHeight, bottom: navHeight + dockHeight(screen)});
+        Hub.command({action: "phone-slideover", output: screen.name, address: address, fraction: .38, top: barHeight, bottom: navFor(screen)});
     }
     // A split ends when one of its windows closes.
     readonly property var windowAddresses: Hub.windows.map(w => w.address)
@@ -178,7 +191,8 @@ Scope {
 
     // Fit apps to phone outputs. A window that opens, or an output that changes, triggers one debounced call.
     function fit() {
-        if (!Hub.status.hypr || Hub.prefs.phoneFitApps === false) return;
+        // While a split is shown the fitter waits; maximizing would break the split.
+        if (!Hub.status.hypr || Hub.prefs.phoneFitApps === false || splitActive) return;
         const names = phoneScreens().map(sc => sc.name);
         if (names.length) Hub.command({action: "phone-fit", outputs: names, modes: Hub.prefs.phoneAppModes || ({})});
     }

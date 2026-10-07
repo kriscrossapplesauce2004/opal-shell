@@ -121,6 +121,16 @@ class Adapter(unittest.TestCase):
         self.assertEqual(sum(1 for a in calls if 'resizewindowpixel' in a), 2)
         self.assertFalse(pw.PhoneWindows(runner).split('DSI-1', 'evil;rm', '0x2'))
 
+    def test_split_gathers_both_windows_on_the_shown_workspace(self):
+        calls = []
+        def runner(args):
+            calls.append(args)
+            if args[:2] == ['hyprctl', '-j']: return json.dumps([Geometry.MON])
+            return 'ok' if args[:2] == ['hyprctl', 'eval'] else ''
+        self.assertTrue(pw.PhoneWindows(runner).split('DSI-1', '0x1', '0x2', .5, workspace=3))
+        moves = [a[2] for a in calls if a[:2] == ['hyprctl', 'eval'] and 'workspace="3"' in a[2]]
+        self.assertEqual(len(moves), 2)
+
 class Commands(unittest.TestCase):
     def test_unknown_and_torch_validation(self):
         out = []

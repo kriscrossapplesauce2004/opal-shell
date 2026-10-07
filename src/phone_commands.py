@@ -37,7 +37,8 @@ def handle(c, emit, games=None):
         threading.Thread(target=lambda: _windows.fit(outputs, modes), daemon=True).start()
     elif action == 'phone-split':
         threading.Thread(target=lambda: _windows.split(c.get('output'), c.get('left'), c.get('right'), _ratio(c.get('ratio'), .5),
-                                                       _inset(c.get('top')) or 48, _inset(c.get('bottom')), _inset(c.get('keyboard'))), daemon=True).start()
+                                                       _inset(c.get('top')) or 48, _inset(c.get('bottom')), _inset(c.get('keyboard')),
+                                                       c.get('workspace') if type(c.get('workspace')) is int else 0), daemon=True).start()
     elif action == 'phone-home':
         threading.Thread(target=_windows.go_home, daemon=True).start()
     elif action == 'phone-unsplit':

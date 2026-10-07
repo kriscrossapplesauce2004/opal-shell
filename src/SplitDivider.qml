@@ -12,7 +12,7 @@ Scope {
         readonly property real handleWidth: PhoneState.pen ? 40 : 32
         anchors { top: true; bottom: true; left: true }
         margins.top: PhoneState.barHeight
-        margins.bottom: PhoneState.navHeight + PhoneState.dockHeight(target)
+        margins.bottom: PhoneState.navFor(target)
         // The window sits over the gap and follows the ratio while dragging.
         property real frozen: -1
         margins.left: frozen >= 0 ? frozen : Math.round((areaWidth - 8) * PhoneState.splitRatio + 4 - handleWidth / 2)
@@ -22,6 +22,8 @@ Scope {
         WlrLayershell.namespace: "opal-split"
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         color: "transparent"
+        // The gap between the two windows, the full height, with the grip on it.
+        Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 8; height: parent.height; color: Theme.base }
         Rectangle {
             id: grip
             anchors.verticalCenter: parent.verticalCenter

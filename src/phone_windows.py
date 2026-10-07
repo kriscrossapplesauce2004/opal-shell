@@ -165,8 +165,11 @@ class PhoneWindows:
             self._act(self.hypr.set_floating, address, True)
         return self._act(self.hypr.geometry, address, x, y, w, h)
 
-    def split(self, output, left, right, ratio=0.5, top=48, bottom=0, keyboard=0):
-        """Put two windows side by side on one output."""
+    def split(self, output, left, right, ratio=0.5, top=48, bottom=0, keyboard=0, workspace=0):
+        """Put two windows side by side on one output. Both first move to the shown workspace, so a split never spans two."""
+        if workspace and type(workspace) is int and workspace > 0:
+            for address in (left, right):
+                if _ADDRESS.fullmatch(address or ''): self._act(self.hypr.move, address, workspace, False)
         if not isinstance(output, str) or not _OUTPUT.fullmatch(output) or not self.probe():
             return False
         monitor = next((m for m in self._json('monitors') if m.get('name') == output), None)
