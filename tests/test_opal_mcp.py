@@ -15,8 +15,12 @@ class OpalMcpTests(unittest.TestCase):
     def test_set_preference_sends_json_through_ipc(self):
         with patch.object(opal_mcp, 'ipc', return_value='Sent light') as ipc:
             reply = opal_mcp.handle({'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'set_preference', 'arguments': {'key': 'light', 'value': True}}})
-        ipc.assert_called_once_with('setPreference', 'light', 'true')
+        ipc.assert_called_once_with('setPreferenceEncoded', 'light', 'dHJ1ZQ==')
         self.assertFalse(reply['result']['isError'])
+        # Arrays carry commas, which the quickshell CLI would split; base64 keeps them one argument.
+        with patch.object(opal_mcp, 'ipc', return_value='Sent themeExport') as ipc:
+            opal_mcp.handle({'jsonrpc': '2.0', 'id': 4, 'method': 'tools/call', 'params': {'name': 'set_preference', 'arguments': {'key': 'themeExport', 'value': ['qt', 'kde']}}})
+        self.assertNotIn(',', ipc.call_args.args[2])
 
     def test_layout_names_map_to_ipc_functions(self):
         with patch.object(opal_mcp, 'ipc', return_value='') as ipc:

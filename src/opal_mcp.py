@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Opal MCP server: lets Claude read and change the running Opal shell over Quickshell IPC. stdio, JSON-RPC 2.0."""
+import base64
 import json, os, pathlib, socket, subprocess, sys
 import assistant_tools
 
@@ -50,7 +51,7 @@ TOOLS = {
     'get_preferences': ('Read Opal preferences (theme, bar style, layout, tiles, sections and more).', schema(), lambda a: ipc('preferences')),
     'set_preference': ('Change one Opal preference. Value is JSON. Examples: light=true, barStyle="dock", iconStyle="themed", dnd=true, sheetSections=["sliders","tiles"]. Invalid values are ignored.',
                        schema({'key': {'type': 'string'}, 'value': {'description': 'JSON value'}}, ('key', 'value')),
-                       lambda a: ipc('setPreference', a['key'], json.dumps(a['value']))),
+                       lambda a: ipc('setPreferenceEncoded', a['key'], base64.b64encode(json.dumps(a['value']).encode()).decode())),
     'open_panel': ('Open or close an Opal panel.', schema({'panel': {'type': 'string', 'enum': list(PANELS)}}, ('panel',)), lambda a: ipc(a['panel'])),
     'set_layout': ('Switch the shell layout.', schema({'layout': {'type': 'string', 'enum': list(LAYOUTS)}}, ('layout',)), lambda a: ipc(LAYOUTS[a['layout']])),
     'list_notifications': ('List notifications in the Opal inbox.', schema(), lambda a: ipc('listNotifications')),
