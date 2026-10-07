@@ -54,16 +54,22 @@ Item {
         }
     }
 
-    // Home recedes as the drawer rises.
-    PhoneHome {
+    // Home recedes as the drawer rises. The phone style picks the classic grid or Rooms.
+    Loader {
         id:homeLayer
         anchors.fill:parent
         visible:mobile.progress<1&&!mobile.recents
         opacity:1-mobile.progress*.7
         scale:1-mobile.progress*.06
-        onDragProgress:value=>{settle.stop();mobile.dragging=true;mobile.progress=value;}
-        onDragFinished:open=>{mobile.dragging=false;mobile.settleMs=380;if(open)mobile.openDrawer(false);else {settle.to=0;settle.restart();}}
-        onOpenDrawer:search=>mobile.openDrawer(search)
+        sourceComponent:Hub.prefs.phoneStyle==="rooms" ? roomsHome : classicHome
+    }
+    Component {id:classicHome;PhoneHome {}}
+    Component {id:roomsHome;RoomsHome {}}
+    Connections {
+        target:homeLayer.item
+        function onDragProgress(value) {settle.stop();mobile.dragging=true;mobile.progress=value;}
+        function onDragFinished(open) {mobile.dragging=false;mobile.settleMs=380;if(open)mobile.openDrawer(false);else {settle.to=0;settle.restart();}}
+        function onOpenDrawer(search) {mobile.openDrawer(search);}
     }
     Rectangle {anchors.fill:parent;color:"#000000";opacity:mobile.progress*.28;visible:opacity>0}
     PhoneDrawer {

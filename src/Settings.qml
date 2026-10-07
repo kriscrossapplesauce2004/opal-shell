@@ -341,6 +341,11 @@ Item {
             }
             MText {visible:Hub.settingsSection==="taskbar"&&Hub.favoriteApps.length===0;Layout.fillWidth:true;Layout.leftMargin:6;text:"Right-click any app and choose Pin.";font.pixelSize:12;color:Theme.subtext}
             // Phone.
+            SectionLabel {visible:Hub.settingsSection==="phone";text:"Home"}
+            SegmentedButtons {visible:Hub.settingsSection==="phone";Layout.fillWidth:true;Layout.bottomMargin:12;current:Hub.prefs.phoneStyle==="rooms" ? "rooms" : "classic"
+                options:[{value:"classic",label:"Classic",icon:"apps"},{value:"rooms",label:"Rooms",icon:"space_dashboard"}]
+                onPicked:value=>Hub.set("phoneStyle",value)
+            }
             SectionLabel {visible:Hub.settingsSection==="phone";text:"Navigation"}
             SegmentedButtons {visible:Hub.settingsSection==="phone";Layout.fillWidth:true;Layout.bottomMargin:12;current:!!Hub.prefs.phoneButtons
                 options:[{value:false,label:"Gestures",icon:"swipe"},{value:true,label:"Three buttons",icon:"more_horiz"}]

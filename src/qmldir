@@ -132,3 +132,8 @@ singleton Activities 1.0 Activities.qml
 ActivityPill 1.0 ActivityPill.qml
 ActivitySegment 1.0 ActivitySegment.qml
 SuggestionChips 1.0 SuggestionChips.qml
+singleton Rooms 1.0 Rooms.qml
+MorphChip 1.0 MorphChip.qml
+RoomCard 1.0 RoomCard.qml
+RoomPreview 1.0 RoomPreview.qml
+RoomsHome 1.0 RoomsHome.qml
