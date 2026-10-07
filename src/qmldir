@@ -106,6 +106,10 @@ UndoToast 1.0 UndoToast.qml
 ConvergenceSettings 1.0 ConvergenceSettings.qml
 ConvergenceController 1.0 ConvergenceController.qml
 singleton PhoneState 1.0 PhoneState.qml
+singleton AssistantState 1.0 AssistantState.qml
+AssistantChip 1.0 AssistantChip.qml
+AssistantPanel 1.0 AssistantPanel.qml
+AssistantWindow 1.0 AssistantWindow.qml
 PhoneGestureLayer 1.0 PhoneGestureLayer.qml
 GestureCard 1.0 GestureCard.qml
 PenWatcher 1.0 PenWatcher.qml

@@ -204,11 +204,48 @@ ShellRoot {
             {name:"qa-tab-step",ui:"quickaccess",w:1280,h:800,tab:0,pad:["nextTab","nextTab","down"],expectTab:2},
             {name:"pad-lock",ui:"lock",w:1440,h:900,reveal:true,music:true,pad:["accept"]},
             {name:"pad-lock-light",ui:"lock",w:1440,h:900,reveal:true,light:true,pad:["down"]},
-            {name:"tile-editor",ui:"tiles",w:360,h:900}
+            {name:"tile-editor",ui:"tiles",w:360,h:900},
+            {name:"assistant-desktop-dark",ui:"assistant",w:470,h:780,layout:"desktop",chat:true},
+            {name:"assistant-desktop-light",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,light:true},
+            {name:"assistant-empty-context",ui:"assistant",w:470,h:620,layout:"desktop"},
+            {name:"assistant-confirm-dark",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,confirm:true},
+            {name:"assistant-confirm-light",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,confirm:true,light:true},
+            {name:"assistant-phone-dark",ui:"assistant",w:390,h:760,layout:"phone",phone:true,chat:true,confirm:true},
+            {name:"assistant-phone-light",ui:"assistant",w:390,h:760,layout:"phone",phone:true,chat:true,light:true},
+            {name:"assistant-console",ui:"assistant",w:960,h:640,layout:"console",confirm:true}
         ]
         Rectangle {anchors.fill:parent;color:Opal.Theme.base}
         Loader {id:view;anchors.fill:parent}
         TestCase {id:input;name:"TaskbarDrag";when:false}
+        Component {id:assistantView;Item {
+            Opal.Wallpaper {anchors.fill:parent;showWidgets:false}
+            Opal.Surface {
+                anchors.fill:parent;anchors.margins:(fixture.cases[fixture.step]||{}).layout==="phone" ? 0 : 10;radius:(fixture.cases[fixture.step]||{}).layout==="phone" ? 28 : 32;translucency:.9
+                Opal.AssistantPanel {anchors.fill:parent;layoutMode:(fixture.cases[fixture.step]||{}).layout||"desktop"}
+            }
+        }}
+        function assistantFixture(test) {
+            const A=Opal.AssistantState;
+            A.busy=false;A.available=true;A.jev=true;A.approvals=[];A.turns=[];
+            A.ctxApp="firefox";A.ctxTitle="Hyprland wiki - Configuring";A.ctxSelection="Lua config reload";A.ctxClipboard="";A.useApp=true;A.useSelection=true;A.useClipboard=true;
+            if(!test.chat&&!test.confirm)return;
+            if(test.chat) {
+                A.ctxApp="";A.ctxSelection="";
+                A.turns=[
+                    {role:"user",text:"Open my notes app and put it next to Firefox"},
+                    {role:"assistant",id:1,done:true,error:false,stopped:false,tools:[{id:"a",name:"list_windows",label:"list windows",status:"done"},{id:"b",name:"launch_app",label:"launch app · Kate",status:"done"},{id:"c",name:"move_window",label:"move window · kate",status:"error"}],
+                     text:"I opened **Kate** on workspace 2. Moving it failed because the window had not appeared yet.\n\n- Firefox is on workspace 1\n- Kate is on workspace 2\n\nUse `Super+2` to switch, or ask me to try the move again."},
+                    {role:"user",text:"Try again, then summarize the Hyprland page"},
+                    {role:"assistant",id:2,done:true,error:false,stopped:false,tools:[{id:"d",name:"move_window",label:"move window · kate",status:"done"},{id:"e",name:"desktop_ui_read",label:"ui read · page",status:"done"}],
+                     text:"## Moved\n\nKate now sits on workspace 1.\n\nThe page covers reloading the **Lua config**:\n\n```\nhyprctl reload\n```\n\nRead more at [the wiki](https://wiki.hyprland.org)."}
+                ];
+            }
+            if(test.confirm) {
+                A.busy=true;A.ctxApp="";A.ctxSelection="";
+                A.turns=A.turns.concat([{role:"user",text:"Close the old Firefox windows and clean my downloads"},{role:"assistant",id:3,done:false,error:false,stopped:false,tools:[{id:"f",name:"list_windows",label:"list windows",status:"done"},{id:"g",name:"close_window",label:"close window · firefox",status:"running"}],text:"I found two Firefox windows."}]);
+                A.approvals=[{id:"x1",tool:"close_window",label:"Close a window",detail:"firefox",risk:"high"},{id:"x2",tool:"open_target",label:"Open a link or file",detail:"https://wiki.hyprland.org/Configuring/",risk:"medium"}];
+            }
+        }
         Component {id:taskbarView;Opal.TaskStrip {labels:false}}
         Component {id:audioView;Opal.AudioPanel {}}
         Component {id:settingsView;Opal.Settings {}}
@@ -468,6 +505,7 @@ ShellRoot {
                 Opal.Hub.compositorActive=false;Opal.Hub.compositorWindows=[];
             }
             Opal.Hub.controlDetail=test.detail||"";
+            if(test.ui==="assistant")assistantFixture(test);
             if(test.devices)Qt.callLater(()=>{const c=Object.assign({},Opal.Hub.connectivity);
                 c.bluetooth=Object.assign({},c.bluetooth,{powered:true,busy:false,error:"",items:[{address:"AA",name:"soundcore Q20i",active:true,paired:true},{address:"BB",name:"Pixel Buds",active:false,paired:true},{address:"CC",name:"Living room speaker",active:false,paired:false}]});
                 c.wifi=Object.assign({},c.wifi,{powered:true,busy:false,error:"",items:[{ssid:"Home Wi-Fi",signal:82,security:"WPA2",device:"wlan0",active:true,saved:true},{ssid:"Office",signal:60,security:"WPA2",device:"wlan0",active:false,saved:true},{ssid:"Cafe guest",signal:30,security:"",device:"wlan0",active:false,saved:false}]});
@@ -560,7 +598,7 @@ ShellRoot {
                 Opal.GameState.receive({event:"gamePerf",fpsLimit:60,overlay:"compact",mangohud:true,gamemode:{available:true,active:true,clients:1},profiles:{available:true,profiles:["power-saver","balanced","performance"],active:"balanced"},tdp:test.noTdp ? null : {watts:15,min:4,max:25},gpu:test.noTdp ? null : {level:"auto"},controllers:[{name:"DualSense",percent:64,charging:false},{name:"Xbox Controller",percent:12,charging:false}]});
                 Opal.GameState.quickAccess=true;
             }
-            view.sourceComponent=test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
+            view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
             if(test.ui==="quickaccess"){view.item.qa.tabIndex=test.tab||0;}
             if(test.ui==="console"){
                 if(test.tab)view.item.category=test.tab;

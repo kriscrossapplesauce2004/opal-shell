@@ -28,6 +28,8 @@ ShellRoot {
         function appearance():void {root.show("appearance");}
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
         function convergence():void {root.show("convergence");}
+        function assistant():void {if(Hub.page==="assistant")Hub.close();else Hub.openAssistant("");}
+        function ask(text:string):void {Hub.openAssistant(text);}
         function close():void {Hub.close();}
         function quickaccess():void {GameState.toggleQuickAccess();}
         function lock():void {Hub.lock();}
@@ -218,6 +220,7 @@ ShellRoot {
     SystemServices {}
     AudioDrawer {}
     ShadeWindow {}
+    AssistantWindow {}
     PowerProfileWindow {}
     TaskbarContextWindow {}
     DockWindow {}
@@ -265,7 +268,7 @@ ShellRoot {
     PanelWindow {
         id:overlay
         screen:Hub.targetScreen || Quickshell.screens[0]
-        visible:Hub.page!==""&&Hub.page!=="controls"&&Hub.page!=="notifications"
+        visible:Hub.page!==""&&Hub.page!=="controls"&&Hub.page!=="notifications"&&Hub.page!=="assistant"
         readonly property string layoutMode:Hub.layoutFor(width,height,screen ? screen.name : "")
         anchors {top:true;bottom:true;left:true;right:true}
         exclusionMode:ExclusionMode.Ignore

@@ -19,7 +19,7 @@ Item {
             Glyph {anchors.centerIn:parent;name:"play_arrow";rotation:180;font.pixelSize:26;color:Theme.text}
         }
         NavKey {
-            tooltip:"Home · hold for apps";onActivated:nav.home();onHeld:nav.go("apps")
+            tooltip:"Home · hold for assistant";onActivated:nav.home();onHeld:Hub.openAssistant("")
             Rectangle {anchors.centerIn:parent;width:18;height:18;radius:9;color:"transparent";border.width:2.5;border.color:Theme.text}
         }
         NavKey {
@@ -54,7 +54,11 @@ Item {
             property real vx:0
             property real vy:0
             property bool moved:false
+            property bool assistantOpened:false
+            // Holding the pill without moving opens the Claude assistant.
+            Timer {id:holdTimer;interval:550;onTriggered:if(gesture.pressed&&!gesture.moved){gesture.assistantOpened=true;PhoneState.cancel();Hub.openAssistant("");}}
             onPressed:e=>{
+                assistantOpened=false;holdTimer.restart();
                 startX=e.x;startY=e.y;lastX=e.x;lastY=e.y;lastTime=Date.now();vx=0;vy=0;moved=false;
                 PhoneState.begin(nav.output);
             }
@@ -67,6 +71,8 @@ Item {
                 PhoneState.move(e.x-startX,e.y-startY,vx,vy);
             }
             onReleased:{
+                holdTimer.stop();
+                if(assistantOpened)return;
                 if(!moved){PhoneState.cancel();nav.home();return;}
                 // A pause before release must not count as a fling.
                 if(Date.now()-lastTime>90){vx=0;vy=0;}
@@ -74,7 +80,7 @@ Item {
                 if(PhoneState.phase===""){PhoneState.cancel();nav.home();return;}
                 PhoneState.end();
             }
-            onCanceled:PhoneState.cancel()
+            onCanceled:{holdTimer.stop();PhoneState.cancel();}
             Accessible.role:Accessible.Button;Accessible.name:"Home. Swipe up for home or apps, hold while swiping for recent apps, swipe sideways to switch apps"
             Accessible.onPressAction:nav.home()
         }

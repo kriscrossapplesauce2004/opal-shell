@@ -386,7 +386,7 @@ from power_status import (connected_bluetooth_devices, cpu_governor,
                           parse_upower_batteries, primary_battery,
                           system_batteries)
 hypr_actions = HyprActions()
-import phone_commands
+import phone_commands, assistant
 GAMES_LISTED = []
 
 
@@ -492,6 +492,7 @@ def commands():
                 except (ValueError,OSError,subprocess.SubprocessError) as error:
                     emit({'event':'message','text':str(error)})
             elif phone_commands.handle(c,emit,GAMES_LISTED): pass
+            elif assistant.handle(c,emit): pass
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
             elif action=='claude-ask' and isinstance(c.get('text'),str) and 0<len(c['text'])<8000:
