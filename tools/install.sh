@@ -225,11 +225,14 @@ case "${1:-on}" in
     polkit)
         exec bash "@OPAL_TOOLS@/install-polkit.sh"
         ;;
+    quickaccess|qa)
+        exec quickshell ipc -p "$config" call opal quickaccess
+        ;;
     launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect|lock)
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

@@ -3,7 +3,7 @@
 import json, os, pathlib, subprocess, sys
 
 CONFIG = os.environ.get('OPAL_CONFIG_DIR') or str(pathlib.Path(__file__).resolve().parent)
-PANELS = ('launcher', 'controls', 'notifications', 'clipboard', 'appearance', 'settings', 'convergence', 'audio', 'close')
+PANELS = ('launcher', 'controls', 'notifications', 'clipboard', 'appearance', 'settings', 'convergence', 'audio', 'quickaccess', 'close')
 LAYOUTS = {'phone': 'phone', 'desktop': 'desktop', 'console': 'gaming', 'auto': 'adaptive'}
 
 def ipc(function, *args):

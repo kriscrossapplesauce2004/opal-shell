@@ -15,6 +15,7 @@ ShellRoot {
         width:960;height:650;visible:true;color:Opal.Theme.base
         property int step:0
         property real musicVolume:40
+        property var consoleGames:[]
         Timer {id:linkFixture;interval:400;onTriggered:{Opal.Hub.linkStatus="running";Opal.Hub.linkDevices=[{id:"a".repeat(32),name:"OnePlus 7",type:"phone",reachable:true,paired:true,battery:76,charging:false,opal:false,session:{}},{id:"b".repeat(32),name:"Living room PC",type:"desktop",reachable:true,paired:true,battery:-1,charging:false,opal:true,session:{app:"firefox",track:"",playing:false}},{id:"c".repeat(32),name:"Pixel Tablet",type:"tablet",reachable:true,paired:false,pairRequested:true,opal:false,session:{}}];Opal.Hub.apps=[{id:"firefox",name:"Firefox",icon:"firefox",categories:[],keywords:[],execute:()=>{}}];}}
         Timer {id:monitorFixture;interval:400;onTriggered:Opal.Hub.monitors=[{name:"eDP-1",description:"Built-in display",width:2560,height:1600,refresh:120,x:0,y:0,scale:1.5,transform:0,disabled:false,mirror:"none",modes:["2560x1600@120.00Hz","2560x1600@60.00Hz","1920x1200@60.00Hz"]},{name:"HDMI-A-1",description:"Dell U2720Q",width:1920,height:1080,refresh:60,x:1707,y:0,scale:1,transform:0,disabled:false,mirror:"none",modes:["1920x1080@60.00Hz","1280x720@60.00Hz"]}]}
         property var cases:[
@@ -166,6 +167,31 @@ ShellRoot {
             {name:"start-claude",ui:"start",w:1280,h:800,searchText:"! make the bar a dock",claude:true},
             {name:"start-calculator",ui:"start",w:1280,h:800,searchText:"= 12 * (3 + 4)"},
             {name:"start-small",ui:"start",w:640,h:560,allApps:true},
+            {name:"qa-game-hd",ui:"quickaccess",w:1280,h:800,tab:0,pad:["down"]},
+            {name:"qa-game-fhd-light",ui:"quickaccess",w:1920,h:1080,tab:0,light:true,pad:["down","down"]},
+            {name:"qa-game-empty",ui:"quickaccess",w:1280,h:800,tab:0,noGame:true,pad:["down"]},
+            {name:"qa-performance-hd",ui:"quickaccess",w:1280,h:800,tab:1,pad:["down","down"]},
+            {name:"qa-performance-fhd-light",ui:"quickaccess",w:1920,h:1080,tab:1,light:true,pad:["down","down","down"]},
+            {name:"qa-performance-no-tdp",ui:"quickaccess",w:1280,h:800,tab:1,noTdp:true,pad:["down"]},
+            {name:"qa-quick-hd",ui:"quickaccess",w:1280,h:800,tab:2,pad:["down","down"]},
+            {name:"qa-quick-fhd-light",ui:"quickaccess",w:1920,h:1080,tab:2,light:true,pad:["down","down","down"]},
+            {name:"qa-alerts-hd",ui:"quickaccess",w:1280,h:800,tab:3,pad:[]},
+            {name:"pad-shade",ui:"shade",w:420,h:560,pad:["down","down","right"]},
+            {name:"pad-shade-light",ui:"shade",w:420,h:560,light:true,pad:["down","down","down"]},
+            {name:"pad-settings",ui:"padsettings",w:980,h:800,section:"power",pad:["down","right","down"]},
+            {name:"pad-settings-light",ui:"padsettings",w:980,h:800,light:true,pad:["down"]},
+            {name:"pad-polkit",ui:"padpolkit",w:640,h:520,pad:["down"]},
+            {name:"pad-polkit-keyboard",ui:"padpolkit",w:900,h:640,light:true,pad:["accept"]},
+            {name:"console-hero-hd",ui:"console",w:1280,h:800},
+            {name:"console-hero-fhd-light",ui:"console",w:1920,h:1080,light:true,tab:"All"},
+            {name:"console-detail-hd",ui:"console",w:1280,h:800,detail:true,pad:["down"]},
+            {name:"console-detail-light",ui:"console",w:1280,h:800,detail:true,light:true,pad:["down","down"]},
+            {name:"console-hub-library",ui:"console",w:1280,h:800,hub:4},
+            {name:"pad-guard",ui:"shapes",w:600,h:310,guard:true,pad:[]},
+            {name:"qa-close",ui:"quickaccess",w:1280,h:800,tab:2,pad:["down","back"],expectClosed:true},
+            {name:"qa-tab-step",ui:"quickaccess",w:1280,h:800,tab:0,pad:["nextTab","nextTab","down"],expectTab:2},
+            {name:"pad-lock",ui:"lock",w:1440,h:900,reveal:true,music:true,pad:["accept"]},
+            {name:"pad-lock-light",ui:"lock",w:1440,h:900,reveal:true,light:true,pad:["down"]},
             {name:"tile-editor",ui:"tiles",w:360,h:900}
         ]
         Rectangle {anchors.fill:parent;color:Opal.Theme.base}
@@ -322,6 +348,35 @@ ShellRoot {
                 Component.onCompleted:if(parent.test.reveal)reveal()
             }
         }}
+        // The real status poller also runs in this scene, so Quick Access values are pinned until capture.
+        Timer {interval:60;repeat:true;running:fixture.step<fixture.cases.length&&fixture.cases[fixture.step].ui==="quickaccess"
+            onTriggered:{
+                const want={profile:"balanced",battery:73,charging:false,brightness:62,volume:48,muted:false,wifi:true,network:"Home Wi-Fi",bluetooth:true};
+                if(Object.keys(want).some(k=>Opal.Hub.status[k]!==want[k]))Opal.Hub.status=Object.assign({},Opal.Hub.status,want);
+            }
+        }
+        // The real library scan also runs in this scene and would empty the fixture library.
+        Timer {interval:60;repeat:true;running:fixture.step<fixture.cases.length&&fixture.cases[fixture.step].ui==="console"
+            onTriggered:{
+                if(Opal.Hub.games.length!==fixture.consoleGames.length)Opal.Hub.games=fixture.consoleGames;
+                if(Opal.GameState.detail.playtimeMinutes!==754)Opal.GameState.detail={id:"steam:1",playtimeMinutes:754,lastPlayed:1790000000,sizeBytes:5400000000,uninstallable:true};
+            }
+        }
+        Component {id:quickAccessView;Item {
+            property alias qa:quickAccessItem
+            Rectangle {anchors.fill:parent;gradient:Gradient {GradientStop {position:0;color:"#1b2b3a"} GradientStop {position:1;color:"#0b1018"}}}
+            Opal.QuickAccess {id:quickAccessItem;anchors.fill:parent}
+        }}
+        Component {id:padSettingsView;Item {
+            Opal.Settings {id:padSettings;anchors.fill:parent}
+            Opal.ControllerFocus {anchors.fill:parent;root:padSettings;priority:5;closeOnBack:false;tabHints:true}
+        }}
+        Component {id:padPolkitView;Item {
+            Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
+            Rectangle {anchors.fill:parent;color:"#66000000"}
+            Opal.PolkitCard {id:padCard;anchors.centerIn:parent;message:"Authentication is required to install software.";identity:"unix-user:melissa"}
+            Opal.ControllerFocus {anchors.fill:parent;root:padCard;priority:30;closeOnBack:false;preferText:true}
+        }}
         Component {id:polkitView;Item {
             Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
             Rectangle {anchors.fill:parent;color:"#66000000"}
@@ -421,7 +476,7 @@ ShellRoot {
                 if(test.searchText&&test.searchText.startsWith("12"))Opal.Hub.calculation="84";
             }
             if(test.ui==="console"){const art=i=>"file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-"+(i%3+1)+".png";
-                Opal.Hub.games=[{id:"steam:1",title:"Deltarune",source:"Steam",cover:art(0),hero:"file://"+Quickshell.env("HOME")+"/Ocean.png",lastPlayed:1790000000,windowClass:"steam_app_1"},{id:"steam:2",title:"Kerbal Space Program",source:"Steam",cover:art(1),lastPlayed:1789000000,windowClass:""},{id:"prism:a",title:"JevCraft Survival",source:"Minecraft",cover:"",lastPlayed:1788000000,windowClass:"Minecraft"},{id:"prism:b",title:"1.21",source:"Minecraft",cover:"",lastPlayed:0,windowClass:"Minecraft"},{id:"steam:3",title:"Stellaris",source:"Steam",cover:art(2),lastPlayed:0,windowClass:""},{id:"lutris:x",title:"Celeste",source:"Lutris",cover:"",lastPlayed:0,windowClass:""}];}
+                fixture.consoleGames=[{id:"steam:1",title:"Deltarune",source:"Steam",cover:art(0),hero:"file://"+Quickshell.env("HOME")+"/Ocean.png",lastPlayed:1790000000,windowClass:"steam_app_1"},{id:"steam:2",title:"Kerbal Space Program",source:"Steam",cover:art(1),lastPlayed:1789000000,windowClass:""},{id:"prism:a",title:"JevCraft Survival",source:"Minecraft",cover:"",lastPlayed:1788000000,windowClass:"Minecraft"},{id:"prism:b",title:"1.21",source:"Minecraft",cover:"",lastPlayed:0,windowClass:"Minecraft"},{id:"steam:3",title:"Stellaris",source:"Steam",cover:art(2),lastPlayed:0,windowClass:""},{id:"lutris:x",title:"Celeste",source:"Lutris",cover:"",lastPlayed:0,windowClass:""}];Opal.Hub.games=fixture.consoleGames;}
             if(test.monitors)monitorFixture.restart();
             if(false)Qt.callLater(()=>Opal.Hub.monitors=[{name:"eDP-1",description:"Built-in display",width:2560,height:1600,refresh:120,x:0,y:0,scale:1.5,transform:0,disabled:false,mirror:"none",modes:["2560x1600@120.00Hz","2560x1600@60.00Hz","1920x1200@60.00Hz"]},{name:"HDMI-A-1",description:"Dell U2720Q",width:1920,height:1080,refresh:60,x:1707,y:0,scale:1,transform:0,disabled:false,mirror:"none",modes:["1920x1080@60.00Hz","1280x720@60.00Hz"]}]);
             if(test.schedules)Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{schedules:{nightLight:{enabled:true,mode:"sun",temperature:3800},darkMode:{enabled:true,mode:"custom",from:"19:30",to:"07:00"}}});
@@ -459,7 +514,29 @@ ShellRoot {
                 Opal.PhoneState.phase=test.gesture;Opal.PhoneState.progress=test.progress||0;Opal.PhoneState.dx=test.dx||0;Opal.PhoneState.dy=-(test.progress||0)*test.h*.5;Opal.PhoneState.edge=-1;
             } else if(Opal.PhoneState.phase!=="")Opal.PhoneState.finish();
             if(test.filterText)Opal.Hub.query=test.filterText;
-            view.sourceComponent=test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            // Quick Access and controller-focus fixtures. A controller is "connected" only in these scenes.
+            Opal.GameState.quickAccess=false;Opal.Hub.controller=!!test.pad;Opal.ControllerNav.usingController=!!test.pad;
+            Opal.Hub.locked=!!test.pad&&test.ui==="lock";
+            if(test.ui==="quickaccess") {
+                const art=i=>"file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-"+(i%3+1)+".png";
+                Opal.Hub.games=[{id:"steam:1",title:"Deltarune",source:"Steam",cover:art(0),hero:"file://"+Quickshell.env("HOME")+"/Ocean.png",lastPlayed:1790000000,windowClass:"steam_app_1"},{id:"steam:2",title:"Kerbal Space Program",source:"Steam",cover:art(1),lastPlayed:1789000000,windowClass:"steam_app_2"},{id:"lutris:x",title:"Celeste",source:"Lutris",cover:"",lastPlayed:1788000000,windowClass:""}];
+                const live=test.noGame ? [] : [{title:"Deltarune",className:"steam_app_1",address:"fixture-game",workspace:1},{title:"Mozilla Firefox",className:"firefox",address:"fixture-web",workspace:2}];
+                Opal.Hub.status=Object.assign({},Opal.Hub.status,{hypr:true,windows:live,battery:73,charging:false,brightness:62,volume:48,muted:false,wifi:true,network:"Home Wi-Fi",bluetooth:true,profile:"balanced",fullscreenMonitors:test.noGame ? [] : ["fixture"]});
+                Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=live;
+                Opal.GameState.seenAt=new Date(Date.now()-42*60000);
+                Opal.GameState.receive({event:"gamePerf",fpsLimit:60,overlay:"compact",mangohud:true,gamemode:{available:true,active:true,clients:1},profiles:{available:true,profiles:["power-saver","balanced","performance"],active:"balanced"},tdp:test.noTdp ? null : {watts:15,min:4,max:25},gpu:test.noTdp ? null : {level:"auto"},controllers:[{name:"DualSense",percent:64,charging:false},{name:"Xbox Controller",percent:12,charging:false}]});
+                Opal.GameState.quickAccess=true;
+            }
+            view.sourceComponent=test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
+            if(test.ui==="quickaccess"){view.item.qa.tabIndex=test.tab||0;}
+            if(test.ui==="console"){
+                if(test.tab)view.item.category=test.tab;
+                if(test.hub!==undefined){view.item.menuTab=test.hub;view.item.menuOpen=true;}
+                if(test.detail){Opal.GameState.detail={id:"steam:1",playtimeMinutes:754,lastPlayed:1790000000,sizeBytes:5400000000,uninstallable:true};view.item.detailOpen=true;}
+                else Opal.GameState.detail=({id:"steam:1",playtimeMinutes:754,lastPlayed:1790000000,sizeBytes:5400000000,uninstallable:true});
+            }
+            if(test.ui==="padsettings")Opal.Hub.settingsSection=test.section||"";
+            if(test.pad)padInput.restart();
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{
@@ -580,7 +657,7 @@ ShellRoot {
                 view.item.navigate("menu");view.item.menuTab=test.section||0;view.item.menuIndex=0;
                 if(test.nintendo&&view.item.acceptButton!=="B")console.error("ASSERTION_FAILED: swapped button hints");
             }
-            if(test.ui==="console"&&!test.search&&!test.menu) {
+            if(test.ui==="console"&&!test.search&&!test.menu&&!test.detail&&test.hub===undefined) {
                 view.item.navigate("right");
                 if(view.item.library.length>1&&view.item.selection!==1)console.error("ASSERTION_FAILED: controller grid");
                 view.item.navigate("left");
@@ -622,6 +699,31 @@ ShellRoot {
             capture.restart();
         }
         Timer {
+            id:padInput;interval:220
+            onTriggered:{
+                const test=fixture.cases[fixture.step];
+                if(test.guard) {
+                    Opal.Hub.page="";Opal.GameState.quickAccess=false;
+                // Nothing is open: only Guide may react, so a game never loses its input to Opal.
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{mode:"desktop"});
+                ["accept","down","back","pin","menu","nextTab"].forEach(key=>Opal.ControllerNav.input(key));
+                if(Opal.GameState.quickAccess||Opal.Hub.page!=="")console.error("ASSERTION_FAILED: controller input leaked with nothing open");
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:false});
+                Opal.ControllerNav.input("home");
+                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide ignored the quickAccessGuide setting");
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:true});
+                Opal.ControllerNav.input("home");
+                if(!Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not open Quick Access");
+                Opal.ControllerNav.input("home");
+                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not close Quick Access");
+            }
+                // Settings page: the first press chooses a start item. Later presses move through the real focus engine.
+                (test.pad||[]).forEach(key=>Opal.ControllerNav.input(key));
+                if(test.expectClosed&&Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: B did not close Quick Access");
+                if(test.expectTab!==undefined&&view.item.qa.tabIndex!==test.expectTab)console.error("ASSERTION_FAILED: RB did not switch sections",view.item.qa.tabIndex);
+            }
+        }
+        Timer {
             id:capture;interval:600
             onTriggered:{
                 if(fixture.cases[fixture.step].ui==="keyboard"&&view.item.input.text!=="Material You")console.error("ASSERTION_FAILED: keyboard repeat did not cancel",view.item.input.text);
@@ -637,6 +739,7 @@ ShellRoot {
                 });
             }
         }
-        Component.onCompleted:Qt.callLater(next)
+        // OPAL_ONLY=name keeps only the scenes whose name contains it.
+        Component.onCompleted:{const only=Quickshell.env("OPAL_ONLY");if(only)cases=cases.filter(c=>c.name.indexOf(only)>=0);Qt.callLater(next);}
     }
 }

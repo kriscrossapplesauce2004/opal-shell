@@ -84,7 +84,7 @@ Rectangle {
         anchors.leftMargin:t.iconOnly ? t.width : t.mainHitLeft
         hoverEnabled:true
         cursorShape:Qt.PointingHandCursor
-        onClicked:mouse=>t.clicked(mouse.x,mouse.y)
+        onClicked:mouse=>t.clicked(mouse ? mouse.x : width/2,mouse ? mouse.y : height/2)
         onPressAndHold:if(t.settings)t.openSettings()
         activeFocusOnTab:true
         Keys.onReturnPressed:t.clicked(width/2,height/2)

@@ -46,6 +46,9 @@ Item {
     function badge(index) {return [Theme.primaryContainer,Theme.secondaryContainer,Theme.tertiaryContainer,Theme.surfaceHighest][index%4];}
     function badgeInk(index) {return [Theme.onContainer,Theme.onSecondaryContainer,Theme.onTertiaryContainer,Theme.text][index%4];}
     function groupIndex(id) {return groups.findIndex(g=>g.items.some(i=>i.id===id));}
+    // Controller: LB and RB step through sections. B returns to the overview first.
+    function controllerTab(delta) {const ids=sections.map(s=>s.id);const i=ids.indexOf(Hub.settingsSection);Hub.settingsSection=ids[i<0 ? (delta>0 ? 0 : ids.length-1) : (i+delta+ids.length)%ids.length];}
+    function controllerBack() {if(Hub.settingsSection==="")return false;Hub.settingsSection="";return true;}
 
     RowLayout {
         anchors.fill:parent;anchors.margins:settings.narrow ? 14 : 20;spacing:20

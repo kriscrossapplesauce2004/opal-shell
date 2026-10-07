@@ -24,6 +24,8 @@ Rectangle {
         if (!icon) return "";
         return icon.startsWith("/") || icon.startsWith("file:") || icon.startsWith("image:") ? icon : Quickshell.iconPath(icon, true);
     }
+    // Controller: X dismisses the notification.
+    function controllerAlternate() { Notifier.dismiss(entry); }
     implicitHeight: content.implicitHeight + 24
     radius: Theme.shapeLg
     color: critical ? Theme.mix(Theme.level(3), Theme.error, .12) : Theme.level(popup ? 3 : 2)

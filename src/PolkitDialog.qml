@@ -49,6 +49,11 @@ Scope {
                             flow: agent.flow
                         }
                     }
+                    // Controller: move between the password, reveal, cancel and authenticate controls.
+                    ControllerFocus {
+                        anchors.fill: parent; root: card; priority: 30; closeOnBack: false; preferText: true
+                        onBack: card.cancel()
+                    }
                 }
             }
         }

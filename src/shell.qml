@@ -29,6 +29,7 @@ ShellRoot {
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
         function convergence():void {root.show("convergence");}
         function close():void {Hub.close();}
+        function quickaccess():void {GameState.toggleQuickAccess();}
         function lock():void {Hub.lock();}
         // Used by the Opal MCP server. The backend validates every preference.
         function setPreference(key:string, value:string):string {let parsed;try{parsed=JSON.parse(value);}catch(error){return "Value must be JSON";}Hub.set(key,parsed);return "Sent "+key;}
@@ -200,6 +201,18 @@ ShellRoot {
         }
     }
     WorkspaceOsd {}
+    // Quick Access floats above games. Only a keyboard or IPC open takes keyboard focus.
+    PanelWindow {
+        screen:Hub.targetScreen||Quickshell.screens[0]
+        visible:GameState.quickAccess||quickAccess.reveal>.001
+        anchors {top:true;bottom:true;left:true;right:true}
+        exclusionMode:ExclusionMode.Ignore
+        WlrLayershell.layer:WlrLayer.Overlay
+        WlrLayershell.namespace:"opal-quick-access"
+        WlrLayershell.keyboardFocus:GameState.quickAccess&&GameState.keyboardOpened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        color:"transparent"
+        QuickAccess {id:quickAccess;anchors.fill:parent}
+    }
     LockScreen {}
     PolkitDialog {}
     SystemServices {}
@@ -330,5 +343,12 @@ ShellRoot {
             Appearance {Layout.fillWidth:true;Layout.fillHeight:true;compact:panel.phone}
         }}
         Shortcut {sequence:"Escape";enabled:!overlay.desktopStart&&!overlay.searchPanel&&!(panel.game&&panel.launcher);onActivated:Hub.close()}
+        // Controller focus for every page in this window. Pages may define controllerTab(delta) and controllerBack().
+        ControllerFocus {
+            anchors.fill:parent;root:overlayContent;priority:0;closeOnBack:false;tabHints:true
+            active:overlay.visible&&!(panel.game&&panel.launcher)&&!GameState.quickAccess
+            onBack:{const page=overlayContent.item;if(!(page&&page.controllerBack&&page.controllerBack()))Hub.close();}
+            onTab:delta=>{const page=overlayContent.item;if(page&&page.controllerTab)page.controllerTab(delta);}
+        }
     }
 }

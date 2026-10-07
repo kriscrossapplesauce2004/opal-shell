@@ -15,6 +15,10 @@ Item {
     property int menuIndex:0
     property int menuTab:0
     property int selection:0
+    // Sort order for lists other than Recent: az, recent or source.
+    property string sortMode:"az"
+    property bool detailOpen:false
+    readonly property var sortModes:[{id:"az",name:"A to Z"},{id:"recent",name:"Recently played"},{id:"source",name:"By source"}]
     onQueryChanged:if(search.text!==query)search.text=query
     readonly property bool nintendo:Hub.prefs.controllerLayout==="nintendo"
     readonly property string acceptButton:nintendo ? "B" : "A"
@@ -32,17 +36,40 @@ Item {
     }
     readonly property var allGames:gameEntries.concat(desktopGames)
     readonly property var sources:allGames.map(e=>e.source).filter((s,i,all)=>all.indexOf(s)===i&&all.filter(x=>x===s).length>1).slice(0,4)
-    readonly property var tabs:["Recent","All"].concat(sources).concat(["Pinned","Apps"])
+    readonly property var tabs:["Recent","All"].concat(allGames.some(e=>running(e)) ? ["Running"] : []).concat(["Pinned","Unplayed"]).concat(sources).concat(["Apps"])
     function running(entry) {return entry.kind==="game" ? Hub.gameRunning(entry.data) : Hub.windows.some(w=>Hub.appForWindow(w)===entry.data);}
     function windowsFor(entry) {return !entry ? [] : entry.kind==="game" ? Hub.gameWindows(entry.data) : Hub.windows.filter(w=>Hub.appForWindow(w)===entry.data);}
+    function sorted(list) {
+        const copy=list.slice();
+        if(sortMode==="recent")copy.sort((a,b)=>(b.lastPlayed-a.lastPlayed)||a.title.localeCompare(b.title));
+        else if(sortMode==="source")copy.sort((a,b)=>a.source.localeCompare(b.source)||a.title.localeCompare(b.title));
+        else copy.sort((a,b)=>a.title.localeCompare(b.title));
+        return copy;
+    }
+    readonly property bool sortApplies:query.trim()===""&&category!=="Recent"&&category!=="Apps"
+    readonly property string sortName:sortModes.find(m=>m.id===sortMode).name
+    function cycleSort(delta) {const i=sortModes.findIndex(m=>m.id===sortMode);sortMode=sortModes[(i+delta+sortModes.length)%sortModes.length].id;selection=0;grid.positionViewAtBeginning();}
+    // Local playtime for the selected Steam game. The backend reads localconfig.vdf.
+    readonly property var facts:selected&&GameState.detail.id===selected.id ? GameState.detail : ({})
+    onSelectedChanged:{if(selected&&selected.kind==="game")detailLoad.restart();}
+    Timer {id:detailLoad;interval:240;onTriggered:if(c.selected&&c.selected.kind==="game")GameState.loadDetail(c.selected.id)}
+    function minutesText(m) {return m<60 ? m+" min" : Math.floor(m/60)+" h "+(m%60)+" min";}
+    function ago(stamp) {
+        if(!stamp)return "Never played";
+        const days=Math.floor((Date.now()/1000-stamp)/86400);
+        return days<1 ? "Played today" : days===1 ? "Played yesterday" : days<30 ? "Played "+days+" days ago" : "Played "+Qt.formatDate(new Date(stamp*1000),"d MMM yyyy");
+    }
+    readonly property string heroKicker:!selected ? "" : running(selected) ? "Running now" : category==="Recent"&&selection===0&&selected.lastPlayed>0&&query==="" ? "Continue playing" : selected.source
     readonly property var library:{
         const q=query.trim().toLowerCase();
         if(q!=="")return allGames.concat(Hub.searchApps(q,"All apps").map(a=>appEntry(a))).filter((e,i,all)=>e.title.toLowerCase().includes(q)&&all.findIndex(o=>o.title===e.title)===i);
         if(category==="Recent"){const live=allGames.filter(e=>running(e));return live.concat(allGames.filter(e=>e.lastPlayed>0&&live.indexOf(e)<0)).slice(0,24);}
-        if(category==="All")return allGames.slice().sort((a,b)=>a.title.localeCompare(b.title));
-        if(category==="Pinned"){const pins=Hub.prefs.gamePins||[];return allGames.filter(e=>pins.indexOf(e.id)>=0);}
+        if(category==="All")return sorted(allGames);
+        if(category==="Running")return sorted(allGames.filter(e=>running(e)));
+        if(category==="Unplayed")return sorted(allGames.filter(e=>e.lastPlayed===0));
+        if(category==="Pinned"){const pins=Hub.prefs.gamePins||[];return sorted(allGames.filter(e=>pins.indexOf(e.id)>=0));}
         if(category==="Apps")return Hub.searchApps("","All apps").map(a=>appEntry(a));
-        return allGames.filter(e=>e.source===category).sort((a,b)=>a.title.localeCompare(b.title));
+        return sorted(allGames.filter(e=>e.source===category));
     }
     readonly property var selected:library.length ? library[Math.min(selection,library.length-1)] : null
     readonly property int columns:Math.max(3,Math.min(8,Math.floor((width-96)/190)))
@@ -57,11 +84,24 @@ Item {
     function pin() {if(!selected)return;if(selected.kind==="game")Hub.pinGame(selected.data);else Hub.pin(selected.data);}
     function pinned(entry) {return !!entry&&(entry.kind==="game" ? (Hub.prefs.gamePins||[]).indexOf(entry.id)>=0 : Hub.pinned(entry.data));}
     function changeTab(delta) {category=tabs[(tabs.indexOf(category)+delta+tabs.length)%tabs.length];query="";selection=0;grid.positionViewAtBeginning();}
+    // Smooth scroll: the grid glides to keep the selected row in view.
+    function revealSelection() {
+        const row=Math.floor(selection/columns);
+        const top=row*grid.cellHeight;
+        let target=grid.contentY;
+        if(top<grid.contentY)target=top-8;
+        else if(top+grid.cellHeight>grid.contentY+grid.height)target=top+grid.cellHeight-grid.height+8;
+        target=Math.max(0,Math.min(Math.max(0,grid.contentHeight-grid.height),target));
+        if(Math.abs(target-grid.contentY)<1)return;
+        gridScroll.stop();gridScroll.from=grid.contentY;gridScroll.to=target;
+        if(Theme.reduceMotion)grid.contentY=target;else gridScroll.restart();
+    }
+    NumberAnimation {id:gridScroll;target:grid;property:"contentY";duration:Theme.motion(Theme.durMedium);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasized}
     function searchToggle() {if(embedded){Hub.page="launcher";return;}searching=!searching;if(searching)c.forceActiveFocus();}
     Component.onCompleted:{if(!embedded)forceActiveFocus();if(!Hub.games.length)Hub.command({action:"game-library"});if(!library.length&&category==="Recent")category="All";}
 
     // Play hub: sections of controller-friendly rows. Slider rows change with left and right.
-    readonly property var menuTabs:[{name:"Now",icon:"sports_esports"},{name:"Sound",icon:"volume_up"},{name:"Performance",icon:"speed"},{name:"Quick",icon:"bolt"},{name:"System",icon:"settings"}]
+    readonly property var menuTabs:[{name:"Now",icon:"sports_esports"},{name:"Sound",icon:"volume_up"},{name:"Performance",icon:"speed"},{name:"Quick",icon:"bolt"},{name:"Library",icon:"grid_view"},{name:"System",icon:"settings"}]
     readonly property var liveEntries:allGames.filter(e=>running(e))
     readonly property var actions:{
         if(menuTab===0){
@@ -77,10 +117,18 @@ Item {
             {text:Hub.status.playing ? "Pause music" : "Play music",detail:Hub.status.track||"Nothing playing",icon:Hub.status.playing ? "pause" : "play_arrow",run:()=>Hub.media("play-pause"),stay:true},
             {text:"Next track",icon:"skip_next",run:()=>Hub.media("next"),stay:true}
         ];
-        if(menuTab===2)return [
+        if(menuTab===2)return (GameState.perfReady ? [
+            {text:"Frame limit",detail:GameState.perf.fpsLimit ? GameState.perf.fpsLimit+" FPS" : "Off",icon:"speed",adjust:d=>cycleFps(d),run:()=>cycleFps(1),stay:true},
+            {text:"Performance overlay",detail:GameState.perf.overlay==="fps" ? "FPS only" : GameState.perf.overlay.charAt(0).toUpperCase()+GameState.perf.overlay.slice(1),icon:"monitoring",adjust:d=>cycleOverlay(d),run:()=>cycleOverlay(1),stay:true}
+        ] : []).concat([
             {text:"Processor",detail:Hub.status.cpu+"%",icon:"speed",slider:Hub.status.cpu,info:true},
             {text:"Memory",detail:Hub.status.memory+"%",icon:"memory",slider:Hub.status.memory,info:true}
-        ].concat(Hub.status.profile ? [{id:"power-saver",name:"Power saver",icon:"eco"},{id:"balanced",name:"Balanced",icon:"balance"},{id:"performance",name:"Performance",icon:"rocket_launch"}].map(p=>({text:p.name,icon:p.icon,on:Hub.status.profile===p.id,run:()=>Hub.command({action:"profile",value:p.id}),stay:true})) : []);
+        ]).concat(Hub.status.profile ? [{id:"power-saver",name:"Power saver",icon:"eco"},{id:"balanced",name:"Balanced",icon:"balance"},{id:"performance",name:"Performance",icon:"rocket_launch"}].map(p=>({text:p.name,icon:p.icon,on:Hub.status.profile===p.id,run:()=>Hub.command({action:"profile",value:p.id}),stay:true})) : []);
+        if(menuTab===4)return [
+            {text:"Sort",detail:sortApplies ? sortName : "Applies to All, Pinned and source lists",icon:"sort",adjust:d=>{if(sortApplies)cycleSort(d);},run:()=>{if(sortApplies)cycleSort(1);},stay:true},
+            {text:"Rescan library",detail:allGames.length+" games",icon:"refresh",run:()=>Hub.command({action:"game-library"}),stay:true},
+            {text:"Game details",detail:"Playtime and uninstall",icon:"info",run:()=>{if(selected&&selected.kind==="game"){detailOpen=true;GameState.loadDetail(selected.id);}}}
+        ];
         if(menuTab===3)return [
             {text:"Screenshot",icon:"screenshot_monitor",run:()=>Hub.screenShot()},
             {text:"Do not disturb",icon:"do_not_disturb_on",on:Hub.dnd,run:()=>Hub.set("dnd",!Hub.dnd),stay:true},
@@ -90,15 +138,18 @@ Item {
         return [
             {text:"Button layout",detail:nintendo ? "Nintendo" : "Xbox",icon:"gamepad",run:()=>Hub.set("controllerLayout",nintendo ? "standard" : "nintendo"),stay:true},
             {text:"Dark theme",icon:"dark_mode",on:!Theme.light,run:()=>Hub.set("light",!Theme.light),stay:true},
-            {text:"Rescan library",detail:allGames.length+" games",icon:"refresh",run:()=>Hub.command({action:"game-library"}),stay:true},
             {text:"Steam Big Picture",icon:"sports_esports",run:()=>Hub.settings("steam")},
             {text:"Switch to desktop",icon:"desktop_windows",run:()=>Hub.mode("desktop")}
         ];
     }
+    function cycleFps(delta) {const list=[0,30,40,45,60,72,90,120,144];const i=Math.max(0,list.indexOf(GameState.perf.fpsLimit||0));GameState.set("fpsLimit",list[(i+delta+list.length)%list.length]);}
+    function cycleOverlay(delta) {const list=["off","fps","compact","full"];const i=Math.max(0,list.indexOf(GameState.perf.overlay||"compact"));GameState.set("overlay",list[(i+delta+list.length)%list.length]);}
+    onTabsChanged:if(tabs.indexOf(category)<0)category="Recent"
     function menuCategory(delta) {menuTab=(menuTab+delta+menuTabs.length)%menuTabs.length;menuIndex=0;}
     function runAction(index) {const a=actions[index];if(!a||a.info)return;if(!a.stay)menuOpen=false;a.run();}
-    function openMenu() {menuIndex=0;menuTab=0;menuOpen=true;c.forceActiveFocus();}
+    function openMenu() {menuIndex=0;menuTab=0;menuOpen=true;GameState.refresh();c.forceActiveFocus();}
     function navigate(key) {
+        if(detailOpen) {if(key==="back")detailOpen=false;return;}
         if(menuOpen) {
             const a=actions[menuIndex];
             if(key==="back"||key==="menu")menuOpen=false;
@@ -114,12 +165,14 @@ Item {
         if(key==="search") {searchToggle();return;}
         if(key==="menu") {openMenu();return;}
         if(key==="pin") {pin();return;}
+        if(key==="pageUp") {if(selected&&selected.kind==="game"){detailOpen=true;GameState.loadDetail(selected.id);}return;}
+        if(key==="pageDown") {if(sortApplies)cycleSort(1);return;}
         if(key==="back") {if(query){query="";return;}Hub.close();return;}
         if(key==="accept") {launch();return;}
         if(key==="previousTab") {changeTab(-1);return;}
         if(key==="nextTab") {changeTab(1);return;}
         const delta={left:-1,right:1,up:-columns,down:columns}[key];
-        if(delta!==undefined) {selection=Math.max(0,Math.min(library.length-1,selection+delta));grid.positionViewAtIndex(selection,GridView.Contain);}
+        if(delta!==undefined) {selection=Math.max(0,Math.min(library.length-1,selection+delta));revealSelection();}
     }
     Connections {target:Hub;function onNavigate(key){if(!c.embedded&&Hub.page==="launcher"&&Hub.prefs.mode==="console")c.navigate(key);}}
     focus:!embedded
@@ -177,27 +230,66 @@ Item {
                 }
             }
             MButton {text:"RB";compact:true;implicitWidth:44;ink:Theme.subtext;tooltip:"Next tab";onClicked:c.changeTab(1)}
+            Rectangle {
+                visible:c.sortApplies;Layout.leftMargin:4;Layout.preferredHeight:36;Layout.preferredWidth:sortRow.implicitWidth+26;radius:18;color:Theme.level(3)
+                Row {id:sortRow;anchors.centerIn:parent;spacing:6
+                    Glyph {name:"sort";font.pixelSize:18;color:Theme.subtext;anchors.verticalCenter:parent.verticalCenter}
+                    MText {text:c.sortName;role:"label";anchors.verticalCenter:parent.verticalCenter}
+                    MText {text:"RT";role:"labelS";font.weight:Font.Bold;color:Theme.muted;anchors.verticalCenter:parent.verticalCenter}}
+                MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:c.cycleSort(1)}
+            }
+            MButton {icon:"search";compact:true;ink:Theme.subtext;tooltip:"Search";onClicked:c.searchToggle()}
+            MButton {icon:"menu";compact:true;ink:Theme.subtext;tooltip:"Play hub";onClicked:c.openMenu()}
             Row {spacing:12;Layout.leftMargin:12
                 Glyph {visible:Hub.controller;name:"sports_esports";font.pixelSize:20;color:Theme.primary;anchors.verticalCenter:parent.verticalCenter}
                 Glyph {visible:Hub.status.battery>=0;name:Hub.status.charging ? "charging" : "battery";font.pixelSize:20;color:Theme.subtext;anchors.verticalCenter:parent.verticalCenter}
                 MText {text:Qt.formatDateTime(Hub.now,"HH:mm");role:"title";font.features:{"tnum":1};anchors.verticalCenter:parent.verticalCenter}
             }
         }
-        // Selected title.
-        RowLayout {
+        // Hero: the selected game. On Recent this starts as the last played game.
+        Rectangle {
+            id:banner
             visible:!c.searching&&!!c.selected
-            Layout.fillWidth:true;spacing:16
-            ColumnLayout {Layout.fillWidth:true;spacing:2
-                MText {text:c.selected ? c.selected.title : "";role:"displayS";Layout.fillWidth:true}
-                Row {spacing:8
-                    Rectangle {height:24;width:sourceText.implicitWidth+18;radius:12;color:Theme.level(3)
-                        MText {id:sourceText;anchors.centerIn:parent;text:c.selected ? c.selected.source : "";role:"labelS"}}
-                    MText {anchors.verticalCenter:parent.verticalCenter;visible:!!c.selected&&c.selected.lastPlayed>0;role:"label";color:Theme.subtext
-                        text:c.selected&&c.selected.lastPlayed>0 ? "Played "+Qt.formatDate(new Date(c.selected.lastPlayed*1000),"d MMM") : ""}
+            Layout.fillWidth:true;Layout.preferredHeight:Math.max(150,Math.min(250,c.height*.27))
+            readonly property int tint:c.selected ? Math.abs(c.selected.title.split("").reduce((h,ch)=>(h*31+ch.charCodeAt(0))|0,7))%3 : 0
+            radius:Theme.shapeXl;color:bannerArt.ready ? Theme.level(3) : [Theme.primaryContainer,Theme.secondaryContainer,Theme.tertiaryContainer][tint]
+            Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durMedium)}}
+            Flower {visible:!bannerArt.ready;x:parent.width-width*.72;y:-height*.2;width:parent.height*1.7;height:width;lobes:8;depth:.12;fill:Theme.alpha(Theme.text,.07)}
+            RoundedImage {id:bannerArt;anchors.fill:parent;radius:banner.radius;source:c.selected ? c.selected.hero||"" : "";decodeSize:Qt.size(1280,420)}
+            Rectangle {
+                visible:bannerArt.ready
+                anchors.fill:parent;radius:banner.radius
+                gradient:Gradient {orientation:Gradient.Horizontal
+                    GradientStop {position:0;color:Theme.alpha(Theme.base,.94)}
+                    GradientStop {position:.55;color:Theme.alpha(Theme.base,.62)}
+                    GradientStop {position:1;color:Theme.alpha(Theme.base,.12)}}
+            }
+            RowLayout {
+                anchors {fill:parent;margins:22} spacing:20
+                Rectangle {
+                    visible:!!c.selected&&!c.selected.hero&&!!c.selected.cover
+                    Layout.preferredHeight:parent.height;Layout.preferredWidth:height*.667;radius:Theme.shapeMd;color:Theme.primaryContainer
+                    RoundedImage {anchors.fill:parent;radius:Theme.shapeMd;source:c.selected ? c.selected.cover||"" : "";decodeSize:Qt.size(300,450)}
+                }
+                ColumnLayout {Layout.fillWidth:true;Layout.fillHeight:true;spacing:4
+                    MText {text:c.heroKicker.toUpperCase();role:"labelS";font.letterSpacing:1.5;font.weight:Font.Bold;color:Theme.primary}
+                    MText {Layout.fillWidth:true;text:c.selected ? c.selected.title : "";role:"displayS";maximumLineCount:2;wrapMode:Text.Wrap}
+                    Flow {Layout.fillWidth:true;spacing:8
+                        Rectangle {height:26;width:sourceText.implicitWidth+20;radius:13;color:Theme.level(4)
+                            MText {id:sourceText;anchors.centerIn:parent;text:c.selected ? c.selected.source : "";role:"labelS"}}
+                        Rectangle {height:26;width:playedText.implicitWidth+20;radius:13;color:Theme.level(4);visible:!!c.selected
+                            MText {id:playedText;anchors.centerIn:parent;text:c.selected ? c.ago(c.facts.lastPlayed||c.selected.lastPlayed) : "";role:"labelS"}}
+                        Rectangle {height:26;width:timeText.implicitWidth+20;radius:13;color:Theme.secondaryContainer;visible:c.facts.playtimeMinutes!==undefined&&c.facts.playtimeMinutes!==null
+                            MText {id:timeText;anchors.centerIn:parent;text:c.facts.playtimeMinutes!==undefined&&c.facts.playtimeMinutes!==null ? c.minutesText(c.facts.playtimeMinutes)+" played" : "";role:"labelS";color:Theme.onSecondaryContainer}}
+                    }
+                    Item {Layout.fillHeight:true}
+                    RowLayout {spacing:10
+                        MButton {text:c.acceptButton+"  "+(c.selected&&c.running(c.selected) ? "Resume" : "Play");icon:"play";filled:true;onClicked:c.launch()}
+                        MButton {text:c.pinButton+"  "+(c.pinned(c.selected) ? "Unpin" : "Pin");icon:"pin";tonal:true;onClicked:c.pin()}
+                        MButton {visible:!!c.selected&&c.selected.kind==="game";text:"LT  Details";icon:"info";tonal:true;onClicked:{c.detailOpen=true;GameState.loadDetail(c.selected.id);}}
+                    }
                 }
             }
-            MButton {text:c.acceptButton+"  "+(c.selected&&c.running(c.selected) ? "Resume" : "Play");icon:"play";filled:true;onClicked:c.launch()}
-            MButton {text:c.pinButton+"  "+(c.pinned(c.selected) ? "Unpin" : "Pin");icon:"pin";tonal:true;onClicked:c.pin()}
         }
         RowLayout {visible:c.searching;Layout.fillWidth:true
             MText {text:"Search";role:"displayS";Layout.fillWidth:true}
@@ -220,8 +312,11 @@ Item {
             Layout.fillWidth:true;Layout.fillHeight:true
             clip:true;model:c.library
             cellWidth:width/c.columns;cellHeight:cellWidth*1.5
-            boundsBehavior:Flickable.StopAtBounds;currentIndex:c.selection
+            boundsBehavior:Flickable.StopAtBounds;currentIndex:c.selection;flickDeceleration:3000;maximumFlickVelocity:5000
             highlightFollowsCurrentItem:false
+            // The grid can shrink or refill after the hero appears. Keep the selected row in view.
+            onHeightChanged:Qt.callLater(()=>{if(c.selection<c.columns)grid.positionViewAtBeginning();else c.revealSelection();})
+            onCountChanged:Qt.callLater(()=>{if(c.selection<c.columns)grid.positionViewAtBeginning();})
             ScrollBar.vertical:ScrollBar {}
             delegate:Item {
                 required property var modelData;required property int index
@@ -248,22 +343,34 @@ Item {
         }
         // Button hints.
         RowLayout {
-            visible:!c.searching
+            visible:!c.searching&&!c.detailOpen
             Layout.fillWidth:true;spacing:18
             MText {text:c.library.length+" "+(c.category==="Apps" ? "apps" : "titles");role:"label";color:Theme.subtext}
             Item {Layout.fillWidth:true}
-            Repeater {
-                model:[{b:c.acceptButton,t:"Play"},{b:c.pinButton,t:"Pin"},{b:c.searchButton,t:"Search"},{b:"☰",t:"Play hub",menu:true},{b:c.backButton,t:"Back",back:true}].filter(h=>!(h.back&&c.embedded))
-                Row {
-                    required property var modelData
-                    spacing:8
-                    Rectangle {width:28;height:28;radius:14;color:Theme.level(4);anchors.verticalCenter:parent.verticalCenter
-                        MText {anchors.centerIn:parent;text:modelData.b;role:"labelS";font.weight:Font.Bold}}
-                    MText {text:modelData.t;role:"label";anchors.verticalCenter:parent.verticalCenter}
-                    MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:modelData.menu ? c.openMenu() : modelData.back ? c.navigate("back") : modelData.t==="Search" ? c.searchToggle() : modelData.t==="Pin" ? c.pin() : c.launch()}
+            ControllerHints {
+                items:{
+                    const list=[{b:c.acceptButton,t:"Play"},{b:c.pinButton,t:"Pin"},{b:c.searchButton,t:"Search"},{b:"LB RB",t:"Tabs"}];
+                    if(c.selected&&c.selected.kind==="game")list.push({b:"LT",t:"Details"});
+                    if(c.sortApplies)list.push({b:"RT",t:"Sort"});
+                    list.push({b:"☰",t:"Play hub"});
+                    if(!c.embedded)list.push({b:c.backButton,t:"Back"});
+                    return list;
                 }
             }
         }
+    }
+
+    GameDetail {
+        anchors.fill:parent
+        entry:c.selected&&c.selected.kind==="game" ? c.selected : null
+        open:c.detailOpen&&!!c.selected&&c.selected.kind==="game"
+        running:!!c.selected&&c.running(c.selected)
+        pinned:c.pinned(c.selected)
+        onDismissed:c.detailOpen=false
+        onPlay:{c.detailOpen=false;c.launch();}
+        onPin:c.pin()
+        onQuit:{c.windowsFor(c.selected).forEach(w=>Hub.closeWindow(w));c.detailOpen=false;}
+        onUninstall:{Hub.command({action:"game-uninstall",id:c.selected.id});c.detailOpen=false;}
     }
 
     // Play hub: a side sheet with a section rail.

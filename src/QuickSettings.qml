@@ -33,10 +33,21 @@ Item {
         if(item&&scroller.contentHeight>scroller.height+1)scroller.contentY=Math.max(0,Math.min(scroller.contentHeight-scroller.height,item.y));
     }
     // Desktop sheets shrink to fit. Zero means the host picks the height.
-    readonly property real fitHeight:!q.phone&&Hub.controlDetail===""&&q.confirm==="" ? main.implicitHeight+28 : 0
+    readonly property real fitHeight:!q.phone&&Hub.controlDetail===""&&q.confirm==="" ? main.implicitHeight+28+padFocus.hintSpace : 0
+    // Controller: LB and RB jump between sections.
+    function jumpSection(delta) {
+        const items=[];
+        for(let i=0;i<sections.length;i++){const it=sectionRepeater.itemAt(i);if(it&&it.height>0)items.push(it);}
+        if(!items.length)return;
+        let index=0;
+        for(let i=0;i<items.length;i++)if(items[i].y<=scroller.contentY+8)index=i;
+        index=Math.max(0,Math.min(items.length-1,index+delta));
+        scroller.contentY=Math.max(0,Math.min(scroller.contentHeight-scroller.height,items[index].y));
+        Qt.callLater(padFocus.selectInitial);
+    }
     ColumnLayout {
         id:main
-        visible:Hub.controlDetail==="";anchors.fill:parent;anchors.margins:14;spacing:10
+        visible:Hub.controlDetail==="";anchors.fill:parent;anchors.margins:14;anchors.bottomMargin:14+padFocus.hintSpace;spacing:10
         Rectangle {visible:q.phone;Layout.alignment:Qt.AlignHCenter;Layout.preferredWidth:40;Layout.preferredHeight:4;radius:2;color:Theme.outline}
         // Header: large clock and date, status on the right.
         RowLayout {Layout.fillWidth:true;Layout.leftMargin:6;Layout.rightMargin:4;spacing:8
@@ -201,8 +212,8 @@ Item {
         }
         MText {visible:!(Hub.status.batteries||[]).length;Layout.leftMargin:6;text:"No batteries found";role:"bodyS";color:Theme.subtext}
     }}
-    Loader {anchors.fill:parent;anchors.margins:16;active:Hub.controlDetail!=="";visible:active;sourceComponent:Component {ConnectionPanel {kind:Hub.controlDetail||"wifi"}}}
-    Rectangle {visible:q.confirm!=="";anchors.fill:parent;radius:28;color:Theme.level(2)
+    Loader {property bool controllerModal:true;anchors.fill:parent;anchors.margins:16;active:Hub.controlDetail!=="";visible:active;sourceComponent:Component {ConnectionPanel {kind:Hub.controlDetail||"wifi"}}}
+    Rectangle {property bool controllerModal:true;visible:q.confirm!=="";anchors.fill:parent;radius:28;color:Theme.level(2)
         MouseArea {anchors.fill:parent}
         ColumnLayout {anchors.centerIn:parent;width:parent.width-48;spacing:10
             MText {Layout.fillWidth:true;text:q.confirm==="menu" ? "Power" : q.confirm==="suspend" ? "Sleep now?" : q.confirm==="logout" ? "Log out now?" : q.confirm==="reboot" ? "Restart now?" : "Power off now?";role:"headline";wrapMode:Text.Wrap}
@@ -212,5 +223,11 @@ Item {
             MButton {visible:q.confirm!=="menu";Layout.fillWidth:true;text:"Yes";filled:true;onClicked:{Hub.command({action:"power",verb:q.confirm});Hub.close();}}
             MButton {Layout.fillWidth:true;text:"Cancel";onClicked:q.confirm=""}
         }
+    }
+    ControllerFocus {
+        id:padFocus
+        anchors.fill:parent;root:q;priority:5;closeOnBack:false;tabHints:true
+        onBack:{if(q.confirm!=="")q.confirm="";else if(Hub.controlDetail!=="")Hub.controlDetail="";else Hub.close();}
+        onTab:delta=>q.jumpSection(delta)
     }
 }
