@@ -413,7 +413,7 @@ Scope {
     }}
     function closeWindow(w) {
         if(w.handle) w.handle.close();
-        else if(status.hypr) Quickshell.execDetached(["hyprctl","dispatch","closewindow","address:"+w.address]);
+        else if(status.hypr) command({action:"close-window",address:w.address});
     }
     function displayMode(name,mode) {
         const overrides=Object.assign({},prefs.displayModes||{});

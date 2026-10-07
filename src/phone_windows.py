@@ -3,6 +3,8 @@ import json
 import re
 import subprocess
 
+from hypr_actions import HyprActions
+
 _OUTPUT = re.compile(r'[A-Za-z0-9._-]{1,64}')
 _ADDRESS = re.compile(r'0x[0-9a-fA-F]+')
 # Dialogs and tool windows keep their own size and are only kept inside the screen.
@@ -89,8 +91,10 @@ class PhoneWindows:
     """Applies plans with hyprctl. The runner is replaceable for tests."""
 
     def __init__(self, runner=None):
-        self.runner = runner or self._run
+        self.runner = runner or HyprActions._run
         self.available = None
+        # Lua-config Hyprland refuses legacy dispatch and keyword commands, so every action goes through HyprActions.
+        self.hypr = HyprActions(self.runner)
 
     @staticmethod
     def _run(args):
@@ -101,6 +105,13 @@ class PhoneWindows:
 
     def _json(self, what):
         return json.loads(self.runner(['hyprctl', '-j', what]))
+
+    def _act(self, action, *args):
+        try:
+            action(*args)
+            return True
+        except (ValueError, OSError, subprocess.SubprocessError):
+            return False
 
     def _try(self, args):
         try:
@@ -122,12 +133,10 @@ class PhoneWindows:
         plan = plan_fit(self._json('clients'), self._json('monitors'), set(names), modes)
         changed = 0
         for step in plan:
-            address = 'address:' + step['address']
             if step['do'] == 'clamp':
-                ok = self._try(['hyprctl', 'dispatch', 'focuswindow', address]) and self._try(['hyprctl', 'dispatch', 'centerwindow'])
+                ok = self._act(self.hypr.center, step['address'])
             else:
-                value = '2' if step['do'] == 'fullscreen' else '1'
-                ok = self._try(['hyprctl', 'dispatch', 'fullscreenstate', value + ' ' + value + ',' + address])
+                ok = self._act(self.hypr.fullscreen, step['address'], 2 if step['do'] == 'fullscreen' else 1)
             changed += bool(ok)
         return changed
 
@@ -136,11 +145,9 @@ class PhoneWindows:
         if not self.probe() or not _ADDRESS.fullmatch(address or ''):
             return False
         x, y, w, h = (int(v) for v in rect)
-        target = 'address:' + address
         if floating:
-            self._try(['hyprctl', 'dispatch', 'setfloating', target])
-        return (self._try(['hyprctl', 'dispatch', 'resizewindowpixel', f'exact {w} {h},{target}'])
-                and self._try(['hyprctl', 'dispatch', 'movewindowpixel', f'exact {x} {y},{target}']))
+            self._act(self.hypr.set_floating, address, True)
+        return self._act(self.hypr.geometry, address, x, y, w, h)
 
     def split(self, output, left, right, ratio=0.5, top=48, bottom=0, keyboard=0):
         """Put two windows side by side on one output."""
@@ -158,7 +165,7 @@ class PhoneWindows:
         if not monitor:
             return False
         ok = self.place(address, slide_over_rect(usable_rect(monitor, top, bottom), fraction, side=side))
-        return ok and self._try(['hyprctl', 'dispatch', 'alterzorder', 'top,address:' + address])
+        return ok and self._act(self.hypr.raise_window, address)
 
     def lift(self, output, keyboard):
         """Move the focused floating window above the on-screen keyboard."""
@@ -169,7 +176,9 @@ class PhoneWindows:
             return 0
         done = 0
         for move in plan_lift(self._json('clients'), monitor, keyboard):
-            done += self._try(['hyprctl', 'dispatch', 'movewindowpixel', f"exact {move['x']} {move['y']},address:{move['address']}"])
+            window = next((c for c in self._json('clients') if c.get('address') == move['address']), None)
+            if window:
+                done += self._act(self.hypr.geometry, move['address'], int(move['x']), int(move['y']), *(int(v) for v in window.get('size', [1, 1])))
         return done
 
     def unsplit(self, addresses, phone_outputs):
@@ -178,13 +187,11 @@ class PhoneWindows:
             return 0
         for address in addresses:
             if _ADDRESS.fullmatch(address or ''):
-                self._try(['hyprctl', 'dispatch', 'settiled', 'address:' + address])
+                self._act(self.hypr.set_floating, address, False)
         return self.fit(phone_outputs)
 
     def go_home(self):
         """Show the home screen by switching to an empty workspace. Returns false without Hyprland."""
         if not self.probe():
             return False
-        if self._try(['hyprctl', 'eval', 'return true']):
-            return self._try(['hyprctl', 'eval', 'hl.dispatch(hl.dsp.focus({workspace="empty"}))'])
-        return self._try(['hyprctl', 'dispatch', 'workspace', 'empty'])
+        return self._act(self.hypr.workspace_empty)

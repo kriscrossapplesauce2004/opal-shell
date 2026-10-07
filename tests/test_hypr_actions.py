@@ -32,6 +32,23 @@ class HyprActionsTests(unittest.TestCase):
         self.assertIn('fullscreen_state({internal=0,client=0,action="set",window=w})',run.call_args.args[0][2])
         self.assertFalse(any('hl.dsp.focus' in str(c) for c in run.call_args_list))
 
+    def test_lua_never_uses_legacy_dispatch_or_keyword(self):
+        run=Mock(return_value='ok');actions=HyprActions(run)
+        actions.close('0xabc');actions.center('0xabc');actions.raise_window('0xabc');actions.workspace_empty();actions.exit()
+        actions.config('general:col.active_border','rgba(84d7b0ff)')
+        codes=[c.args[0] for c in run.call_args_list]
+        self.assertFalse(any(c[1] in ('dispatch','keyword') for c in codes))
+        joined=' '.join(c[2] for c in codes if c[1]=='eval')
+        for piece in ('hl.dsp.window.close({window=w})','hl.dsp.window.center({window=w})','alter_zorder({mode="top",window=w})','focus({workspace="empty"})','hl.dsp.exit()','hl.config({general={["col.active_border"]="rgba(84d7b0ff)"}})'):
+            self.assertIn(piece,joined)
+
+    def test_config_validates_and_uses_keyword_on_legacy(self):
+        run=Mock(return_value='');actions=HyprActions(run);actions.is_lua=lambda:False
+        actions.config('input:touchdevice:transform',1)
+        run.assert_called_with(['hyprctl','keyword','input:touchdevice:transform','1'])
+        for option,value in (('bad option',1),('general:x','"; os.exit()'),('general:x',[1])):
+            with self.assertRaises(ValueError):actions.config(option,value)
+
     def test_move_uses_native_window_move_and_validates(self):
         run=Mock(return_value='ok');actions=HyprActions(run)
         actions.move('0xabc',3,follow=True)

@@ -481,6 +481,9 @@ def commands():
             elif action=='rotate':
                 try: hypr_actions.rotate(c.get('output'),c.get('transform'))
                 except (ValueError,OSError,subprocess.SubprocessError) as error: emit({'event':'message','text':str(error)})
+            elif action=='close-window':
+                try: hypr_actions.close(c.get('address'))
+                except (ValueError,OSError,subprocess.SubprocessError) as error: emit({'event':'message','text':str(error)[:160]})
             elif action in ('focus-window','workspace','move-window'):
                 try:
                     if action=='focus-window':hypr_actions.focus(c.get('address'))
@@ -549,7 +552,9 @@ def commands():
                     except Exception: emit({'event':'message','text':'Screenshot failed'})
             elif action=='power' and c.get('verb') in ('suspend','reboot','poweroff'): spawn(['systemctl',c['verb']])
             elif action=='power' and c.get('verb')=='logout':
-                if shutil.which('hyprctl'): spawn(['hyprctl','dispatch','exit'])
+                if shutil.which('hyprctl'):
+                    try: hypr_actions.exit()
+                    except (ValueError,OSError,subprocess.SubprocessError): emit({'event':'message','text':'Could not end the Hyprland session'})
                 else:
                     sid=os.environ.get('XDG_SESSION_ID','')
                     spawn(['loginctl','terminate-session',sid] if sid else ['loginctl','terminate-user',os.environ.get('USER','')])

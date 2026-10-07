@@ -115,6 +115,51 @@ class HyprActions:
             self.runner(['hyprctl','keyword','input:touchdevice:transform',str(transform)])
 
 
+    def close(self,address):
+        """Ask a window to close, like its close button."""
+        self._validate_address(address)
+        if self.is_lua():self.runner(['hyprctl','eval',self._LUA_FOCUS_PREFIX+address+'"); assert(w and w.mapped,"Window is no longer available"); hl.dispatch(hl.dsp.window.close({window=w}))'])
+        else:self.runner(['hyprctl','dispatch','closewindow','address:'+address])
+
+    def center(self,address):
+        """Center a floating window on its monitor."""
+        self._validate_address(address)
+        if self.is_lua():self._lua_window(address,'hl.dispatch(hl.dsp.window.center({window=w}))')
+        else:
+            self.runner(['hyprctl','dispatch','focuswindow','address:'+address])
+            self.runner(['hyprctl','dispatch','centerwindow'])
+
+    def raise_window(self,address):
+        """Put a floating window above the others."""
+        self._validate_address(address)
+        if self.is_lua():self._lua_window(address,'hl.dispatch(hl.dsp.window.alter_zorder({mode="top",window=w}))')
+        else:self.runner(['hyprctl','dispatch','alterzorder','top,address:'+address])
+
+    def workspace_empty(self):
+        """Go to the first empty workspace."""
+        if self.is_lua():self.runner(['hyprctl','eval','hl.dispatch(hl.dsp.focus({workspace="empty"}))'])
+        else:self.runner(['hyprctl','dispatch','workspace','empty'])
+
+    def exit(self):
+        """End the compositor session."""
+        if self.is_lua():self.runner(['hyprctl','eval','hl.dispatch(hl.dsp.exit())'])
+        else:self.runner(['hyprctl','dispatch','exit'])
+
+    _OPTION=re.compile(r'[a-z_]+(:[a-z_]+)*:[a-z_.]+')
+    def config(self,option,value):
+        """Set one runtime option such as general:col.active_border. Lua builds get a nested hl.config table."""
+        if not isinstance(option,str) or self._OPTION.fullmatch(option) is None:raise ValueError('Invalid option')
+        if isinstance(value,bool):lua,legacy='true' if value else 'false','true' if value else 'false'
+        elif isinstance(value,(int,float)):lua=legacy=str(value)
+        elif isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9 #(),._-]{0,200}',value):lua,legacy=json.dumps(value),value
+        else:raise ValueError('Invalid value')
+        if self.is_lua():
+            *sections,leaf=option.split(':')
+            table='['+json.dumps(leaf)+']='+lua
+            for section in reversed(sections):table=section+'={'+table+'}'
+            self.runner(['hyprctl','eval','hl.config({'+table+'})'])
+        else:self.runner(['hyprctl','keyword',option,legacy])
+
     def clients(self):
         """Return mapped, visible-capable windows from the compositor."""
         return [c for c in json.loads(self.runner(['hyprctl','-j','clients'])) if c.get('mapped')]

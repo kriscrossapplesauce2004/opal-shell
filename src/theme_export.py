@@ -601,7 +601,7 @@ def revert_sync(ctx):
 def export_hyprland(ctx, c, light, options):
     if not ctx.which('hyprctl'): return False
     active, inactive = 'rgba(%sff)' % c['primary'][1:], 'rgba(%sff)' % c['surfaceHigh'][1:]
-    result = ctx.run(['hyprctl', 'eval', 'hl.config({general={col={active_border="%s",inactive_border="%s"}}})' % (active, inactive)])
+    result = ctx.run(['hyprctl', 'eval', 'hl.config({general={["col.active_border"]="%s",["col.inactive_border"]="%s"}})' % (active, inactive)])
     if result is None or result.returncode or 'error' in (result.stdout or '').lower():
         ctx.run(['hyprctl', 'keyword', 'general:col.active_border', active])
         ctx.run(['hyprctl', 'keyword', 'general:col.inactive_border', inactive])

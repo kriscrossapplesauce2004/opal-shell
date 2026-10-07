@@ -87,10 +87,14 @@ class Adapter(unittest.TestCase):
             calls.append(args)
             if args[:2] == ['hyprctl', '-j']:
                 return json.dumps(Geometry().clients() if args[2] == 'clients' else [Geometry.MON])
+            # This answers like a Lua-config Hyprland, which refuses legacy dispatch commands.
+            if args[:2] == ['hyprctl', 'eval']:
+                return 'ok'
+            assert args[1] not in ('dispatch', 'keyword'), args
             return ''
         w = pw.PhoneWindows(runner)
         self.assertEqual(w.fit(['DSI-1']), 3)
-        self.assertTrue(any('fullscreenstate' in a for a in calls))
+        self.assertTrue(any('hl.dsp.window.fullscreen' in ' '.join(a) for a in calls))
         self.assertEqual(w.fit(['bad name!']), 0)
         def broken(args): raise OSError('no hyprctl')
         self.assertEqual(pw.PhoneWindows(broken).fit(['DSI-1']), 0)
