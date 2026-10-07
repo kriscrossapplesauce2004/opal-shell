@@ -64,7 +64,7 @@ Scope {
     property string category: "All apps"
     property string query: ""
     property string calculation: ""
-    readonly property bool dnd: Notifier.dnd
+    readonly property bool dnd: polkitMode ? false : Notifier.dnd
     property bool keepAwake: false
     property bool themeBusy: false
     property var wallpaperLibrary: []
@@ -162,7 +162,7 @@ Scope {
     property bool preferencesLoaded: false
     // Normalize desktop entries once; search, taskbar, and window cards all use
     // these indexes instead of scanning the complete application list.
-    property var apps: DesktopEntries.applications.values.filter(a => !a.noDisplay).sort((a,b) => a.name.localeCompare(b.name))
+    property var apps: polkitMode ? [] : DesktopEntries.applications.values.filter(a => !a.noDisplay).sort((a,b) => a.name.localeCompare(b.name))
     readonly property var appIndex: {
         const index=Object.create(null);
         const add=(value,app) => {
@@ -234,6 +234,8 @@ Scope {
     property string phoneDockMode: "trackpad"
     property bool phoneDark: false
     readonly property var phoneScreen: Quickshell.screens.find(s=>(!dockScreen||s.name!==dockScreen.name)&&layoutFor(s.width,s.height,s.name)==="phone")||null
+    // The dock menu runs on the phone display so the new screen stays clean.
+    readonly property var internalScreen: phoneScreen || Quickshell.screens.find(s=>!dockScreen||s.name!==dockScreen.name) || Quickshell.screens[0] || null
     function setPhoneDockMode(next) {
         phoneDockMode=next;
         if(next==="trackpad"&&docked)command({action:"pointer-start",output:dockOutput});
@@ -315,8 +317,8 @@ Scope {
         set("taskbarOrder",order.concat((prefs.taskbarOrder||[]).filter(k=>order.indexOf(k)<0)).slice(0,128));
     }
     property var recentApps: prefs.recent.map(id => appIndex[String(id).toLowerCase()]).filter(Boolean).slice(0,6)
-    readonly property var inbox: Notifier.inbox
-    readonly property int unread: Notifier.unread
+    readonly property var inbox: polkitMode ? [] : Notifier.inbox
+    readonly property int unread: polkitMode ? 0 : Notifier.unread
     property date now: clock.date
     signal navigate(string key)
     function command(data) { bridge.write(JSON.stringify(data)+"\n"); }
@@ -501,10 +503,11 @@ Scope {
     SystemClock { id: clock; precision: SystemClock.Seconds }
     // Greeter mode: no session backend. Theme roles come from a cache the user session writes.
     readonly property bool greeterMode: Quickshell.env("OPAL_GREETER") === "1"
+    readonly property bool polkitMode: Quickshell.env("OPAL_POLKIT") === "1"
     FileView {
         id: greeterTheme
-        path: h.greeterMode ? (Quickshell.env("OPAL_GREETER_THEME") || "/var/cache/opal-greeter/theme.json") : ""
-        watchChanges: h.greeterMode
+        path: h.polkitMode ? (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/opal/preferences.json" : h.greeterMode ? (Quickshell.env("OPAL_GREETER_THEME") || "/var/cache/opal-greeter/theme.json") : ""
+        watchChanges: h.greeterMode || h.polkitMode
         onFileChanged: reload()
         onLoaded: {
             try { h.prefs = Object.assign({}, h.prefs, JSON.parse(text())); } catch (error) { console.warn("Greeter theme is not valid JSON"); }
@@ -514,7 +517,7 @@ Scope {
     Process {
         id: bridge
         command: ["python3", Qt.resolvedUrl("backend.py").toString().replace("file://","")]
-        running: !h.greeterMode
+        running: !h.greeterMode && !h.polkitMode
         stdinEnabled: true
         stdout: SplitParser {
             onRead: line => {

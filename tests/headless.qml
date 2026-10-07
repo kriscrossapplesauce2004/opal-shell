@@ -29,6 +29,7 @@ ShellRoot {
             {name:"polkit",ui:"polkit",w:640,h:520},
             {name:"dock-menu",ui:"dockmenu",w:1280,h:720},
             {name:"dock-menu-light",ui:"dockmenu",w:1280,h:720,light:true},
+            {name:"dock-menu-phone",ui:"dockmenu",w:400,h:860},
             {name:"phone-docked",ui:"phonedock",w:400,h:860},
             {name:"bar-islands",ui:"bars",w:1440,h:300,music:true,barStyle:"islands"},
             {name:"bar-islands-light",ui:"bars",w:1440,h:300,light:true,tide:true,barStyle:"islands"},

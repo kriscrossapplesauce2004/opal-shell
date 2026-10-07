@@ -188,7 +188,11 @@ systemd_user() {
 case "${1:-on}" in
     on)
         # Opal brings its own polkit agent; only one agent can register per session.
-        systemd_user stop hyprpolkitagent.service || true
+        if systemd_user is-enabled --quiet opal-polkit.service; then
+            systemd_user start opal-polkit.service
+        else
+            systemd_user stop hyprpolkitagent.service || true
+        fi
         quickshell -d -n -p "$config"
         systemd_user mask --runtime --now dms.service || true
         touch "$marker"
@@ -207,7 +211,9 @@ case "${1:-on}" in
         quickshell kill -p "$config" || true
         systemd_user unmask --runtime dms.service || true
         systemd_user start dms.service || true
-        systemd_user start hyprpolkitagent.service || true
+        if ! systemd_user is-enabled --quiet opal-polkit.service; then
+            systemd_user start hyprpolkitagent.service || true
+        fi
         command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true
         ;;
     console|gaming)
@@ -216,11 +222,14 @@ case "${1:-on}" in
     greeter)
         exec sudo "@OPAL_TOOLS@/install-greeter.sh" "${@:2}"
         ;;
+    polkit)
+        exec bash "@OPAL_TOOLS@/install-polkit.sh"
+        ;;
     launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect|lock)
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|lock|greeter [--revert]|launcher|controls|notifications|clipboard|phone|console|gaming|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

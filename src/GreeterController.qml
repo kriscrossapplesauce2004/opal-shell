@@ -87,7 +87,7 @@ Scope {
             if (!root.session) { root.error = "Choose a session first."; root.busy = false; Greetd.cancelSession(); return; }
             rememberer.command = root.infoCommand.concat(["--remember", root.user.login, root.session.id]);
             rememberer.running = true;
-            Greetd.launch(root.session.command, ["XDG_SESSION_DESKTOP=" + root.session.id, "XDG_CURRENT_DESKTOP=" + root.session.name.split(" ")[0]]);
+            Greetd.launch(root.session.command, ["XDG_SESSION_TYPE=wayland", "XDG_SESSION_DESKTOP=" + root.session.id, "XDG_CURRENT_DESKTOP=" + (root.session.desktop || root.session.id)]);
         }
         function onLaunched() { root.launched = true; }
         function onError(message) { root.busy = false; root.pending = ""; root.error = message; }

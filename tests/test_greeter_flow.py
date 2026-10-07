@@ -41,7 +41,7 @@ class GreeterFlowTest(unittest.TestCase):
             shutil.copytree(source / 'src', config / 'src', ignore=shutil.ignore_patterns('__pycache__'))
             shutil.copy(source / 'tests' / 'greeter-test.qml', config / 'greeter-test.qml')
             info = tmp / 'info.py'
-            info.write_text('import json,sys\nif "--remember" in sys.argv: sys.exit(0)\nprint(json.dumps({"users":[{"login":"melissa","name":"Melissa"}],"sessions":[{"id":"hyprland","name":"Hyprland","command":["start-hyprland"]}],"layout":"gb","last":{}}))\n')
+            info.write_text('import json,sys\nif "--remember" in sys.argv: sys.exit(0)\nprint(json.dumps({"users":[{"login":"melissa","name":"Melissa"}],"sessions":[{"id":"plasma","name":"Plasma (Wayland)","desktop":"KDE","command":["startplasma-wayland"]}],"layout":"gb","last":{}}))\n')
             sock_path = str(tmp / 'greetd.sock')
             server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             server.bind(sock_path); server.listen(1)
@@ -56,12 +56,13 @@ class GreeterFlowTest(unittest.TestCase):
             result = subprocess.run(['quickshell', '-p', str(config / 'greeter-test.qml')], env=env, capture_output=True, text=True, timeout=40)
             output = result.stdout + result.stderr
             server.close()
-            self.assertIn('GREETER_USERS 1 melissa hyprland', output, output[-2000:])
+            self.assertIn('GREETER_USERS 1 melissa plasma', output, output[-2000:])
             self.assertIn("GREETER_ERROR That password didn't work", output, output[-2000:])
             self.assertIn('GREETER_LAUNCHED', output, output[-2000:])
             self.assertNotIn('GREETER_TIMEOUT', output)
             starts = [m for m in log if m['type'] == 'start_session']
-            self.assertEqual(starts[0]['cmd'], ['start-hyprland'])
+            self.assertEqual(starts[0]['cmd'], ['startplasma-wayland'])
+            self.assertEqual(starts[0]['env'], ['XDG_SESSION_TYPE=wayland', 'XDG_SESSION_DESKTOP=plasma', 'XDG_CURRENT_DESKTOP=KDE'])
             self.assertNotIn('right', json.dumps([m for m in log if m['type'] != 'post_auth_message_response']))
 
 

@@ -2,10 +2,10 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 
-// The dock menu, full screen on the newly connected display. It takes the keyboard only when clicked.
+// The dock menu runs on the phone display so the new screen stays clean.
 PanelWindow {
     id: window
-    screen: Hub.dockScreen || Quickshell.screens[0]
+    screen: Hub.internalScreen || Quickshell.screens[0]
     visible: Hub.dockNotice && Hub.dockScreen !== null
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore

@@ -77,47 +77,54 @@ FocusScope {
         radius: 36 * (1 - p)
         color: "transparent"
         border.width: 2; border.color: Theme.alpha(Theme.primary, .6 * (1 - p))
-        visible: p < 1
+        visible: p < 1 && dock.width >= 700
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Math.max(32, dock.width * .05)
+        anchors.margins: Math.max(16, dock.width * (dock.width < 700 ? .03 : .05))
         spacing: 20
         opacity: Math.max(0, (dock.arrival - .45) / .55)
         transform: Translate { y: (1 - dock.arrival) * 30 }
         // Header.
         RowLayout {
-            Layout.fillWidth: true; spacing: 16
+            Layout.fillWidth: true; spacing: dock.width < 700 ? 8 : 16
             Rectangle {
-                Layout.preferredWidth: 56; Layout.preferredHeight: 56; radius: 18; color: Theme.primaryContainer
-                Glyph { anchors.centerIn: parent; name: "cast_connected"; font.pixelSize: 30; color: Theme.onContainer }
+                Layout.preferredWidth: dock.width < 700 ? 44 : 56; Layout.preferredHeight: dock.width < 700 ? 44 : 56; radius: 18; color: Theme.primaryContainer
+                Glyph { anchors.centerIn: parent; name: "cast_connected"; font.pixelSize: dock.width < 700 ? 24 : 30; color: Theme.onContainer }
             }
             ColumnLayout { Layout.fillWidth: true; spacing: 0
-                MText { text: "Docked to " + (dock.description || dock.output); role: "headline"; Layout.fillWidth: true }
+                MText { text: "Docked to " + (dock.description || dock.output); role: dock.width < 700 ? "title" : "headline"; Layout.fillWidth: true; elide: Text.ElideRight }
                 MText { text: dock.countdown > 0 ? "Starting with your last setup in " + dock.countdown + " s" : "Set it up, then start"; role: "body"; color: Theme.subtext }
             }
-            MButton { text: "Not now"; onClicked: dock.dismissed() }
+            MButton { text: dock.width < 700 ? "" : "Not now"; icon: dock.width < 700 ? "close" : ""; tooltip: "Not now"; onClicked: dock.dismissed() }
             MButton { text: "Start"; icon: "arrow_forward"; filled: true; onClicked: dock.start() }
         }
-        // Page tabs, also the page indicator.
-        Row {
-            Layout.alignment: Qt.AlignHCenter; spacing: 6
-            Repeater {
-                model: dock.pages
-                Rectangle {
-                    required property string modelData
-                    required property int index
-                    readonly property bool current: pager.currentIndex === index
-                    width: tabText.implicitWidth + 32; height: 40; radius: 20
-                    color: current ? Theme.secondaryContainer : "transparent"
-                    Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durShort) } }
-                    MText {
-                        id: tabText; anchors.centerIn: parent; role: "label"; font.weight: parent.current ? Font.Bold : Font.Medium
-                        color: parent.current ? Theme.onSecondaryContainer : Theme.subtext
-                        text: ({screen: "This screen", apps: "Apps", phone: "Your phone", display: "Display"})[modelData]
+        // Page tabs, also the page indicator. Tabs scroll on narrow displays.
+        Flickable {
+            Layout.fillWidth: true; Layout.preferredHeight: 40
+            contentWidth: tabRow.width; contentHeight: 40; clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            Row {
+                id: tabRow
+                x: Math.max(0, (parent.width - width) / 2)
+                spacing: 6
+                Repeater {
+                    model: dock.pages
+                    Rectangle {
+                        required property string modelData
+                        required property int index
+                        readonly property bool current: pager.currentIndex === index
+                        width: tabText.implicitWidth + 32; height: 40; radius: 20
+                        color: current ? Theme.secondaryContainer : "transparent"
+                        Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durShort) } }
+                        MText {
+                            id: tabText; anchors.centerIn: parent; role: "label"; font.weight: parent.current ? Font.Bold : Font.Medium
+                            color: parent.current ? Theme.onSecondaryContainer : Theme.subtext
+                            text: ({screen: "This screen", apps: "Apps", phone: "Your phone", display: "Display"})[modelData]
+                        }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: pager.currentIndex = index }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: pager.currentIndex = index }
                 }
             }
         }
@@ -138,7 +145,7 @@ FocusScope {
         }
     }
 
-    // A big choice card with a picture of the layout.
+    // A choice card for the layout.
     component Choice: Rectangle {
         id: card
         property string title
@@ -150,19 +157,35 @@ FocusScope {
         signal picked()
         radius: Theme.shapeXl
         color: chosen ? Theme.primaryContainer : Theme.level(3)
-        border.width: chosen ? 3 : 0; border.color: Theme.primary
+        border.width: chosen ? (dock.width < 700 ? 2 : 3) : 0; border.color: Theme.primary
         Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durShort) } }
         Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.stateLayer; opacity: cardMouse.pressed ? .1 : cardMouse.containsMouse && !card.chosen ? .05 : 0 }
-        ModeArt { visible: card.art !== ""; mode: card.art; active: card.chosen; anchors.horizontalCenter: parent.horizontalCenter; y: 24; width: parent.width - 48; height: parent.height - 120 }
-        Glyph { visible: card.art === ""; anchors.horizontalCenter: parent.horizontalCenter; y: (parent.height - 96) / 2 - 28; name: card.icon; font.pixelSize: Math.min(72, parent.height * .3); color: card.chosen ? Theme.onContainer : Theme.primary }
+        ModeArt { visible: card.art !== ""; mode: card.art; active: card.chosen; anchors.horizontalCenter: parent.horizontalCenter; y: dock.width < 700 ? 12 : 24; width: Math.max(10, parent.width - (dock.width < 700 ? 24 : 48)); height: Math.max(10, parent.height - (dock.width < 700 ? 80 : 120)) }
+        Glyph { visible: card.art === "" && (card.icon === "" || dock.width >= 700); anchors.horizontalCenter: parent.horizontalCenter; y: (parent.height - 96) / 2 - 28; name: card.icon; font.pixelSize: Math.min(dock.width < 700 ? 40 : 72, Math.max(24, parent.height * .3)); color: card.chosen ? Theme.onContainer : Theme.primary }
         Column {
-            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 20; spacing: 2
+            visible: card.icon === "" || dock.width >= 700
+            anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: dock.width < 700 ? 12 : 20; spacing: 2
             Row { spacing: 8
-                MText { text: card.title; role: "title"; color: card.chosen ? Theme.onContainer : Theme.text }
+                MText { text: card.title; role: dock.width < 700 ? "titleS" : "title"; color: card.chosen ? Theme.onContainer : Theme.text }
                 Rectangle { visible: card.last; anchors.verticalCenter: parent.verticalCenter; width: lastText.implicitWidth + 14; height: 22; radius: 11; color: card.chosen ? Theme.onContainer : Theme.secondaryContainer
                     MText { id: lastText; anchors.centerIn: parent; text: "Last time"; role: "labelS"; color: card.chosen ? Theme.primaryContainer : Theme.onSecondaryContainer } }
             }
-            MText { width: parent.width; text: card.detail; role: "bodyS"; wrapMode: Text.Wrap; color: card.chosen ? Theme.alpha(Theme.onContainer, .8) : Theme.subtext }
+            MText { width: parent.width; text: card.detail; role: "bodyS"; wrapMode: Text.Wrap; color: card.chosen ? Theme.alpha(Theme.onContainer, .8) : Theme.subtext; maximumLineCount: dock.width < 700 ? 2 : 4; elide: Text.ElideRight }
+        }
+        RowLayout {
+            visible: card.icon !== "" && dock.width < 700
+            anchors.fill: parent; anchors.margins: 14; spacing: 14
+            Glyph { Layout.alignment: Qt.AlignVCenter; name: card.icon; font.pixelSize: 32; color: card.chosen ? Theme.onContainer : Theme.primary }
+            ColumnLayout {
+                Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter; spacing: 2
+                RowLayout {
+                    spacing: 8
+                    MText { text: card.title; role: "titleS"; color: card.chosen ? Theme.onContainer : Theme.text }
+                    Rectangle { visible: card.last; Layout.preferredWidth: lastTextH.implicitWidth + 14; Layout.preferredHeight: 20; radius: 10; color: card.chosen ? Theme.onContainer : Theme.secondaryContainer
+                        MText { id: lastTextH; anchors.centerIn: parent; text: "Last time"; role: "labelS"; color: card.chosen ? Theme.primaryContainer : Theme.onSecondaryContainer } }
+                }
+                MText { Layout.fillWidth: true; text: card.detail; role: "bodyS"; wrapMode: Text.Wrap; color: card.chosen ? Theme.alpha(Theme.onContainer, .8) : Theme.subtext; maximumLineCount: 2; elide: Text.ElideRight }
+            }
         }
         MouseArea { id: cardMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: card.picked() }
         Accessible.role: Accessible.RadioButton; Accessible.name: title; Accessible.checked: chosen
@@ -170,8 +193,10 @@ FocusScope {
 
     Component {
         id: screenPage
-        RowLayout {
-            spacing: 16
+        GridLayout {
+            anchors.fill: parent
+            columns: dock.width < 700 ? 2 : 4
+            columnSpacing: 12; rowSpacing: 12
             Repeater {
                 model: [{id: "desktop", title: "Desktop", detail: "Windows, a bar and Start on the big screen.", art: "desktop"},
                         {id: "console", title: "Play", detail: "Your game library, controller first.", art: "console"},
@@ -179,7 +204,7 @@ FocusScope {
                         {id: "mirror", title: "Mirror", detail: "Show the phone screen as it is.", art: "mirror"}]
                 Choice {
                     required property var modelData
-                    Layout.fillWidth: true; Layout.fillHeight: true; Layout.maximumHeight: 420
+                    Layout.fillWidth: true; Layout.fillHeight: true; Layout.maximumHeight: dock.width < 700 ? 260 : 420
                     title: modelData.title; detail: modelData.detail; art: modelData.art
                     chosen: dock.mode === modelData.id; last: !!dock.remembered && dock.remembered.mode === modelData.id
                     onPicked: { dock.mode = modelData.id; dock.countdown = 0; }
@@ -190,6 +215,7 @@ FocusScope {
     Component {
         id: appsPage
         ColumnLayout {
+            anchors.fill: parent
             spacing: 14
             RowLayout { Layout.fillWidth: true
                 MText { text: dock.mode === "mirror" ? "Mirror shows the phone as it is, so apps stay put." : dock.apps.length ? "Pick the apps to bring to this screen." : "No apps are open on the phone."; role: "title"; Layout.fillWidth: true; wrapMode: Text.Wrap }
@@ -225,15 +251,17 @@ FocusScope {
     }
     Component {
         id: phonePage
-        RowLayout {
-            spacing: 16
+        GridLayout {
+            anchors.fill: parent
+            columns: dock.width < 700 ? 1 : 3
+            columnSpacing: 12; rowSpacing: 12
             Repeater {
                 model: [{id: "trackpad", title: "Trackpad", detail: "Drag to move, tap to click, two fingers to scroll. Keyboard one tap away.", icon: "touchpad_mouse"},
                         {id: "screen", title: "Second screen", detail: "The phone keeps its own home and apps.", icon: "smartphone"},
                         {id: "panel", title: "Control panel", detail: "Music, notifications and moving apps between screens.", icon: "dashboard"}]
                 Choice {
                     required property var modelData
-                    Layout.fillWidth: true; Layout.fillHeight: true; Layout.maximumHeight: 420
+                    Layout.fillWidth: true; Layout.fillHeight: true; Layout.maximumHeight: dock.width < 700 ? 130 : 420
                     title: modelData.title; detail: modelData.detail; icon: modelData.icon
                     chosen: dock.phoneMode === modelData.id; last: !!dock.remembered && dock.remembered.phoneMode === modelData.id
                     onPicked: { dock.phoneMode = modelData.id; dock.countdown = 0; }
@@ -244,6 +272,7 @@ FocusScope {
     Component {
         id: displayPage
         ColumnLayout {
+            anchors.fill: parent
             spacing: 14
             MText { text: "Resolution"; role: "label"; color: Theme.primary }
             Flow {

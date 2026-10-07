@@ -46,7 +46,13 @@ class LockAndGreeterTests(unittest.TestCase):
             (root / 'b.desktop').write_text('[Desktop Entry]\nName=Hidden\nExec=b\nNoDisplay=true\n')
             (root / 'c.desktop').write_text('[Desktop Entry]\nName=Broken\nExec="unterminated\n')
             with patch.object(greeter_info, 'SESSION_DIRS', [root]):
-                self.assertEqual(greeter_info.sessions(), [{'id': 'a', 'name': 'Alpha', 'command': ['alpha', '--flag']}])
+                self.assertEqual(greeter_info.sessions(), [{'id': 'a', 'name': 'Alpha', 'desktop': 'a', 'command': ['alpha', '--flag']}])
+
+    def test_desktop_identity_uses_desktop_names_not_display_name(self):
+        with tempfile.TemporaryDirectory() as root:
+            path = pathlib.Path(root) / 'plasma.desktop'
+            path.write_text('[Desktop Entry]\nName=Plasma (Wayland)\nDesktopNames=KDE;Other;\nExec=startplasma-wayland\n')
+            self.assertEqual(greeter_info.desktop_entry(path)['desktop'], 'KDE:Other')
 
     def test_remember_round_trip(self):
         with tempfile.TemporaryDirectory() as root:

@@ -16,7 +16,7 @@ def users():
     return sorted(found, key=lambda u: u['login'])
 
 def desktop_entry(path):
-    """Read Name and Exec from the [Desktop Entry] group of a session file."""
+    """Read the command and desktop identity from a session file."""
     values, group = {}, ''
     for line in path.read_text(errors='replace').splitlines():
         line = line.strip()
@@ -27,7 +27,8 @@ def desktop_entry(path):
     if values.get('Hidden') == 'true' or values.get('NoDisplay') == 'true' or not values.get('Exec'): return None
     try: command = [part for part in shlex.split(values['Exec']) if not part.startswith('%')]
     except ValueError: return None
-    return {'id': path.stem, 'name': values.get('Name', path.stem), 'command': command} if command else None
+    desktop = ':'.join(part for part in values.get('DesktopNames', '').split(';') if part) or path.stem
+    return {'id': path.stem, 'name': values.get('Name', path.stem), 'desktop': desktop, 'command': command} if command else None
 
 def sessions():
     found = {}

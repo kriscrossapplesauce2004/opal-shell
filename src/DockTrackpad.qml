@@ -1,13 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
 
-// Trackpad for the docked screen: one finger moves, tap clicks, two-finger tap right-clicks,
-// two fingers scroll, press and hold then drag selects.
+// Use one finger to move and two fingers to scroll.
 Item {
     id: pad
     property real speed: 1.8
     property bool holding: false
-    function send(data) { Hub.command(Object.assign({action: "pointer"}, data)); }
+    property var send: function(data) { Hub.command(Object.assign({action: "pointer"}, data)); }
     ColumnLayout {
         anchors.fill: parent; spacing: 10
         Rectangle {
@@ -18,38 +17,58 @@ Item {
             MText { anchors.centerIn: parent; text: pad.holding ? "Dragging" : "Trackpad"; role: "headline"; color: Theme.alpha(Theme.text, .18) }
             MultiPointTouchArea {
                 id: touch
+                objectName: "trackpadTouch"
                 anchors.fill: parent
                 maximumTouchPoints: 2
+                mouseEnabled: false
+                touchPoints: [TouchPoint { id: firstFinger }, TouchPoint { id: secondFinger }]
                 property var last: ({})
                 property real travel: 0
                 property int fingers: 0
                 property double began: 0
+                property int previousCount: 0
+                function reset() {
+                    hold.stop();
+                    if (pad.holding) pad.send({op: "up", button: "left"});
+                    pad.holding = false;
+                    last = ({}); fingers = 0; began = 0; travel = 0; previousCount = 0;
+                }
+                Component.onDestruction: reset()
+                onCanceled: reset()
                 Timer { id: hold; interval: 450; onTriggered: if (touch.fingers === 1 && touch.travel < 8) { pad.holding = true; pad.send({op: "down", button: "left"}); } }
                 onPressed: points => {
-                    fingers = Math.max(fingers, touchPoints.filter(p => p.pressed).length);
+                    const live = [firstFinger, secondFinger].filter(p => p.pressed);
+                    fingers = Math.max(fingers, live.length);
                     if (began === 0) { began = Date.now(); travel = 0; hold.restart(); }
-                    points.forEach(p => last[p.pointId] = Qt.point(p.x, p.y));
+                    if (live.length > 1) {
+                        hold.stop();
+                        if (pad.holding) { pad.send({op: "up", button: "left"}); pad.holding = false; }
+                    }
+                    live.forEach(p => last[p.pointId] = Qt.point(p.x, p.y));
+                    previousCount = live.length;
                 }
                 onUpdated: points => {
                     let dx = 0, dy = 0, n = 0;
-                    points.forEach(p => { const before = last[p.pointId]; if (before) { dx += p.x - before.x; dy += p.y - before.y; n++; } last[p.pointId] = Qt.point(p.x, p.y); });
+                    const active = [firstFinger, secondFinger].filter(p => p.pressed);
+                    active.forEach(p => { const before = last[p.pointId]; if (before) { dx += p.x - before.x; dy += p.y - before.y; n++; } last[p.pointId] = Qt.point(p.x, p.y); });
+                    if (active.length !== previousCount) { previousCount = active.length; return; }
                     if (!n) return;
                     dx /= n; dy /= n;
                     travel += Math.abs(dx) + Math.abs(dy);
-                    const live = touchPoints.filter(p => p.pressed).length;
-                    // Faster finger movement moves the cursor further.
-                    const gain = pad.speed * (1 + Math.min(2, Math.hypot(dx, dy) / 12));
+                    if (travel >= 8) hold.stop();
+                    const live = active.length;
+                    const gain = pad.speed;
                     if (live >= 2) pad.send({op: "scroll", dx: -dx * .6, dy: -dy * .6});
-                    else pad.send({op: "move", dx: dx * gain, dy: dy * gain});
+                    else if (fingers === 1) pad.send({op: "move", dx: dx * gain, dy: dy * gain});
                 }
                 onReleased: points => {
                     points.forEach(p => delete last[p.pointId]);
-                    if (touchPoints.some(p => p.pressed)) return;
+                    if (firstFinger.pressed || secondFinger.pressed) return;
                     hold.stop();
                     const quick = Date.now() - began < 250 && travel < 10;
                     if (pad.holding) { pad.send({op: "up", button: "left"}); pad.holding = false; }
                     else if (quick) pad.send({op: "click", button: fingers >= 2 ? "right" : "left"});
-                    fingers = 0; began = 0;
+                    reset();
                 }
             }
         }
