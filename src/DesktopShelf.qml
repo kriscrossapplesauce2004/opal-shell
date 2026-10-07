@@ -123,51 +123,12 @@ Item {
         anchors.verticalCenter:parent.verticalCenter
         spacing:shelf.framedParts ? 8 : 4;height:shelf.islandHeight
 
-        // Live activity: the most important ongoing thing. Hover shows controls.
-        Rectangle {
+        // Live activities: stacked, compact, and expanded in place on hover or tap.
+        ActivityPill {
             id:activity
-            readonly property bool focusOn:Hub.focusRunning
-            readonly property bool mediaOn:Hub.status.track!==""
-            readonly property bool expanded:activityHover.hovered
-            visible:(focusOn||mediaOn)&&shelf.width>=1000
-            height:parent.height;radius:height/2
-            width:activityRow.implicitWidth+(shelf.framedParts ? 20 : 12)
-            color:shelf.framedParts ? Theme.secondaryContainer : "transparent"
-            clip:true
-            Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            HoverHandler {id:activityHover}
-            Row {
-                id:activityRow;anchors.verticalCenter:parent.verticalCenter;x:shelf.framedParts ? 6 : 2;spacing:8
-                // Focus timer ring.
-                Canvas {
-                    id:ring;visible:activity.focusOn;width:28;height:28;anchors.verticalCenter:parent.verticalCenter
-                    readonly property real progress:Hub.focusSeconds/(25*60)
-                    onProgressChanged:requestPaint()
-                    onPaint:{const c=getContext("2d");c.reset();c.lineWidth=3;c.lineCap="round";c.strokeStyle=Theme.alpha(Theme.onSecondaryContainer,.25);c.beginPath();c.arc(14,14,10,0,Math.PI*2);c.stroke();c.strokeStyle=Theme.onSecondaryContainer;c.beginPath();c.arc(14,14,10,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,progress)));c.stroke();}
-                }
-                MText {visible:activity.focusOn;anchors.verticalCenter:parent.verticalCenter;text:Math.floor(Hub.focusSeconds/60)+":"+String(Hub.focusSeconds%60).padStart(2,"0");role:"titleS";font.features:{"tnum":1};color:Theme.onSecondaryContainer}
-                // Media: art disc and title.
-                Rectangle {
-                    visible:activity.mediaOn&&!activity.focusOn;width:30;height:30;radius:15;anchors.verticalCenter:parent.verticalCenter;color:Theme.secondary;clip:true
-                    Image {anchors.fill:parent;source:Hub.status.art||"";fillMode:Image.PreserveAspectCrop;visible:status===Image.Ready;asynchronous:true;sourceSize:Qt.size(64,64)}
-                    Glyph {anchors.centerIn:parent;visible:!Hub.status.art;name:"music";font.pixelSize:16;color:Theme.base}
-                }
-                Column {
-                    visible:activity.mediaOn&&!activity.focusOn;anchors.verticalCenter:parent.verticalCenter
-                    width:Math.min(activity.expanded ? 180 : 110,Math.max(trackText.implicitWidth,artistText.implicitWidth))
-                    Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-                    MText {id:trackText;width:parent.width;text:Hub.status.track;role:"label";font.weight:Font.DemiBold;color:Theme.onSecondaryContainer}
-                    MText {id:artistText;width:parent.width;visible:text!=="";text:Hub.status.artist||"";role:"labelS";color:Theme.alpha(Theme.onSecondaryContainer,.75)}
-                }
-                // Controls appear on hover.
-                Row {
-                    visible:activity.expanded;anchors.verticalCenter:parent.verticalCenter;spacing:0
-                    MButton {visible:!activity.focusOn;icon:"previous";compact:true;implicitWidth:32;implicitHeight:32;ink:Theme.onSecondaryContainer;tooltip:"Previous";onClicked:Hub.media("previous")}
-                    MButton {icon:activity.focusOn ? "pause" : Hub.status.playing ? "pause" : "play";compact:true;implicitWidth:32;implicitHeight:32;ink:Theme.onSecondaryContainer;tooltip:activity.focusOn ? "Pause focus" : Hub.status.playing ? "Pause" : "Play";onClicked:activity.focusOn ? Hub.timerToggle() : Hub.media("play-pause")}
-                    MButton {visible:!activity.focusOn;icon:"skip";compact:true;implicitWidth:32;implicitHeight:32;ink:Theme.onSecondaryContainer;tooltip:"Next";onClicked:Hub.media("next")}
-                }
-            }
-            MouseArea {anchors.fill:parent;z:-1;cursorShape:Qt.PointingHandCursor;onClicked:activity.focusOn ? Hub.timerToggle() : Hub.toggleAudio(shelf.output)}
+            output:shelf.output;pillHeight:parent.height;framed:shelf.framedParts
+            expandOnHover:true;maxCompact:220;maxExpanded:Math.min(460,shelf.width*.42)
+            visible:opacity>0&&shelf.width>=1000
         }
 
         // Status: tray, battery, sound and network in one pill. Volume changes show here.

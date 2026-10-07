@@ -17,6 +17,7 @@ Item {
             MButton { visible: Notifier.inbox.length > 0; text: center.confirmClear ? "Confirm" : "Clear all"; compact: true; filled: center.confirmClear; onClicked: { if (center.confirmClear) { Notifier.clear(); center.confirmClear = false; } else center.confirmClear = true; } }
         }
         MText { visible: Hub.dnd; Layout.fillWidth: true; text: "Do not disturb is on. Notifications arrive silently."; role: "bodyS"; color: Theme.subtext; wrapMode: Text.Wrap }
+        SuggestionChips { Layout.fillWidth: true }
         Flickable {
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             contentHeight: list.implicitHeight; boundsBehavior: Flickable.StopAtBounds

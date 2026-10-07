@@ -83,6 +83,17 @@ def run():
                 assert result['count'] == 12 and result['popups'] == 3
                 assert sum(e['popup'] for e in result['entries']) == 8, 'Popup queue is unbounded'
                 ipc('clear')
+                copying = notify('Copying', 'photos.zip', timeout=0, hints="{'value': <int32 30>}")
+                time.sleep(1.4)
+                found = [a for a in state()['activities'] if a['kind'] == 'transfer']
+                assert [a['id'] for a in found] == ['n:%d' % copying] and found[0]['progress'] == 0.3, 'Progress hint did not become an activity: '+str(found)
+                notify('Copying', 'photos.zip', replace=copying, timeout=0, hints="{'value': <int32 80>}")
+                time.sleep(1.4)
+                found = [a for a in state()['activities'] if a['kind'] == 'transfer']
+                assert len(found) == 1 and found[0]['progress'] == 0.8, 'Progress was not replaced in place: '+str(found)
+                ipc('clear')
+                time.sleep(1.4)
+                assert [a for a in state()['activities'] if a['kind'] == 'transfer'] == [], 'Activity outlived its notification'
                 notify('Design review', 'The updated layout is ready.\nPlease check the spacing before publishing.', timeout=0, actions="['default', 'Open review', 'later', 'Remind me later']")
                 notify('Download complete', 'Project assets · 24 MB', timeout=0)
                 notify('Low battery', 'Connect your charger. 9% remaining.', timeout=0, hints="{'urgency': <byte 2>}")
@@ -107,7 +118,7 @@ def run():
                 text = log.read()
                 errors = [line for line in text.splitlines() if re.search(r'TypeError|ReferenceError|ERROR|Unable to assign|Binding loop', line)]
                 assert not errors, '\n'.join(errors)
-                print('PASS: replacement, hover, expiry/history, DND, transient, critical, read state, client close, burst bounds, clear; previews:', output)
+                print('PASS: progress activities, replacement, hover, expiry/history, DND, transient, critical, read state, client close, burst bounds, clear; previews:', output)
             finally:
                 if proc.poll() is None:
                     proc.terminate()

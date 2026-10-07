@@ -18,7 +18,7 @@ ShellRoot {
         target: "test"
         function inspect(): string {
             return JSON.stringify({unread:Opal.Notifier.unread, count:Opal.Notifier.inbox.length,
-                popups:Opal.Notifier.popups.length, entries:Opal.Notifier.entries.map(e=>({id:e.notification.id,summary:e.notification.summary,popup:e.popup,read:e.read,remaining:e.remaining}))});
+                popups:Opal.Notifier.popups.length, activities:Opal.Activities.list.map(a=>({id:a.id,kind:a.kind,progress:a.progress})), entries:Opal.Notifier.entries.map(e=>({id:e.notification.id,summary:e.notification.summary,popup:e.popup,read:e.read,remaining:e.remaining}))});
         }
         function dnd(value: bool): void { Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{dnd:value}); }
         function hover(value: bool): void { Opal.Notifier.popups.forEach(e=>e.hovered=value); }

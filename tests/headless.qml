@@ -151,6 +151,18 @@ ShellRoot {
             {name:"console-setup-light",ui:"console",w:960,h:600,menu:true,section:3,light:true,nintendo:true},
             {name:"phone-bars",ui:"phonebars",w:390,h:844},
             {name:"phone-bars-light",ui:"phonebars",w:360,h:740,light:true,buttons:true},
+            {name:"activity-shelf-1",ui:"bars",w:1440,h:300,barStyle:"islands",activities:1},
+            {name:"activity-shelf-3-light",ui:"bars",w:1440,h:300,barStyle:"islands",activities:3,light:true},
+            {name:"activity-shelf-3-dock",ui:"bars",w:1440,h:300,barStyle:"dock",activities:3},
+            {name:"activity-pill-expanded",ui:"pill",w:620,h:140,activities:3},
+            {name:"activity-pill-expanded-light",ui:"pill",w:620,h:140,activities:3,light:true},
+            {name:"activity-pill-compact",ui:"pill",w:620,h:140,activities:3,compact:true},
+            {name:"activity-phone-status",ui:"phonebars",w:390,h:844,activities:3},
+            {name:"activity-phone-status-open-light",ui:"phonebars",w:390,h:844,activities:3,pinPill:true,light:true},
+            {name:"activity-lock",ui:"lockfx",w:412,h:915,activities:3},
+            {name:"activity-lock-open",ui:"lockfx",w:412,h:915,activities:3,pinPill:true},
+            {name:"suggestion-chips",ui:"chips",w:620,h:200},
+            {name:"suggestion-chips-light",ui:"chips",w:620,h:200,light:true},
             {name:"handheld",ui:"console",w:960,h:600},
             {name:"clipboard-empty",ui:"clipboard",w:470,h:650,empty:true},
             {name:"clipboard-text",ui:"clipboard",w:470,h:650},
@@ -246,8 +258,9 @@ ShellRoot {
         }}
         Component {id:lockFxView;Item {
             Opal.Wallpaper {anchors.fill:parent;showWidgets:false}
+            property alias extras:lockExtras
             Opal.LockExtras {
-                anchors.fill:parent
+                id:lockExtras;anchors.fill:parent
                 scene:Item {property bool revealed:false;property bool greeter:false}
                 fixtureItems:[{notification:{appName:"Messages",summary:"Sam: dinner at 7?",appIcon:""}},{notification:{appName:"Calendar",summary:"Design review in 10 min",appIcon:""}},{notification:{appName:"Firefox",summary:"Download finished",appIcon:""}}]
                 ambientOn:!!fixture.cases[fixture.step].ambient
@@ -255,10 +268,28 @@ ShellRoot {
         }}
         Component {id:phoneBars;Item {
             property alias navigation:phoneNav
-            Opal.PhoneStatus {anchors.top:parent.top;width:parent.width;height:48}
+            property alias statusBar:phoneStatusBar
+            Opal.PhoneStatus {id:phoneStatusBar;anchors.top:parent.top;width:parent.width;height:48}
             Opal.MobileHome {anchors.fill:parent;anchors.topMargin:48;anchors.bottomMargin:phoneNav.height}
             Opal.PhoneNavigation {id:phoneNav;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight}
         }}
+        Component {id:pillView;Item {
+            property alias pill:fixturePill
+            Rectangle {anchors.fill:parent;color:Opal.Theme.base}
+            Opal.ActivityPill {id:fixturePill;anchors.centerIn:parent;pillHeight:44;pinned:!fixture.cases[fixture.step].compact;maxExpanded:560}
+        }}
+        Component {id:chipsView;Item {
+            Rectangle {anchors.fill:parent;color:Opal.Theme.base}
+            Opal.SuggestionChips {anchors.centerIn:parent;width:parent.width-48}
+        }}
+        function activityFixture(count) {
+            const all=[
+                {id:"n:9",nid:9,kind:"transfer",icon:"download",title:"Downloading photos.zip",subtitle:"Firefox · 64%",progress:.64,priority:70,since:1,until:0,controls:[{id:"note-action",index:0,label:"Cancel"}]},
+                {id:"focus",kind:"focus",icon:"timer",title:"17:42",subtitle:"Focus session",progress:.29,priority:60,since:2,until:0,controls:[{id:"focus-toggle",icon:"pause"},{id:"focus-stop",icon:"close"}]},
+                {id:"media",kind:"media",icon:"music",art:"file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-1.png",title:"A little evening music",subtitle:"Local player",progress:-1,priority:50,since:3,until:0,controls:[{id:"media-previous",icon:"previous"},{id:"media-pause",icon:"pause"},{id:"media-next",icon:"skip"}]}
+            ];
+            return count===1 ? [all[2]] : all;
+        }
         Component {id:gaming;Opal.ConsoleHome {}}
         Component {id:keyboardView;Item {
             property alias keyboard:demoKeyboard
@@ -422,6 +453,8 @@ ShellRoot {
             }
             if(test.ui==="console"){const art=i=>"file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-"+(i%3+1)+".png";
                 Opal.Hub.games=[{id:"steam:1",title:"Deltarune",source:"Steam",cover:art(0),hero:"file://"+Quickshell.env("HOME")+"/Ocean.png",lastPlayed:1790000000,windowClass:"steam_app_1"},{id:"steam:2",title:"Kerbal Space Program",source:"Steam",cover:art(1),lastPlayed:1789000000,windowClass:""},{id:"prism:a",title:"JevCraft Survival",source:"Minecraft",cover:"",lastPlayed:1788000000,windowClass:"Minecraft"},{id:"prism:b",title:"1.21",source:"Minecraft",cover:"",lastPlayed:0,windowClass:"Minecraft"},{id:"steam:3",title:"Stellaris",source:"Steam",cover:art(2),lastPlayed:0,windowClass:""},{id:"lutris:x",title:"Celeste",source:"Lutris",cover:"",lastPlayed:0,windowClass:""}];}
+            Opal.Activities.fixture=test.activities ? activityFixture(test.activities) : null;
+            Opal.Activities.chipFixture=test.ui==="chips" ? [{id:"code:1:554433",kind:"code",label:"Copy code 554433",detail:"Bank",icon:"copy",arg:"554433"},{id:"dock:HDMI-A-1",kind:"dock",label:"Use as desktop",detail:"HDMI-A-1",icon:"desktop",arg:"HDMI-A-1"},{id:"continue:a:firefox",kind:"continue",label:"Continue Firefox",detail:"Living room PC",icon:"link",arg:"firefox"},{id:"saver",kind:"saver",label:"Battery saver",detail:"12%",icon:"battery",arg:""}] : null;
             if(test.monitors)monitorFixture.restart();
             if(false)Qt.callLater(()=>Opal.Hub.monitors=[{name:"eDP-1",description:"Built-in display",width:2560,height:1600,refresh:120,x:0,y:0,scale:1.5,transform:0,disabled:false,mirror:"none",modes:["2560x1600@120.00Hz","2560x1600@60.00Hz","1920x1200@60.00Hz"]},{name:"HDMI-A-1",description:"Dell U2720Q",width:1920,height:1080,refresh:60,x:1707,y:0,scale:1,transform:0,disabled:false,mirror:"none",modes:["1920x1080@60.00Hz","1280x720@60.00Hz"]}]);
             if(test.schedules)Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{schedules:{nightLight:{enabled:true,mode:"sun",temperature:3800},darkMode:{enabled:true,mode:"custom",from:"19:30",to:"07:00"}}});
@@ -459,7 +492,8 @@ ShellRoot {
                 Opal.PhoneState.phase=test.gesture;Opal.PhoneState.progress=test.progress||0;Opal.PhoneState.dx=test.dx||0;Opal.PhoneState.dy=-(test.progress||0)*test.h*.5;Opal.PhoneState.edge=-1;
             } else if(Opal.PhoneState.phase!=="")Opal.PhoneState.finish();
             if(test.filterText)Opal.Hub.query=test.filterText;
-            view.sourceComponent=test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            view.sourceComponent=test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            if(test.pinPill){const holder=test.ui==="lockfx" ? view.item.extras : view.item.statusBar;Qt.callLater(()=>holder.pill.pinned=true);}
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{

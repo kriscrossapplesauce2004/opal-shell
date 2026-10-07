@@ -116,3 +116,7 @@ AmbientClock 1.0 AmbientClock.qml
 BatteryStats 1.0 BatteryStats.qml
 GestureStage 1.0 GestureStage.qml
 TabletDockTray 1.0 TabletDockTray.qml
+singleton Activities 1.0 Activities.qml
+ActivityPill 1.0 ActivityPill.qml
+ActivitySegment 1.0 ActivitySegment.qml
+SuggestionChips 1.0 SuggestionChips.qml
