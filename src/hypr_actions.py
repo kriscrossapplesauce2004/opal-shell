@@ -127,6 +127,13 @@ class HyprActions:
         code=(self._LUA_FOCUS_PREFIX+address+'"); if w and w.mapped then pcall(function() '+body+' end) end')
         self.runner(['hyprctl','eval',code])
 
+    def close(self,address):
+        """Ask one window to close without changing focus."""
+        self._validate_address(address)
+        if self.is_lua():
+            self.runner(['hyprctl','eval',self._LUA_FOCUS_PREFIX+address+'"); assert(w and w.mapped,"Window is no longer available"); hl.dispatch(hl.dsp.window.close({window=w}))'])
+        else:self.runner(['hyprctl','dispatch','closewindow','address:'+address])
+
     def set_floating(self,address,floating):
         """Make a window floating or tiled without focusing it."""
         self._validate_address(address)
