@@ -123,6 +123,20 @@ Item {
         anchors.verticalCenter:parent.verticalCenter
         spacing:shelf.framedParts ? 8 : 4;height:shelf.islandHeight
 
+        // Submap chip: shows the active key mode, such as resize, until it resets.
+        Rectangle {
+            id:submapChip
+            readonly property string name:String(Hub.status.submap||"")
+            visible:name!==""&&name!=="reset"
+            implicitWidth:submapRow.implicitWidth+20;implicitHeight:parent.height
+            width:implicitWidth;height:implicitHeight;radius:height/2;color:Theme.tertiaryContainer
+            Row {
+                id:submapRow;anchors.centerIn:parent;spacing:6
+                Glyph {name:"keyboard";font.pixelSize:16;color:Theme.onTertiaryContainer;anchors.verticalCenter:parent.verticalCenter}
+                MText {text:submapChip.name;role:"label";color:Theme.onTertiaryContainer;anchors.verticalCenter:parent.verticalCenter}
+            }
+            Accessible.role:Accessible.StaticText;Accessible.name:"Key mode "+name
+        }
         // Live activities: stacked, compact, and expanded in place on hover or tap.
         ActivityPill {
             id:activity

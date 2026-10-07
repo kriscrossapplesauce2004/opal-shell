@@ -51,7 +51,7 @@ Singleton {
     }
     readonly property var list:{
         const windows=Hub.windows||[];
-        if(!live)return [{id:1,name:"Here",windows:windows,tiles:gridTiles(windows),monitor:"",aspect:16/9}];
+        if(!live)return [{id:1,name:"Here",urgent:false,windows:windows,tiles:gridTiles(windows),monitor:"",aspect:16/9}];
         const ids=(Hub.status.workspaces||[]).slice();
         if(ids.indexOf(current)<0&&current>0)ids.push(current);
         ids.sort((a,b)=>a-b);
@@ -60,7 +60,7 @@ Singleton {
             const onMonitor=own.length ? own[0].monitor : ((monitors.find(m=>m.workspace===id)||{}).name||"");
             const m=monitors.find(x=>x.name===onMonitor)||monitors[0]||null;
             const g=logical(m);
-            return {id:id,name:nameFor(id,own),windows:own,tiles:tilesFor(own,m),monitor:onMonitor,aspect:g.w/g.h};
+            return {id:id,name:nameFor(id,own),urgent:own.some(w=>Hub.urgent(w)),windows:own,tiles:tilesFor(own,m),monitor:onMonitor,aspect:g.w/g.h};
         });
     }
     readonly property var currentRoom:list.find(r=>r.id===current)||list[0]||null

@@ -14,6 +14,7 @@ Rectangle {
         id:head;x:18;y:14;width:parent.width-36;spacing:8
         MText {text:card.room ? card.room.id : "";role:"titleS";color:Theme.primary}
         MText {text:card.room ? card.room.name : "";role:"titleS";Layout.fillWidth:true;elide:Text.ElideRight}
+        Rectangle {visible:!!card.room&&!!card.room.urgent;Layout.preferredWidth:10;Layout.preferredHeight:10;radius:5;color:Theme.error;Accessible.name:"A window needs attention"}
         MText {visible:card.current;text:"Here";role:"labelS";color:Theme.primary}
         MText {visible:!card.current&&!!card.room;text:card.room ? card.room.windows.length+(card.room.windows.length===1 ? " window" : " windows") : "";role:"labelS";color:Theme.subtext}
     }
