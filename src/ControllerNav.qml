@@ -26,18 +26,22 @@ QtObject {
     function release(surface) { claims = claims.filter(c => c && c !== surface); }
 
     // Guide opens Quick Access. Console mode with no game running keeps its launcher toggle.
-    function guide() {
+    function guide(force) {
         usingController = true;
         if (GameState.quickAccess) { GameState.closeQuickAccess(); return; }
         if (Hub.locked) return;
         // Steam also reacts to Guide. This setting lets Steam keep it.
-        if (Hub.prefs.quickAccessGuide === false) return;
-        if (Hub.prefs.mode === "console" && !GameState.gameActive) { Hub.toggle("launcher"); return; }
+        if (Hub.prefs.quickAccessGuide === false && force !== true) return;
+        if (force !== true && Hub.prefs.mode === "console" && !GameState.gameActive) { Hub.toggle("launcher"); return; }
         GameState.openQuickAccess(false);
     }
     // Every backend navigation event enters here. With nothing open the event is ignored.
     function input(name) {
-        if (name === "home") { guide(); return; }
+        if (name === "home" || name === "guide") { guide(); return; }
+        // Guide plus A always opens Quick Access, even when Guide alone is off.
+        if (name === "guide+accept") { guide(true); return; }
+        // Holding Guide opens the Claude assistant.
+        if (name === "guideHold") { if (!Hub.locked && Hub.page !== "assistant") { usingController = true; Hub.openAssistant(); } return; }
         if (top) { usingController = true; key(name); return; }
         // The console library page keeps its own navigation.
         if (Hub.prefs.mode === "console" && Hub.page === "launcher") Hub.navigate(name);

@@ -336,7 +336,7 @@ Item {
             }
             QaRow {
                 Layout.fillWidth: true
-                kind: "toggle"; icon: "gamepad"; title: "Guide button opens this"; detail: "Turn off if Steam uses Guide"; checked: Hub.prefs.quickAccessGuide !== false
+                kind: "toggle"; icon: "gamepad"; title: "Guide button opens this"; detail: "Tap: Quick Access. Hold: Claude. Guide+A: always. Turn off if Steam uses Guide"; checked: Hub.prefs.quickAccessGuide !== false
                 onActivated: Hub.set("quickAccessGuide", Hub.prefs.quickAccessGuide === false)
             }
             QaRow {
