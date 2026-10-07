@@ -8,6 +8,8 @@ Item {
     property Item scene: null
     readonly property string privacy: Hub.prefs.lockNotifications || "title"
     readonly property bool idleReady: Hub.prefs.ambientClock !== false && !!scene && !scene.greeter
+    readonly property bool notesAllowed: privacy !== "off" && privacy !== "count"
+    property alias pill: activityPill
     property bool ambientOn: false
     function wake() { ambientOn = false; idle.restart(); }
     onSceneChanged: idle.restart()
@@ -26,7 +28,7 @@ Item {
         id: cards
         visible: extras.items.length > 0 && !!extras.scene && !extras.scene.revealed && !extras.scene.greeter
         anchors.horizontalCenter: parent.horizontalCenter
-        y: parent.height * .5
+        y: Math.max(parent.height * .5, activityPill.visible && activityPill.pinned ? activityPill.y + activityPill.height + 14 : 0)
         width: Math.min(380, parent.width - 48)
         spacing: 6
         Repeater {
@@ -56,6 +58,16 @@ Item {
                 }
             }
         }
+    }
+    // Live activities sit between the clock and the notification cards. Lock privacy applies to them.
+    ActivityPill {
+        id: activityPill
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: parent.height * .39
+        visible: opacity > 0 && !!extras.scene && !extras.scene.revealed && !extras.scene.greeter
+        stack: true; framed: true; hideNotes: !extras.notesAllowed
+        maxCompact: 220; maxExpanded: Math.min(380, parent.width - 48)
+        onPinnedChanged: if (pinned) extras.wake()
     }
     PhoneTorch {
         visible: PhoneState.torch.available && !!extras.scene && !extras.scene.greeter
