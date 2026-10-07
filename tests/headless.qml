@@ -108,8 +108,6 @@ ShellRoot {
             {name:"shade-dark",ui:"shade",w:490,h:860},
             {name:"shade-light",ui:"shade",w:490,h:860,light:true},
             {name:"shade-phone",ui:"shade",w:360,h:640},
-            {name:"qs-phone-collapsed",ui:"shade",w:412,h:820,qs:0,music:true},
-            {name:"qs-phone-expanding",ui:"shade",w:412,h:820,qs:.5,music:true},
             {name:"qs-phone-expanded",ui:"shade",w:412,h:820,qs:1,music:true},
             {name:"qs-phone-expanded-light",ui:"shade",w:412,h:820,qs:1,light:true},
             {name:"qs-phone-detail-grow",ui:"shade",w:412,h:820,qs:0,detailGrow:.5},
@@ -617,7 +615,7 @@ ShellRoot {
             }
             view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="roomcard" ? roomCardView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
             if(test.ui==="quickaccess"){view.item.qa.tabIndex=test.tab||0;}
-            if(test.qs!==undefined){view.item.phone=true;view.item.expansion=test.qs;}
+            if(test.qs!==undefined)view.item.phone=true;
             if(test.detailGrow!==undefined){const it=view.item;it.detailOrigin=Qt.rect(14,150,150,36);it.detailKind="wifi";it.detail=test.detailGrow;}
             if(test.ui==="console"){
                 if(test.tab)view.item.category=test.tab;

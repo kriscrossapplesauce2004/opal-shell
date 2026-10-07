@@ -20,10 +20,6 @@ Item {
         {id:"battery",title:"Device batteries",icon:"battery_full"},
         {id:"devices",title:"Your devices",icon:"devices"}
     ]
-    // Phone: the sheet opens with one row of round tiles; a pull or the handle opens the full grid. Desktop is always full.
-    property bool expanded:!phone
-    property real expansion:phone ? (expanded ? 1 : 0) : 1
-    Behavior on expansion {NumberAnimation {duration:Theme.motion(420);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasized}}
     // Detail pages grow out of the tile or chip that opened them.
     property rect detailOrigin:Qt.rect(width/2-60,120,120,48)
     property string detailKind:""
@@ -179,25 +175,8 @@ Item {
             MButton {icon:"next";implicitWidth:44;implicitHeight:44;contained:true;tooltip:"Sound";onClicked:Hub.openAudio(Hub.targetScreen)}
         }
     }}
-    Component {id:tilesSection;ColumnLayout {spacing:4
-        QuickTileDeck {
-            id:deckItem
-            Layout.fillWidth:true
-            editing:q.editing;t:q.editing ? 1 : q.expansion
-            onPageRequested:(id,source)=>q.openDetail(id,source)
-        }
-        // Handle: tap or pull to open or close the full grid.
-        Item {
-            visible:q.phone&&!q.editing;Layout.fillWidth:true;Layout.preferredHeight:28
-            Glyph {anchors.centerIn:parent;name:"expand_more";rotation:180*q.expansion;font.pixelSize:22;color:Theme.subtext}
-            TapHandler {onTapped:q.expanded=!q.expanded}
-            Accessible.role:Accessible.Button;Accessible.name:q.expanded ? "Fewer tiles" : "All tiles"
-        }
-        DragHandler {
-            enabled:q.phone&&!q.editing;target:null;xAxis.enabled:false
-            onActiveChanged:if(!active&&Math.abs(translation.y)>24)q.expanded=translation.y>0
-        }
-    }}
+    // Phone and desktop share the same tile grid.
+    Component {id:tilesSection;QuickTileDeck {editing:q.editing;onPageRequested:(id,source)=>q.openDetail(id,source)}}
     Component {id:mediaSection;Item {implicitHeight:Hub.status.track!=="" ? media.implicitHeight : 0;MediaCard {id:media;width:parent.width;visible:Hub.status.track!=="";compact:true;expandable:true}}}
     Component {id:inboxSection;ColumnLayout {spacing:8
         RowLayout {Layout.fillWidth:true;Layout.leftMargin:6

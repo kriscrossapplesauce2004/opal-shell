@@ -206,24 +206,37 @@ Item {
                 }
             }
             Item { Layout.preferredHeight: 4; visible: GameState.gameActive }
-            QaRow {
-                visible: GameState.gameActive; Layout.fillWidth: true
-                icon: "play_arrow"; title: "Return to game"; detail: "Close this panel"
-                onActivated: { const w = GameState.gameWindows[0]; qa.leave(); if (w) Hub.focusWindow(w); }
-            }
-            QaRow {
-                visible: GameState.gameActive; Layout.fillWidth: true
-                icon: "select_window"; title: "Switch app"; detail: Hub.windows.length + " windows open"
-                onActivated: { qa.leave(); Hub.targetScreen = Hub.chooseScreen(); Hub.page = "windows"; }
-            }
-            QaRow {
-                visible: GameState.gameActive && GameState.gameWindows.length > 0; Layout.fillWidth: true
-                danger: true; icon: "close"
-                title: qa.confirmQuit ? "Press " + ControllerNav.acceptLabel + " again to quit" : "Quit game"
-                detail: qa.confirmQuit ? "Unsaved progress is lost" : ""
-                onActivated: {
-                    if (!qa.confirmQuit) { qa.confirmQuit = true; quitReset.restart(); return; }
-                    qa.confirmQuit = false; GameState.quitGame(); qa.leave();
+            // Game actions as tiles, in the shade's tile style.
+            GridLayout {
+                visible: GameState.gameActive; Layout.fillWidth: true; columns: 2; columnSpacing: 8; rowSpacing: 8
+                ShadeTile {
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 64; dense: true
+                    icon: "play_arrow"; title: "Return to game"; subtitle: "Close this panel"; active: true
+                    onToggled: clicked(0, 0)
+                    onClicked: { const w = GameState.gameWindows[0]; qa.leave(); if (w) Hub.focusWindow(w); }
+                }
+                ShadeTile {
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 64; dense: true
+                    icon: "select_window"; title: "Switch app"; subtitle: Hub.windows.length + " windows open"
+                    onToggled: clicked(0, 0)
+                    onClicked: { qa.leave(); Hub.targetScreen = Hub.chooseScreen(); Hub.page = "windows"; }
+                }
+                ShadeTile {
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 64; dense: true
+                    icon: "screenshot_monitor"; title: "Screenshot"; subtitle: "Saved to Pictures"
+                    onToggled: clicked(0, 0)
+                    onClicked: { qa.leave(); Hub.command({action: "screenshot"}); }
+                }
+                ShadeTile {
+                    visible: GameState.gameWindows.length > 0
+                    Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 64; dense: true
+                    icon: "close"; title: qa.confirmQuit ? "Press " + ControllerNav.acceptLabel + " again" : "Quit game"
+                    subtitle: qa.confirmQuit ? "Unsaved progress is lost" : "Ends the game"; active: qa.confirmQuit
+                    onToggled: clicked(0, 0)
+                    onClicked: {
+                        if (!qa.confirmQuit) { qa.confirmQuit = true; quitReset.restart(); return; }
+                        qa.confirmQuit = false; GameState.quitGame(); qa.leave();
+                    }
                 }
             }
             MText {
@@ -251,26 +264,26 @@ Item {
                 visible: !GameState.perfReady; Layout.fillWidth: true
                 kind: "info"; icon: "hourglass_empty"; title: "Reading performance state"
             }
-            QaRow {
+            // Each choice is a row of chips, so every option is visible and one press away.
+            ChoiceGroup {
                 visible: GameState.perfReady; Layout.fillWidth: true
-                kind: "choice"; icon: "speed"; title: "Frame limit"; detail: "MangoHud"
-                choice: qa.fpsLabel(qa.perf.fpsLimit || 0)
-                onAdjusted: delta => GameState.set("fpsLimit", qa.cycle(qa.fpsChoices, qa.perf.fpsLimit || 0, delta))
+                icon: "speed"; title: "Frame limit"; detail: "MangoHud"
+                options: qa.fpsChoices.map(v => ({id: v, name: v === 0 ? "Off" : String(v)}))
+                current: qa.perf.fpsLimit || 0
+                onPicked: id => GameState.set("fpsLimit", id)
             }
-            QaRow {
+            ChoiceGroup {
                 visible: GameState.perfReady; Layout.fillWidth: true
-                kind: "choice"; icon: "monitoring"; title: "Performance overlay"; detail: qa.perf.mangohud ? "MangoHud" : "MangoHud is not installed"
-                choice: (qa.overlayChoices.find(o => o.id === qa.perf.overlay) || qa.overlayChoices[2]).name
-                onAdjusted: delta => {
-                    const ids = qa.overlayChoices.map(o => o.id);
-                    GameState.set("overlay", qa.cycle(ids, qa.perf.overlay || "compact", delta));
-                }
+                icon: "monitoring"; title: "Performance overlay"; detail: qa.perf.mangohud ? "MangoHud" : "MangoHud is not installed"
+                options: qa.overlayChoices; current: qa.perf.overlay || "compact"
+                onPicked: id => GameState.set("overlay", id)
             }
-            QaRow {
+            ChoiceGroup {
                 visible: GameState.perfReady && !!qa.perf.profiles && qa.perf.profiles.available; Layout.fillWidth: true
-                kind: "choice"; icon: qa.profileIcons[Hub.status.profile || "balanced"] || "balance"; title: "Power profile"; detail: "powerprofilesctl"
-                choice: qa.profileNames[Hub.status.profile] || Hub.status.profile || "Balanced"
-                onAdjusted: delta => Hub.command({action: "profile", value: qa.cycle(qa.perf.profiles.profiles, Hub.status.profile, delta)})
+                icon: qa.profileIcons[Hub.status.profile || "balanced"] || "balance"; title: "Power profile"; detail: "powerprofilesctl"
+                options: (qa.perf.profiles && qa.perf.profiles.profiles || []).map(id => ({id: id, name: qa.profileNames[id] || id, icon: qa.profileIcons[id] || ""}))
+                current: Hub.status.profile || "balanced"
+                onPicked: id => Hub.command({action: "profile", value: id})
             }
             QaRow {
                 visible: GameState.perfReady && !!qa.perf.tdp; Layout.fillWidth: true
@@ -278,11 +291,12 @@ Item {
                 from: qa.perf.tdp ? qa.perf.tdp.min : 0; to: qa.perf.tdp ? qa.perf.tdp.max : 100; value: qa.perf.tdp ? qa.perf.tdp.watts : 0
                 onSliderMoved: v => { tdpDelay.watts = Math.round(v); tdpDelay.restart(); }
             }
-            QaRow {
+            ChoiceGroup {
                 visible: GameState.perfReady && !!qa.perf.gpu; Layout.fillWidth: true
-                kind: "choice"; icon: "memory"; title: "GPU performance"; detail: "Performance level"
-                choice: qa.perf.gpu ? qa.perf.gpu.level.charAt(0).toUpperCase() + qa.perf.gpu.level.slice(1) : ""
-                onAdjusted: delta => GameState.set("gpuLevel", qa.cycle(["auto", "low", "high"], qa.perf.gpu.level, delta))
+                icon: "memory"; title: "GPU performance"; detail: "Performance level"
+                options: [{id: "auto", name: "Auto"}, {id: "low", name: "Low"}, {id: "high", name: "High"}]
+                current: qa.perf.gpu ? qa.perf.gpu.level : "auto"
+                onPicked: id => GameState.set("gpuLevel", id)
             }
             QaRow {
                 visible: GameState.perfReady; Layout.fillWidth: true
@@ -314,35 +328,34 @@ Item {
                 onSliderMoved: v => Hub.volume(v)
                 onAlternate: Hub.command({action: "mute"})
             }
-            QaRow {
-                Layout.fillWidth: true
-                kind: "toggle"; icon: "wifi"; title: "Wi-Fi"; detail: Hub.status.wifi ? Hub.status.network || "On" : "Off"; checked: !!Hub.status.wifi
-                onActivated: Hub.connection("wifi", "power", {enabled: !(Hub.connectivity.wifi.powered || Hub.status.wifi)})
-            }
-            QaRow {
-                Layout.fillWidth: true
-                kind: "toggle"; icon: "bluetooth"; title: "Bluetooth"; detail: Hub.status.bluetooth ? "On" : "Off"; checked: !!Hub.status.bluetooth
-                onActivated: Hub.connection("bluetooth", "power", {enabled: !(Hub.connectivity.bluetooth.powered || Hub.status.bluetooth)})
-            }
-            QaRow {
-                Layout.fillWidth: true
-                kind: "toggle"; icon: "timer"; title: "Quiet session"; detail: "No popups, no sleep"; checked: Hub.gameSession
-                onActivated: Hub.toggleGameSession()
-            }
-            QaRow {
-                Layout.fillWidth: true
-                kind: "toggle"; icon: "do_not_disturb_on"; title: "Do not disturb"; checked: Hub.dnd
-                onActivated: Hub.set("dnd", !Hub.dnd)
+            // Toggles in the shade's tile style.
+            GridLayout {
+                Layout.fillWidth: true; Layout.topMargin: 4; columns: 2; columnSpacing: 8; rowSpacing: 8
+                Repeater {
+                    model: [
+                        {id: "wifi", icon: "wifi", title: "Wi-Fi", sub: Hub.status.wifi ? Hub.status.network || "On" : "Off", on: !!Hub.status.wifi},
+                        {id: "bluetooth", icon: "bluetooth", title: "Bluetooth", sub: Hub.status.bluetooth ? "On" : "Off", on: !!Hub.status.bluetooth},
+                        {id: "quiet", icon: "timer", title: "Quiet session", sub: "No popups, no sleep", on: Hub.gameSession},
+                        {id: "dnd", icon: "do_not_disturb_on", title: "Do not disturb", sub: Hub.dnd ? "On" : "Off", on: Hub.dnd}
+                    ]
+                    ShadeTile {
+                        required property var modelData
+                        Layout.fillWidth: true; Layout.preferredWidth: 1; implicitHeight: 64; dense: true
+                        icon: modelData.icon; title: modelData.title; subtitle: modelData.sub; active: modelData.on
+                        onClicked: toggled()
+                        onToggled: {
+                            if (modelData.id === "wifi") Hub.connection("wifi", "power", {enabled: !(Hub.connectivity.wifi.powered || Hub.status.wifi)});
+                            else if (modelData.id === "bluetooth") Hub.connection("bluetooth", "power", {enabled: !(Hub.connectivity.bluetooth.powered || Hub.status.bluetooth)});
+                            else if (modelData.id === "quiet") Hub.toggleGameSession();
+                            else Hub.set("dnd", !Hub.dnd);
+                        }
+                    }
+                }
             }
             QaRow {
                 Layout.fillWidth: true
                 kind: "toggle"; icon: "gamepad"; title: "Guide button opens this"; detail: "Tap: Quick Access. Hold: Claude. Guide+A: always. Turn off if Steam uses Guide"; checked: Hub.prefs.quickAccessGuide !== false
                 onActivated: Hub.set("quickAccessGuide", Hub.prefs.quickAccessGuide === false)
-            }
-            QaRow {
-                Layout.fillWidth: true
-                icon: "screenshot_monitor"; title: "Screenshot"
-                onActivated: { qa.leave(); Hub.command({action: "screenshot"}); }
             }
             QaRow {
                 Layout.fillWidth: true
