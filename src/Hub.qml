@@ -128,6 +128,7 @@ Scope {
     property var health: ({disks:[],temperatures:{},hottest:0})
     property var updates: ({pacman:null,flatpak:null})
     property var monitors: []
+    property var themeChoices: ({})
     property var sun: ({sunrise:"07:00",sunset:"19:00",estimated:true})
     // Opal Link devices and status from opal_link.py.
     property string linkStatus: "off"
@@ -553,6 +554,7 @@ Scope {
                     else if(e.event === "linkPairRequest") h.linkPairRequest={id:e.id,name:e.name,code:e.code};
                     else if(e.event === "health") h.health={disks:e.disks,temperatures:e.temperatures,hottest:e.hottest};
                     else if(e.event === "updates") h.updates={pacman:e.pacman,flatpak:e.flatpak};
+                    else if(e.event === "themeChoices") h.themeChoices=e.data||({});
                     else if(e.event === "monitors") h.monitors=e.data;
                     else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}

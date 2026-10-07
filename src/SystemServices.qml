@@ -48,17 +48,19 @@ Scope {
     readonly property var colors: ({primary: hex(Theme.primary), onPrimary: hex(Theme.onPrimary), primaryContainer: hex(Theme.primaryContainer), onPrimaryContainer: hex(Theme.onContainer),
         secondary: hex(Theme.secondary), tertiary: hex(Theme.tertiary), base: hex(Theme.base), surface: hex(Theme.surface), surfaceHigh: hex(Theme.surfaceHigh),
         text: hex(Theme.text), subtext: hex(Theme.subtext), error: hex(Theme.error)})
+    readonly property var exportOptions: ({light: Theme.light, font: Theme.font})
     property string exported: ""
     onColorsChanged: exportSoon.restart()
+    Connections { target: Hub; function onPrefsChanged() { exportSoon.restart(); } }
     Timer {
         id: exportSoon; interval: 1500
         onTriggered: {
             const targets = Hub.prefs.themeExport || [];
             if (!Hub.preferencesLoaded || !targets.length) return;
-            const signature = JSON.stringify([services.colors, targets]);
+            const signature = JSON.stringify([services.colors, targets, services.exportOptions, Hub.prefs.themeSync]);
             if (signature === services.exported) return;
             services.exported = signature;
-            Hub.command({action: "theme-export", colors: services.colors, targets: targets});
+            Hub.command({action: "theme-export", colors: services.colors, targets: targets, options: services.exportOptions});
         }
     }
 }
