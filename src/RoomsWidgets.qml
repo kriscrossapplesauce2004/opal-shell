@@ -9,6 +9,9 @@ Column {
     property Item host:null
     property real available:10000
     spacing:14
+    // Recent files and games feed Pick up; the phone home is not the only reader.
+    Component.onCompleted:PhoneState.refreshActivity()
+    Timer {interval:300000;repeat:true;running:true;onTriggered:PhoneState.refreshActivity()}
 
     // Glance: date, clock and live chips.
     Item {
@@ -40,10 +43,24 @@ Column {
                     sheet:Component {FocusCard {anchors.fill:parent;anchors.margins:4}}
                 }
                 MorphChip {
-                    visible:Hub.status.track===""&&Notifier.inbox.length===0&&!Hub.focusRunning
+                    visible:!Hub.focusRunning&&Hub.focusSeconds>=25*60
                     icon:"timer";text:"Focus";host:widgets.host
                     sheetWidth:360;sheetHeight:180
                     sheet:Component {FocusCard {anchors.fill:parent;anchors.margins:4}}
+                }
+                MorphChip {
+                    icon:Hub.status.wifi ? "wifi" : "wifi_off";text:Hub.status.wifi ? (Hub.status.network||"Wi-Fi") : "Offline";host:widgets.host
+                    sheetWidth:380;sheetHeight:400
+                    sheet:Component {ConnectionPanel {anchors.fill:parent;anchors.margins:12;kind:"wifi";embedded:true}}
+                }
+                MorphChip {
+                    visible:Hub.status.battery>=0
+                    icon:Hub.status.charging ? "battery_charging_full" : Hub.status.battery<=20 ? "battery_alert" : "battery_5_bar"
+                    text:Hub.status.battery+"%";selected:Hub.status.battery<=20&&!Hub.status.charging
+                }
+                MorphChip {
+                    icon:Hub.prefs.dnd ? "do_not_disturb_on" : "notifications_active";text:Hub.prefs.dnd ? "Quiet" : "Alerts on";selected:!!Hub.prefs.dnd
+                    onClicked:Hub.set("dnd",!Hub.prefs.dnd)
                 }
             }
         }
@@ -90,22 +107,53 @@ Column {
         }
     }
 
-    // Rooms: the current workspace as it is laid out, and every room as a chip.
+    // Rooms: every workspace with its real layout. The one you are on is marked; an empty one is a small "+" tile.
     Item {
-        visible:Rooms.live&&widgets.available>=640
-        width:parent.width;height:visible ? 250+roomChips.height : 0
+        id:roomsCard
+        readonly property var shown:Rooms.list.filter(r=>r.windows.length>0||r.id===Rooms.current).slice(0,6)
+        visible:Rooms.live&&widgets.available>=560&&shown.length>0
+        width:parent.width;height:visible ? roomsColumn.implicitHeight+28 : 0
         Frost {anchors.fill:parent;radius:28;backdrop:widgets.backdrop}
-        RoomCard {
-            x:0;y:0;width:parent.width;height:236
-            color:"transparent"
-            room:Rooms.currentRoom;current:true;previews:false
-        }
-        Flow {
-            id:roomChips
-            x:14;y:236;width:parent.width-28;spacing:6
-            Repeater {model:Rooms.list
-                MorphChip {required property var modelData;icon:"space_dashboard";text:modelData.id+" · "+modelData.name;selected:modelData.id===Rooms.current;onClicked:Rooms.enter(modelData)}}
-            MorphChip {icon:"add";onClicked:Rooms.newRoom()}
+        Column {
+            id:roomsColumn;x:14;y:14;width:parent.width-28;spacing:10
+            RowLayout {
+                width:parent.width
+                MText {text:"ROOMS";role:"labelS";color:Theme.primary;font.letterSpacing:1.3;Layout.fillWidth:true;leftPadding:4}
+                MText {text:Rooms.list.filter(r=>r.windows.length).length+" in use";role:"labelS";color:Theme.subtext}
+            }
+            Grid {
+                id:roomGrid
+                columns:2;spacing:8;width:parent.width
+                readonly property real cell:(width-spacing)/2
+                Repeater {
+                    model:roomsCard.shown
+                    Item {
+                        id:roomTile
+                        required property var modelData
+                        readonly property bool here:modelData.id===Rooms.current
+                        width:roomGrid.cell;height:modelData.windows.length ? 128 : 56
+                        RoomCard {
+                            anchors.fill:parent;visible:roomTile.modelData.windows.length>0
+                            room:roomTile.modelData;current:roomTile.here;previews:false;radius:18
+                            color:roomTile.here ? Theme.alpha(Theme.secondaryContainer,.9) : Theme.alpha(Theme.level(2),.8)
+                            border.width:roomTile.here ? 2 : 0;border.color:Theme.primary
+                            onEntered:Rooms.enter(roomTile.modelData)
+                        }
+                        Rectangle {
+                            anchors.fill:parent;visible:roomTile.modelData.windows.length===0;radius:18
+                            color:"transparent";border.width:roomTile.here ? 2 : 1;border.color:roomTile.here ? Theme.primary : Theme.outline
+                            Row {anchors.centerIn:parent;spacing:6
+                                MText {text:roomTile.modelData.id;role:"label";color:Theme.primary}
+                                MText {text:roomTile.here ? "You are here" : "Empty";role:"labelS";color:Theme.subtext}}
+                        }
+                    }
+                }
+            }
+            Flow {
+                width:parent.width;spacing:6
+                MorphChip {icon:"add";text:"New room";onClicked:Rooms.newRoom()}
+                MorphChip {icon:"grid_view";text:"All apps";onClicked:Hub.openStart(false)}
+            }
         }
     }
 }

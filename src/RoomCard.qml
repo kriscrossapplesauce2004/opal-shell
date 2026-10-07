@@ -16,7 +16,7 @@ Rectangle {
         MText {text:card.room ? card.room.name : "";role:"titleS";Layout.fillWidth:true;elide:Text.ElideRight}
         Rectangle {visible:!!card.room&&!!card.room.urgent;Layout.preferredWidth:10;Layout.preferredHeight:10;radius:5;color:Theme.error;Accessible.name:"A window needs attention"}
         MText {visible:card.current;text:"Here";role:"labelS";color:Theme.primary}
-        MText {visible:!card.current&&!!card.room;text:card.room ? card.room.windows.length+(card.room.windows.length===1 ? " window" : " windows") : "";role:"labelS";color:Theme.subtext}
+        MText {visible:!card.current&&!!card.room&&card.width>240;text:card.room ? card.room.windows.length+(card.room.windows.length===1 ? " window" : " windows") : "";role:"labelS";color:Theme.subtext}
     }
     TapHandler {onTapped:card.entered()}
     // The miniature keeps the monitor's aspect and sits centred in the space left under the header.

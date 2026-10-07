@@ -217,7 +217,8 @@ ShellRoot {
             {name:"assistant-confirm-light",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,confirm:true,light:true},
             {name:"assistant-phone-dark",ui:"assistant",w:390,h:760,layout:"phone",phone:true,chat:true,confirm:true},
             {name:"assistant-phone-light",ui:"assistant",w:390,h:760,layout:"phone",phone:true,chat:true,light:true},
-            {name:"assistant-console",ui:"assistant",w:960,h:640,layout:"console",confirm:true}
+            {name:"assistant-console",ui:"assistant",w:960,h:640,layout:"console",confirm:true},
+            {name:"assistant-auto-dark",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,auto:true}
         ]
         Rectangle {anchors.fill:parent;color:Opal.Theme.base}
         Loader {id:view;anchors.fill:parent}
@@ -232,22 +233,23 @@ ShellRoot {
         function assistantFixture(test) {
             const A=Opal.AssistantState;
             A.busy=false;A.available=true;A.jev=true;A.approvals=[];A.turns=[];
+            Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{assistantMode:test.auto ? "auto" : "ask"});
             A.ctxApp="firefox";A.ctxTitle="Hyprland wiki - Configuring";A.ctxSelection="Lua config reload";A.ctxClipboard="";A.useApp=true;A.useSelection=true;A.useClipboard=true;
             if(!test.chat&&!test.confirm)return;
             if(test.chat) {
                 A.ctxApp="";A.ctxSelection="";
                 A.turns=[
                     {role:"user",text:"Open my notes app and put it next to Firefox"},
-                    {role:"assistant",id:1,done:true,error:false,stopped:false,tools:[{id:"a",name:"list_windows",label:"list windows",status:"done"},{id:"b",name:"launch_app",label:"launch app · Kate",status:"done"},{id:"c",name:"move_window",label:"move window · kate",status:"error"}],
+                    {role:"assistant",id:1,done:true,error:false,stopped:false,tools:[{id:"a",name:"list_windows",label:"Looking at your windows",running:"Looking at your windows",doneLabel:"Looked at your windows",icon:"select_window",detail:"",status:"done",error:"",auto:false},{id:"b",name:"launch_app",label:"Opening an app",running:"Opening an app",doneLabel:"Opened an app",icon:"open_in_new",detail:"Kate",status:"done",error:"",auto:false},{id:"c",name:"move_window",label:"Moving a window",running:"Moving a window",doneLabel:"Moved a window",icon:"open_with",detail:"kate",status:"error",error:"Window is no longer available",auto:false}],
                      text:"I opened **Kate** on workspace 2. Moving it failed because the window had not appeared yet.\n\n- Firefox is on workspace 1\n- Kate is on workspace 2\n\nUse `Super+2` to switch, or ask me to try the move again."},
                     {role:"user",text:"Try again, then summarize the Hyprland page"},
-                    {role:"assistant",id:2,done:true,error:false,stopped:false,tools:[{id:"d",name:"move_window",label:"move window · kate",status:"done"},{id:"e",name:"desktop_ui_read",label:"ui read · page",status:"done"}],
+                    {role:"assistant",id:2,done:true,error:false,stopped:false,tools:[{id:"d",name:"move_window",label:"Moving a window",running:"Moving a window",doneLabel:"Moved a window",icon:"open_with",detail:"kate",status:"done",error:"",auto:true},{id:"e",name:"desktop_ui_read",label:"Reading",running:"Reading",doneLabel:"Read",icon:"article",detail:"Configuring – Hyprland Wiki",status:"done",error:"",auto:true}],
                      text:"## Moved\n\nKate now sits on workspace 1.\n\nThe page covers reloading the **Lua config**:\n\n```\nhyprctl reload\n```\n\nRead more at [the wiki](https://wiki.hyprland.org)."}
                 ];
             }
             if(test.confirm) {
                 A.busy=true;A.ctxApp="";A.ctxSelection="";
-                A.turns=A.turns.concat([{role:"user",text:"Close the old Firefox windows and clean my downloads"},{role:"assistant",id:3,done:false,error:false,stopped:false,tools:[{id:"f",name:"list_windows",label:"list windows",status:"done"},{id:"g",name:"close_window",label:"close window · firefox",status:"running"}],text:"I found two Firefox windows."}]);
+                A.turns=A.turns.concat([{role:"user",text:"Close the old Firefox windows and clean my downloads"},{role:"assistant",id:3,done:false,error:false,stopped:false,tools:[{id:"f",name:"list_windows",label:"Looking at your windows",running:"Looking at your windows",doneLabel:"Looked at your windows",icon:"select_window",detail:"",status:"done",error:"",auto:false},{id:"g",name:"close_window",label:"Closing a window",running:"Closing a window",doneLabel:"Closed a window",icon:"close",detail:"firefox",status:"running",error:"",auto:false}],text:"I found two Firefox windows."}]);
                 A.approvals=[{id:"x1",tool:"close_window",label:"Close a window",detail:"firefox",risk:"high"},{id:"x2",tool:"open_target",label:"Open a link or file",detail:"https://wiki.hyprland.org/Configuring/",risk:"medium"}];
             }
         }

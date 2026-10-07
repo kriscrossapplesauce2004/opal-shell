@@ -11,6 +11,11 @@ Scope {
     property string lastText:""
     property var lastContext:({})
     property var approvals:[]
+    // Ask: risky actions wait for Allow. Auto: Claude acts on its own and only dangerous commands still ask.
+    readonly property string mode:Hub.prefs.assistantMode==="auto" ? "auto" : "ask"
+    function setMode(next) {Hub.set("assistantMode",next);Hub.command({action:"assistant-mode",mode:next});}
+    // Switching to auto while a card waits also lets that action through.
+    onModeChanged:if(mode==="auto")approvals.filter(a=>a.risk!=="high").forEach(a=>approve(a.id,true))
     property bool available:true
     property bool jev:false
     // Context chips. The user can remove each one before sending.
@@ -40,7 +45,7 @@ Scope {
     function dispatch(text,context) {
         request++;lastText=text;lastContext=context;busy=true;
         turns=turns.concat([{role:"user",text:text},{role:"assistant",id:request,text:"",tools:[],done:false,error:false,stopped:false}]);
-        Hub.command({action:"assistant-ask",text:text,id:request,context:context});
+        Hub.command({action:"assistant-ask",text:text,id:request,context:context,mode:mode});
     }
     function send(text) {
         const t=(text||"").trim();if(!t||busy)return;

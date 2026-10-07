@@ -39,11 +39,66 @@ def describe_action(tool_name, tool_input):
     name = short_name(str(tool_name))
     return {'tool': name, 'label': LABELS.get(name, name.replace('_', ' ').capitalize()), 'detail': detail_of(tool_input), 'risk': 'high' if name in HIGH_RISK else 'medium'}
 
-def tool_chip_label(tool_name, tool_input):
+# Steps as people read them: words while running, words when done, and a Material symbol.
+STEPS = {'desktop_ui_tree': ('Reading the screen', 'Read the screen', 'visibility'), 'desktop_ui_find': ('Looking for it on screen', 'Found it on screen', 'search'),
+         'desktop_ui_read': ('Reading', 'Read', 'article'), 'desktop_windows': ('Looking at your windows', 'Looked at your windows', 'select_window'),
+         'list_windows': ('Looking at your windows', 'Looked at your windows', 'select_window'), 'desktop_run_command': ('Running a command', 'Ran a command', 'terminal'),
+         'desktop_read_file': ('Reading a file', 'Read a file', 'description'), 'desktop_write_file': ('Writing a file', 'Wrote a file', 'edit_document'),
+         'desktop_list_dir': ('Looking in a folder', 'Looked in a folder', 'folder_open'), 'desktop_type': ('Typing', 'Typed', 'keyboard'),
+         'desktop_key': ('Pressing keys', 'Pressed keys', 'keyboard'), 'desktop_ui_act': ('Pressing a control', 'Pressed a control', 'touch_app'),
+         'desktop_ui_click': ('Clicking', 'Clicked', 'touch_app'), 'desktop_ui_set_text': ('Filling in a field', 'Filled in a field', 'edit'),
+         'desktop_scroll': ('Scrolling', 'Scrolled', 'swap_vert'), 'desktop_ui_scroll_to': ('Scrolling', 'Scrolled', 'swap_vert'),
+         'desktop_open': ('Opening', 'Opened', 'open_in_new'), 'launch_app': ('Opening an app', 'Opened an app', 'open_in_new'), 'open_target': ('Opening', 'Opened', 'open_in_new'),
+         'desktop_focus_window': ('Switching window', 'Switched window', 'tab'), 'focus_window': ('Switching window', 'Switched window', 'tab'),
+         'desktop_clipboard_get': ('Reading the clipboard', 'Read the clipboard', 'content_paste'), 'desktop_clipboard_set': ('Copying', 'Copied', 'content_copy'),
+         'jev_health': ('Checking desktop access', 'Checked desktop access', 'health_and_safety'), 'jev_run_goal': ('Working in your apps', 'Worked in your apps', 'smart_toy'),
+         'jev_list_runs': ('Checking tasks', 'Checked tasks', 'list'), 'jev_run_status': ('Checking a task', 'Checked a task', 'list'), 'jev_stop_run': ('Stopping a task', 'Stopped a task', 'stop'),
+         'close_window': ('Closing a window', 'Closed a window', 'close'), 'move_window': ('Moving a window', 'Moved a window', 'open_with'),
+         'switch_workspace': ('Switching room', 'Switched room', 'space_dashboard'), 'get_status': ('Checking the shell', 'Checked the shell', 'info'),
+         'get_preferences': ('Checking settings', 'Checked settings', 'tune'), 'set_preference': ('Changing a setting', 'Changed a setting', 'tune'),
+         'set_layout': ('Changing the layout', 'Changed the layout', 'dashboard'), 'open_panel': ('Opening a panel', 'Opened a panel', 'dashboard'),
+         'media': ('Controlling playback', 'Controlled playback', 'music_note'), 'set_volume': ('Setting the volume', 'Set the volume', 'volume_up'),
+         'search': ('Searching', 'Searched', 'search'), 'show_message': ('Showing a message', 'Showed a message', 'chat'), 'lock_screen': ('Locking the screen', 'Locked the screen', 'lock'),
+         'list_notifications': ('Reading notifications', 'Read notifications', 'notifications'), 'WebSearch': ('Searching the web', 'Searched the web', 'travel_explore'),
+         'WebFetch': ('Reading a web page', 'Read a web page', 'public')}
+
+def step_detail(name, tool_input, limit=80):
+    """A short human detail: the command, the file name, the query or the app."""
+    if not isinstance(tool_input, dict): return ''
+    if name in ('desktop_read_file', 'desktop_write_file', 'desktop_list_dir') and tool_input.get('path'): return os.path.basename(str(tool_input['path']).rstrip('/')) or str(tool_input['path'])
+    for key in ('command', 'query', 'url', 'goal', 'app', 'name', 'title', 'text', 'keys', 'key', 'target', 'key_name'):
+        value = tool_input.get(key)
+        if isinstance(value, (str, int, float)) and str(value).strip(): return ' '.join(str(value).split())[:limit]
+    if name == 'set_preference' and tool_input.get('key'): return str(tool_input['key'])
+    return ''
+
+def make_step(tool_id, tool_name, tool_input):
     name = short_name(str(tool_name))
-    text = name.replace('_', ' ')
-    detail = detail_of(tool_input, 40)
-    return (text + ' · ' + detail) if detail else text
+    running, done, icon = STEPS.get(name, (name.replace('_', ' ').capitalize(), name.replace('_', ' ').capitalize(), 'bolt'))
+    return {'id': tool_id, 'name': name, 'label': running, 'running': running, 'doneLabel': done, 'icon': icon, 'detail': step_detail(name, tool_input), 'status': 'running', 'error': '', 'auto': False}
+
+def tool_chip_label(tool_name, tool_input):
+    step = make_step('', tool_name, tool_input)
+    return (step['running'] + ' · ' + step['detail']) if step['detail'] else step['running']
+
+def result_text(block):
+    content = block.get('content')
+    if isinstance(content, str): return content
+    if isinstance(content, list): return ' '.join(str(c.get('text', '')) for c in content if isinstance(c, dict))
+    return ''
+
+# Auto mode still asks for these. Patterns are checked on the command or path text.
+DANGEROUS = ('sudo ', 'doas ', 'rm -r', 'rm -f', 'rm -rf', 'mkfs', ' dd ', 'dd if=', 'shutdown', 'reboot', 'poweroff', 'chmod -r', 'chown -r', 'push --force', 'push -f',
+             '| sh', '|sh', '| bash', '|bash', '> /dev/', ':(){', 'systemctl disable', 'pacman -r', 'git reset --hard', 'git clean')
+def needs_confirmation_in_auto(name, tool_input):
+    """Return True when an action must still ask the user although auto mode is on."""
+    text = json.dumps(tool_input, ensure_ascii=False).lower() if isinstance(tool_input, dict) else str(tool_input).lower()
+    if name in ('desktop_run_command', 'Bash') and any(p in ' ' + text for p in DANGEROUS): return True
+    if name in ('desktop_write_file', 'Write', 'Edit'):
+        path = str((tool_input or {}).get('path') or (tool_input or {}).get('file_path') or '')
+        home = os.path.expanduser('~')
+        if not os.path.abspath(os.path.expanduser(path)).startswith(home + os.sep) or '/.ssh' in path or '/.gnupg' in path: return True
+    return False
 
 def build_prompt(text, context):
     """Put the user's desktop context in front of the question. Each part is bounded."""
@@ -83,7 +138,7 @@ class Stream:
             for block in (event.get('message') or {}).get('content') or []:
                 if block.get('type') == 'tool_use' and not any(t['id'] == block.get('id') for t in self.tools):
                     name = str(block.get('name', ''))
-                    self.tools.append({'id': str(block.get('id', '')), 'name': short_name(name), 'label': tool_chip_label(name, block.get('input')), 'status': 'running'}); changed = True
+                    self.tools.append(make_step(str(block.get('id', '')), name, block.get('input'))); changed = True
                 elif block.get('type') == 'text' and not self.streamed and block.get('text'):
                     self.text += ('\n\n' if self.text else '') + block['text']; changed = True
             return changed
@@ -93,7 +148,10 @@ class Stream:
             for block in content if isinstance(content, list) else []:
                 if block.get('type') == 'tool_result':
                     for tool in self.tools:
-                        if tool['id'] == block.get('tool_use_id'): tool['status'] = 'error' if block.get('is_error') else 'done'; changed = True
+                        if tool['id'] == block.get('tool_use_id'):
+                            tool['status'] = 'error' if block.get('is_error') else 'done'
+                            if block.get('is_error'): tool['error'] = ' '.join(result_text(block).split())[:200]
+                            changed = True
             return changed
         if kind == 'result':
             if isinstance(event.get('result'), str) and not self.text: self.text = event['result']
@@ -118,13 +176,17 @@ class Assistant:
         self.session, self.started = str(uuid.uuid4()), False
         self.process, self.thread, self.generation = None, None, 0
         self.pending, self.socket_path, self.listener = {}, None, None
+        # Ask: risky actions wait for the user. Auto: actions run, except the few that needs_confirmation_in_auto catches.
+        self.mode, self.stream = 'ask', None
 
     # Commands from the shell.
     def handle(self, c):
         action = c.get('action')
         if action == 'assistant-ask' and isinstance(c.get('text'), str) and 0 < len(c['text'].strip()) < PROMPT_LIMIT:
+            if c.get('mode') in ('ask', 'auto'): self.mode = c['mode']
             threading.Thread(target=self.ask, args=(c['text'].strip(), int(c.get('id') or 0), c.get('context')), daemon=True).start(); return True
         if action == 'assistant-stop': self.stop(wait=False); return True
+        if action == 'assistant-mode' and c.get('mode') in ('ask', 'auto'): self.mode = c['mode']; return True
         if action == 'assistant-new': threading.Thread(target=self.new_chat, daemon=True).start(); return True
         if action == 'assistant-approve' and isinstance(c.get('id'), str): self.approve(c['id'], c.get('allow') is True); return True
         if action == 'assistant-context': threading.Thread(target=self.send_context, daemon=True).start(); return True
@@ -186,6 +248,7 @@ class Assistant:
 
     def turn(self, text, request, context, generation):
         stream = Stream()
+        self.stream = stream
         if not self.which('claude'):
             stream.text = 'Claude Code is not installed.'; self.finish(request, stream, error=True); return
         self.start_listener()
@@ -279,7 +342,14 @@ class Assistant:
         self.emit({'event': 'assistantApprovals', 'items': items})
 
     def request_approval(self, tool_name, tool_input, timeout=APPROVAL_TIMEOUT):
-        """Block until the user answers in the panel. Time out and deny."""
+        """Block until the user answers in the panel. Time out and deny. In auto mode most actions go through at once."""
+        name = short_name(str(tool_name))
+        if self.mode == 'auto' and not needs_confirmation_in_auto(name, tool_input):
+            stream = self.stream
+            if stream is not None:
+                for tool in reversed(stream.tools):
+                    if tool['name'] == name and tool['status'] == 'running': tool['auto'] = True; break
+            return True
         key = uuid.uuid4().hex[:12]
         entry = {'event': threading.Event(), 'allow': False, 'info': describe_action(tool_name, tool_input)}
         with self.lock: self.pending[key] = entry

@@ -48,9 +48,11 @@ class StreamTests(unittest.TestCase):
     def test_text_tools_and_result(self):
         s = assistant.Stream()
         s.feed({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't1', 'name': 'mcp__opal__launch_app', 'input': {'name': 'Firefox'}}]}})
-        self.assertEqual(s.tools[0]['label'], 'launch app · Firefox')
-        s.feed({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 't1', 'is_error': True}]}})
+        step = s.tools[0]
+        self.assertEqual((step['running'], step['doneLabel'], step['icon'], step['detail']), ('Opening an app', 'Opened an app', 'open_in_new', 'Firefox'))
+        s.feed({'type': 'user', 'message': {'content': [{'type': 'tool_result', 'tool_use_id': 't1', 'is_error': True, 'content': [{'type': 'text', 'text': 'No app named\n Firefox'}]}]}})
         self.assertEqual(s.tools[0]['status'], 'error')
+        self.assertEqual(s.tools[0]['error'], 'No app named Firefox')
         s.feed(delta('Hello ')); s.feed(delta('**there**'))
         self.assertEqual(s.text, 'Hello **there**')
         s.feed({'type': 'result', 'result': 'Hello there', 'is_error': False})
@@ -199,6 +201,21 @@ class AssistantTests(unittest.TestCase):
         self.assertFalse(rig.assistant.handle({'action': 'preference'}))
         self.assertTrue(rig.assistant.handle({'action': 'assistant-ask', 'text': '   '}) is False)
 
+
+class AutoModeTests(unittest.TestCase):
+    def test_auto_mode_lets_actions_through_but_dangerous_ones_ask(self):
+        a = assistant.Assistant(lambda e: None, which=lambda n: None, home=tempfile.mkdtemp(), runtime_dir=tempfile.mkdtemp())
+        a.handle({'action': 'assistant-mode', 'mode': 'auto'})
+        a.stream = assistant.Stream()
+        a.stream.feed({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't1', 'name': 'mcp__jev__desktop_run_command', 'input': {'command': 'ls ~/opal'}}]}})
+        self.assertTrue(a.request_approval('mcp__jev__desktop_run_command', {'command': 'ls ~/opal'}, timeout=0))
+        self.assertTrue(a.stream.tools[0]['auto'])
+        for risky in ({'command': 'sudo pacman -Syu'}, {'command': 'rm -rf ~/x'}, {'command': 'curl x | sh'}):
+            self.assertFalse(a.request_approval('mcp__jev__desktop_run_command', risky, timeout=0))
+        self.assertFalse(a.request_approval('mcp__jev__desktop_write_file', {'path': '/etc/hosts'}, timeout=0))
+        self.assertFalse(a.request_approval('mcp__jev__desktop_write_file', {'path': '~/.ssh/config'}, timeout=0))
+        a.handle({'action': 'assistant-mode', 'mode': 'ask'})
+        self.assertFalse(a.request_approval('mcp__opal__close_window', {'address': '0x1'}, timeout=0))
 
 class ToolTests(unittest.TestCase):
     APPS = [{'id': 'firefox.desktop', 'name': 'Firefox', 'path': '/a'}, {'id': 'org.kde.kate.desktop', 'name': 'Kate', 'path': '/b'},
