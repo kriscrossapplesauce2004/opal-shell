@@ -59,20 +59,24 @@ ShellRoot {
                 WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
                 color:Theme.base
                 IdleInhibitor {window:desktop;enabled:Hub.keepAwake||Hub.gameSession}
-                Loader {
-                    anchors.fill:parent
-                    sourceComponent:output.layoutMode==="phone" ? phoneBackdrop : desktopBackdrop
+                // The morph swaps the layout between two short phases; reduced motion swaps at once.
+                LayoutMorph {
+                    id:morph;anchors.fill:parent;layout:output.layoutMode
+                    Loader {
+                        anchors.fill:parent
+                        sourceComponent:morph.shown==="phone" ? phoneBackdrop : desktopBackdrop
+                    }
+                    Component {id:phoneBackdrop;PhoneBackdrop {}}
+                    Component {id:desktopBackdrop;Wallpaper {showWidgets:morph.shown==="desktop"&&Hub.prefs.desktopWidgets!==false}}
+                    // Non-exclusive homes live behind applications. Only the explicit overlay takes keys.
+                    Loader {
+                        anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? 48 : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? (Hub.prefs.phoneButtons ? 64 : 48) : 84}
+                        active:morph.shown!=="desktop"&&Hub.page===""
+                        sourceComponent:morph.shown==="phone" ? phoneHome : gameHome
+                    }
+                    Component {id:phoneHome;MobileHome {embedded:true}}
+                    Component {id:gameHome;ConsoleHome {embedded:true}}
                 }
-                Component {id:phoneBackdrop;PhoneBackdrop {}}
-                Component {id:desktopBackdrop;Wallpaper {showWidgets:output.layoutMode==="desktop"&&Hub.prefs.desktopWidgets!==false}}
-                // Non-exclusive homes live behind applications. Only the explicit overlay takes keys.
-                Loader {
-                    anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : output.layoutMode==="phone" ? 48 : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : output.layoutMode==="phone" ? (Hub.prefs.phoneButtons ? 64 : 48) : 84}
-                    active:output.layoutMode!=="desktop"&&Hub.page===""
-                    sourceComponent:output.layoutMode==="phone" ? phoneHome : gameHome
-                }
-                Component {id:phoneHome;MobileHome {embedded:true}}
-                Component {id:gameHome;ConsoleHome {embedded:true}}
                 OpalMenu {id:desktopMenu;title:"Desktop";icon:"desktop_windows";entries:[
                     {text:"Apps",icon:"apps",quick:true,run:()=>{Hub.launcherSection="apps";output.show("launcher");}},
                     {text:"Wallpaper",icon:"wallpaper",quick:true,run:()=>output.show("wallpaper")},
@@ -205,6 +209,7 @@ ShellRoot {
     TaskbarContextWindow {}
     DockWindow {}
     PhoneDock {}
+    ConvergenceController {}
     PanelWindow {
         id:notificationPopups
         screen:Notifier.popupScreen || Quickshell.screens[0]

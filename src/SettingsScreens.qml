@@ -48,6 +48,9 @@ Flickable {
             onPicked: value => Hub.mode(value)
         }
         MText { text: Hub.prefs.mode === "auto" ? "Flow: each screen picks its own layout below." : "Every screen uses this layout. Choose Flow to set screens one by one."; role: "bodyS"; color: Theme.subtext; Layout.leftMargin: 6; Layout.bottomMargin: 6; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        // Automatic switching: per-trigger preferences with undo.
+        MText { text: "Automatic"; role: "label"; color: Theme.primary; Layout.leftMargin: 6 }
+        ConvergenceSettings { Layout.fillWidth: true; Layout.bottomMargin: 6 }
         MText { visible: page.draft.length === 0; text: "No displays reported. Display settings need Hyprland."; role: "bodyS"; color: Theme.subtext; Layout.leftMargin: 6 }
         // Arrangement: drag displays; they snap to each other's edges.
         Rectangle {

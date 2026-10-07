@@ -52,6 +52,11 @@ ShellRoot {
             {name:"compact-control-panel",ui:"shade",w:420,h:520},
             {name:"compact-control-panel-light",ui:"shade",w:420,h:520,light:true},
             {name:"settings-displays",ui:"settings",w:980,h:900,section:"displays",monitors:true},
+            {name:"settings-convergence",ui:"settings",w:980,h:1100,section:"screens",monitors:true},
+            {name:"settings-convergence-light",ui:"settings",w:420,h:1500,section:"screens",monitors:true,light:true},
+            {name:"undo-toast",ui:"undotoast",w:480,h:260},
+            {name:"undo-toast-light",ui:"undotoast",w:480,h:260,light:true,detail2:true},
+            {name:"layout-morph",ui:"layoutmorph",w:480,h:260},
             {name:"settings-schedules",ui:"settings",w:980,h:800,section:"schedules",light:true,schedules:true},
             {name:"settings-apptheme",ui:"settings",w:980,h:800,section:"apptheme"},
             {name:"settings-profiles",ui:"settings",w:980,h:800,section:"profiles",profiles:true},
@@ -190,6 +195,18 @@ ShellRoot {
         Component {id:wallpaperStudio;Opal.WallpaperPicker {}}
         Component {id:dockView;Opal.DockWelcome {displayName:"USB-C · External monitor"}}
         Component {id:glassView;Item {Opal.Wallpaper {anchors.fill:parent;showWidgets:false} Opal.Surface {anchors.fill:parent;anchors.margins:24;translucency:.55;Opal.Convergence {anchors.fill:parent}}}}
+        Component {id:undoToastView;Item {
+            Rectangle {anchors.fill:parent;color:Opal.Theme.base}
+            Opal.UndoToast {anchors.centerIn:parent;text:"Keyboard connected · Desktop layout · 3 apps moved";detail:fixture.cases[fixture.step].detail2 ? "Built-in display idle while the lid is closed" : "";remaining:.62}
+        }}
+        Component {id:morphView;Item {
+            property alias morph:morph
+            Opal.LayoutMorph {
+                id:morph;anchors.fill:parent;layout:"phone"
+                Rectangle {anchors.fill:parent;color:morph.shown==="phone" ? Opal.Theme.tertiaryContainer : Opal.Theme.primaryContainer
+                    Opal.MText {anchors.centerIn:parent;text:"Layout: "+morph.shown;font.pixelSize:28}}
+            }
+        }}
         Component {id:convergenceView;Opal.Convergence {}}
         Component {id:desktop;Opal.Launcher {}}
         Component {id:startView;Item {
@@ -386,7 +403,7 @@ ShellRoot {
                 Opal.Hub.query=test.searchText||"";Opal.Hub.page="launcher";Opal.Hub.launcherSection="apps";
                 Opal.Hub.claudeAnswer=test.claude ? "Done. Your bar is now a **dock**: one pill with apps on the left and status on the right." : "";Opal.Hub.claudeTools=test.claude ? ["get preferences","set preference"] : [];
             }
-            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            view.sourceComponent=test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{
@@ -403,6 +420,16 @@ ShellRoot {
                         if(Opal.Hub.query!==""||Opal.Hub.page!=="launcher")console.error("ASSERTION_FAILED: Escape must clear search before closing");
                     }
                 });
+            }
+            if(test.ui==="layoutmorph") {
+                const morph=view.item.morph;
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{reduceMotion:true});
+                morph.layout="desktop";
+                if(morph.shown!=="desktop")console.error("ASSERTION_FAILED: reduced motion morph must swap at once");
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{reduceMotion:false});
+                morph.layout="phone";
+                if(!morph.morphing||morph.shown!=="desktop")console.error("ASSERTION_FAILED: morph must hold the old layout during phase one");
+                Qt.callLater(()=>{});
             }
             if(test.ui==="settings") {Opal.Hub.settingsSection=test.section||"";view.sourceComponent=settingsView;}
             if(test.ui==="tiles") {
