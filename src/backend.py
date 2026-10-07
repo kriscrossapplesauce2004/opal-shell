@@ -411,6 +411,7 @@ def commands():
                 valid = valid or key=='quickTiles' and isinstance(value,list) and len(value)<=len(QUICK_TILE_IDS) and all(v in QUICK_TILE_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneRows' and type(value)==int and 4<=value<=7
                 valid = valid or valid_preference(key, value)
+                valid = valid or phone_commands.valid_preference(key, value)
                 valid = valid or key=='taskbarOrder' and isinstance(value,list) and len(value)<=128 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneDisplay' and isinstance(value,str) and 0<len(value)<=128 and all(ch.isalnum() or ch in '_.:-' for ch in value)
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())

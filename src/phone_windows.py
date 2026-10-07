@@ -65,6 +65,26 @@ def plan_fit(clients, monitors, phone_outputs, modes=None):
     return plan
 
 
+def plan_lift(clients, monitor, keyboard, top=48):
+    """Return moves that lift focused floating windows above the keyboard. Tiled and maximized windows are resized by the compositor."""
+    if keyboard <= 0:
+        return []
+    scale = monitor.get('scale') or 1
+    height = int(monitor['height'] / scale)
+    if monitor.get('transform', 0) % 2:
+        height = int(monitor['width'] / scale)
+    limit = monitor['y'] + height - keyboard
+    moves = []
+    for client in clients:
+        if client.get('monitor') != monitor.get('id') or not client.get('floating') or not client.get('mapped') or client.get('focusHistoryID', 1) != 0:
+            continue
+        x, y = client['at']
+        bottom = y + client['size'][1]
+        if bottom > limit and _ADDRESS.fullmatch(client.get('address', '')):
+            moves.append({'address': client['address'], 'x': x, 'y': max(monitor['y'] + top, y - (bottom - limit))})
+    return moves
+
+
 class PhoneWindows:
     """Applies plans with hyprctl. The runner is replaceable for tests."""
 
@@ -139,3 +159,32 @@ class PhoneWindows:
             return False
         ok = self.place(address, slide_over_rect(usable_rect(monitor, top, bottom), fraction, side=side))
         return ok and self._try(['hyprctl', 'dispatch', 'alterzorder', 'top,address:' + address])
+
+    def lift(self, output, keyboard):
+        """Move the focused floating window above the on-screen keyboard."""
+        if not self.probe() or not _OUTPUT.fullmatch(output or ''):
+            return 0
+        monitor = next((m for m in self._json('monitors') if m.get('name') == output), None)
+        if not monitor:
+            return 0
+        done = 0
+        for move in plan_lift(self._json('clients'), monitor, keyboard):
+            done += self._try(['hyprctl', 'dispatch', 'movewindowpixel', f"exact {move['x']} {move['y']},address:{move['address']}"])
+        return done
+
+    def unsplit(self, addresses, phone_outputs):
+        """Return split windows to the tiled layout and fit them again."""
+        if not self.probe():
+            return 0
+        for address in addresses:
+            if _ADDRESS.fullmatch(address or ''):
+                self._try(['hyprctl', 'dispatch', 'settiled', 'address:' + address])
+        return self.fit(phone_outputs)
+
+    def go_home(self):
+        """Show the home screen by switching to an empty workspace. Returns false without Hyprland."""
+        if not self.probe():
+            return False
+        if self._try(['hyprctl', 'eval', 'return true']):
+            return self._try(['hyprctl', 'eval', 'hl.dispatch(hl.dsp.focus({workspace="empty"}))'])
+        return self._try(['hyprctl', 'dispatch', 'workspace', 'empty'])

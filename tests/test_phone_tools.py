@@ -115,3 +115,28 @@ class Commands(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class Extras(unittest.TestCase):
+    def test_lift(self):
+        mon = Geometry.MON
+        c = [{'address': '0x9', 'monitor': 0, 'floating': True, 'mapped': True, 'focusHistoryID': 0, 'at': [100, 500], 'size': [400, 250]},
+             {'address': '0x8', 'monitor': 0, 'floating': False, 'mapped': True, 'focusHistoryID': 0, 'at': [0, 0], 'size': [10, 10]}]
+        self.assertEqual(pw.plan_lift(c, mon, 300), [{'address': '0x9', 'x': 100, 'y': 250}])
+        self.assertEqual(pw.plan_lift(c, mon, 0), [])
+
+    def test_go_home_and_unsplit(self):
+        calls = []
+        def runner(args):
+            calls.append(args); return ''
+        w = pw.PhoneWindows(runner)
+        self.assertTrue(w.go_home())
+        self.assertTrue(any('empty' in ' '.join(a) for a in calls))
+        w.unsplit(['0x1', 'bad'], [])
+        self.assertEqual(sum(1 for a in calls if 'settiled' in a), 1)
+
+    def test_preferences(self):
+        v = phone_commands.valid_preference
+        self.assertTrue(v('lockNotifications', 'title')); self.assertFalse(v('lockNotifications', 'all'))
+        self.assertTrue(v('phoneSplitRatio', .4)); self.assertFalse(v('phoneSplitRatio', .9))
+        self.assertTrue(v('phoneAppModes', {'firefox': 'fullscreen'})); self.assertFalse(v('phoneAppModes', {'a': 'x'}))
+        self.assertFalse(v('other', True)); self.assertFalse(v('phoneFitApps', 1))
