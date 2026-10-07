@@ -46,6 +46,7 @@ def valid_phone_home(value):
     return True
 
 import system_tools
+import theme_export
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
 def valid_schedules(value):
@@ -64,6 +65,10 @@ def valid_dock_choices(value):
         if c.get('mode') not in ('desktop','console','phone','mirror') or c.get('phoneMode') not in ('trackpad','screen','panel'): return False
         if not isinstance(c.get('resolution',''),str) or len(c.get('resolution',''))>40 or type(c.get('scale',1)) not in (int,float) or not .5<=c.get('scale',1)<=4: return False
     return True
+def valid_theme_sync(value):
+    if not isinstance(value,dict) or set(value)-{'font','iconTheme','cursorTheme','cursorSize','fontSize'}: return False
+    text=lambda v: isinstance(v,str) and len(v)<=120 and not any(ch in v for ch in '\n\r\0')
+    return all(text(v) for k,v in value.items() if k in ('font','iconTheme','cursorTheme')) and all(type(value[k])==int and lo<=value[k]<=hi for k,lo,hi in (('cursorSize',16,128),('fontSize',6,32)) if k in value)
 def valid_profiles(value):
     if not isinstance(value,dict) or len(value)>10: return False
     return all(isinstance(name,str) and 0<len(name)<=40 and isinstance(saved,dict) and set(saved)<=set(PROFILE_KEYS) for name,saved in value.items())
@@ -81,6 +86,7 @@ def load():
     base['gamePins'] = []
     base['autoRotate'] = True
     base['themeExport'] = []
+    base['themeSync'] = {}
     base['linkEnabled'] = False
     base['linkClipboard'] = True
     base['linkSession'] = True
@@ -401,6 +407,7 @@ def commands():
                 key=c.get('key'); value=c.get('value')
                 valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate','onboarded','linkEnabled','linkClipboard','linkSession','linkImportKde') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
                 valid = valid or key=='themeExport' and isinstance(value,list) and all(v in system_tools.TARGETS for v in value) and len(set(value))==len(value)
+                valid = valid or key=='themeSync' and valid_theme_sync(value)
                 valid = valid or key=='schedules' and valid_schedules(value)
                 valid = valid or key=='profiles' and valid_profiles(value)
                 valid = valid or key=='dockChoices' and valid_dock_choices(value)
@@ -485,12 +492,14 @@ def commands():
             elif action=='claude-stop': stop_claude()
             elif action=='theme-export':
                 def export(c=c):
-                    try: emit({'event':'themeExport','done':system_tools.export_theme(c.get('colors'),[t for t in (c.get('targets') or []) if t in system_tools.TARGETS])})
+                    options=dict(c.get('options') if isinstance(c.get('options'),dict) else {},**{k:v for k,v in (prefs.get('themeSync') or {}).items() if v not in ('',None)})
+                    try: emit({'event':'themeExport','done':system_tools.export_theme(c.get('colors'),[t for t in (c.get('targets') or []) if t in system_tools.TARGETS],options=options)})
                     except (ValueError,OSError) as error: emit({'event':'message','text':'Theme export failed: '+str(error)})
-                threading.Thread(target=export,daemon=True).start()
+                theme_export.DEBOUNCE.submit(lambda: threading.Thread(target=export,daemon=True).start())
             elif action=='theme-export-remove':
                 try: system_tools.remove_export([t for t in (c.get('targets') or []) if t in system_tools.TARGETS])
                 except OSError as error: emit({'event':'message','text':str(error)})
+            elif action=='theme-discover': threading.Thread(target=lambda:emit({'event':'themeChoices','data':theme_export.discover()}),daemon=True).start()
             elif action=='updates': threading.Thread(target=lambda:emit(dict(system_tools.updates(),event='updates')),daemon=True).start()
             elif action=='health': emit(dict(system_tools.health(),event='health'))
             elif action=='system-update':

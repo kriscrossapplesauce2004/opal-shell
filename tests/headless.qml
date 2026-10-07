@@ -59,6 +59,7 @@ ShellRoot {
             {name:"layout-morph",ui:"layoutmorph",w:480,h:260},
             {name:"settings-schedules",ui:"settings",w:980,h:800,section:"schedules",light:true,schedules:true},
             {name:"settings-apptheme",ui:"settings",w:980,h:800,section:"apptheme"},
+            {name:"settings-apptheme-light",ui:"settings",w:980,h:800,section:"apptheme",light:true},
             {name:"settings-profiles",ui:"settings",w:980,h:800,section:"profiles",profiles:true},
             {name:"settings-system",ui:"settings",w:980,h:800,section:"system",health:true},
             {name:"onboarding-bar",ui:"onboarding",w:660,h:640,step:2},

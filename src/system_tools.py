@@ -67,47 +67,17 @@ def atomic(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(path.suffix + '.tmp'); temp.write_text(text); temp.replace(path)
 
-TARGETS = ('gtk', 'kitty', 'qt', 'hyprland')
+TARGETS = ('gtk', 'kitty', 'qt', 'hyprland', 'kde', 'sync', 'flatpak')
 
-def export_theme(colors, targets, home=None, runner=run):
-    """Write Opal colours for the chosen apps. Returns the targets that were written."""
-    home = home or HOME
-    if not valid_colors(colors): raise ValueError('Invalid colours')
-    done = []
-    if 'gtk' in targets:
-        for version in ('gtk-3.0', 'gtk-4.0'):
-            atomic(home / '.config' / version / 'opal.css', gtk_css(colors))
-            ensure_line(home / '.config' / version / 'gtk.css', '@import "opal.css";')
-        done.append('gtk')
-    if 'kitty' in targets:
-        atomic(home / '.config/kitty/opal-theme.conf', kitty_conf(colors))
-        ensure_line(home / '.config/kitty/kitty.conf', 'include opal-theme.conf')
-        if shutil.which('pkill'): runner(['pkill', '-USR1', '-x', 'kitty'])
-        done.append('kitty')
-    if 'qt' in targets:
-        atomic(home / '.config/qt6ct/colors/Opal.conf', qt_colors(colors))
-        atomic(home / '.config/qt5ct/colors/Opal.conf', qt_colors(colors))
-        done.append('qt')
-    if 'hyprland' in targets and shutil.which('hyprctl'):
-        active, inactive = 'rgba(%sff)' % colors['primary'][1:], 'rgba(%sff)' % colors['surfaceHigh'][1:]
-        result = runner(['hyprctl', 'eval', 'hl.config({general={col={active_border="%s",inactive_border="%s"}}})' % (active, inactive)])
-        if result is None or result.returncode or 'error' in (result.stdout or '').lower():
-            runner(['hyprctl', 'keyword', 'general:col.active_border', active])
-            runner(['hyprctl', 'keyword', 'general:col.inactive_border', inactive])
-        done.append('hyprland')
-    return done
+def export_theme(colors, targets, home=None, runner=run, options=None):
+    """Write Opal colours for the chosen apps. The work is in theme_export. Returns the targets that were written."""
+    import theme_export
+    return theme_export.export(colors, targets, home=home or HOME, runner=runner, options=options)
 
-def remove_export(targets, home=None):
-    home = home or HOME
-    if 'gtk' in targets:
-        for version in ('gtk-3.0', 'gtk-4.0'):
-            remove_line(home / '.config' / version / 'gtk.css', '@import "opal.css";')
-            (home / '.config' / version / 'opal.css').unlink(missing_ok=True)
-    if 'kitty' in targets:
-        remove_line(home / '.config/kitty/kitty.conf', 'include opal-theme.conf')
-        (home / '.config/kitty/opal-theme.conf').unlink(missing_ok=True)
-    if 'qt' in targets:
-        for folder in ('qt6ct', 'qt5ct'): (home / '.config' / folder / 'colors/Opal.conf').unlink(missing_ok=True)
+def remove_export(targets, home=None, runner=run):
+    """Undo the export for the chosen apps."""
+    import theme_export
+    theme_export.revert(targets, home=home or HOME, runner=runner)
 
 # ---------- Sun times from the time zone ----------
 
