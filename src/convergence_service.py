@@ -60,6 +60,9 @@ class Service:
 
     def _move(self, result):
         phone = next((o['name'] for o in self.outputs if o.get('builtin')), '')
+        # Windows move only to and from a panel that is in the phone layout; a laptop or desktop monitor keeps its tiling.
+        if phone and result.get('layouts', {}).get(phone) != 'phone':
+            return None
         try:
             if result['externalAdded'] and phone:
                 return self.mover.dock(phone, result['externalAdded'][0])
@@ -127,7 +130,7 @@ def main():
             continue
         if command.get('cmd') == 'state' and isinstance(command.get('outputs'), list) and isinstance(command.get('prefs'), dict):
             outputs = [{'name': str(o.get('name', '')), 'width': int(o.get('width', 0)), 'height': int(o.get('height', 0)),
-                        'builtin': convergence_policy.is_builtin(str(o.get('name', '')), str(command['prefs'].get('phoneDisplay', '')))}
+                        'builtin': convergence_policy.is_builtin(str(o.get('name', '')), str(command['prefs'].get('phoneDisplay', '')), command['prefs'])}
                        for o in command['outputs'][:32] if isinstance(o, dict)]
             service.set_outputs(outputs, command['prefs'])
         elif command.get('cmd') == 'undo':

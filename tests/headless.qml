@@ -125,6 +125,7 @@ ShellRoot {
             {name:"tablet-1280-light",ui:"phone",w:1280,h:800,task:true,light:true},
             {name:"tablet-dock",ui:"tabletdock",w:1280,h:180},
             {name:"tablet-dock-light",ui:"tabletdock",w:1280,h:180,light:true},
+            {name:"tablet-dock-gestures",ui:"tabletdock",w:1280,h:180,gestures:true},
             {name:"phone-battery",ui:"battery",w:412,h:915},
             {name:"phone-battery-light",ui:"battery",w:412,h:915,light:true},
             {name:"gesture-home",ui:"gesture",w:412,h:915,gesture:"home",progress:.45},
@@ -319,8 +320,8 @@ ShellRoot {
         }}
         Component {id:phone;Opal.MobileHome {}}
         Component {id:tabletDockView;Item {
-            Rectangle {anchors.fill:parent;color:Opal.Theme.base}
-            Opal.TabletDockTray {anchors.centerIn:parent;screenObj:null}
+            Opal.Wallpaper {anchors.fill:parent;showWidgets:false}
+            Opal.TabletBar {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:68;screenObj:null;keys:!(fixture.cases[fixture.step]||{}).gestures}
         }}
         Component {id:batteryView;Opal.BatteryStats {}}
         Component {id:gestureView;Item {

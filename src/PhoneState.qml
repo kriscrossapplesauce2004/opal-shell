@@ -197,6 +197,14 @@ Scope {
         if (names.length) Hub.command({action: "phone-fit", outputs: names, modes: Hub.prefs.phoneAppModes || ({})});
     }
     Timer { id: fitTimer; interval: 350; onTriggered: s.fit() }
+    // When an output stops being a phone, windows that phone mode floated or maximized get their own state back.
+    property var lastPhoneNames: []
+    readonly property var phoneNames: phoneScreens().map(sc => sc.name)
+    onPhoneNamesChanged: {
+        const left = lastPhoneNames.filter(n => phoneNames.indexOf(n) < 0);
+        lastPhoneNames = phoneNames.slice();
+        if (left.length && Hub.status.hypr) { if (splitActive) endSplit(); Hub.command({action: "phone-release", outputs: []}); }
+    }
     Connections { target: Hub; function onCompositorWindowsChanged() { fitTimer.restart(); } }
     // The on-screen keyboard lifts floating windows. Tiled windows resize by the compositor.
     Connections {

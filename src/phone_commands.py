@@ -6,7 +6,7 @@ import recent_activity
 import torch
 from phone_windows import PhoneWindows, MODES
 
-ACTIONS = ('torch', 'torch-status', 'battery-stats', 'recent-activity', 'phone-fit', 'phone-split', 'phone-slideover', 'phone-home', 'phone-unsplit', 'phone-lift')
+ACTIONS = ('torch', 'torch-status', 'battery-stats', 'recent-activity', 'phone-fit', 'phone-split', 'phone-slideover', 'phone-home', 'phone-unsplit', 'phone-lift', 'phone-release')
 _windows = PhoneWindows()
 
 
@@ -44,6 +44,9 @@ def handle(c, emit, games=None):
     elif action == 'phone-unsplit':
         outputs = c.get('outputs') if isinstance(c.get('outputs'), list) else []
         threading.Thread(target=lambda: _windows.unsplit(c.get('addresses') if isinstance(c.get('addresses'), list) else [], outputs), daemon=True).start()
+    elif action == 'phone-release':
+        outputs = c.get('outputs') if isinstance(c.get('outputs'), list) else []
+        threading.Thread(target=lambda: _windows.release(outputs), daemon=True).start()
     elif action == 'phone-lift':
         threading.Thread(target=lambda: _windows.lift(c.get('output'), _inset(c.get('keyboard'))), daemon=True).start()
     else:

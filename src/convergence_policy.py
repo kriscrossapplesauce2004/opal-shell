@@ -15,8 +15,18 @@ def enabled(prefs, trigger):
     return prefs.get('convergeAuto', True) is not False and prefs.get('converge' + trigger, True) is not False
 
 
-def is_builtin(name, phone_display=''):
-    return bool(BUILTIN.match(name)) or (bool(phone_display) and name == phone_display)
+def is_builtin(name, phone_display='', prefs=None):
+    """A built-in panel, or the chosen phone display while it is really used as a phone."""
+    if BUILTIN.match(name):
+        return True
+    if not phone_display or name != phone_display:
+        return False
+    # An external monitor that was once the phone display must not stay a phone after it is set back to desktop.
+    prefs = prefs or {}
+    chosen = (prefs.get('displayModes') or {}).get(name)
+    if chosen:
+        return chosen == 'phone'
+    return prefs.get('mode') == 'phone'
 
 
 def effective_signals(state, prefs):
@@ -32,7 +42,7 @@ def effective_signals(state, prefs):
 def decide(state, prefs):
     """Return {'layouts': {output: mode}, 'off': [outputs], 'external': [outputs]}."""
     signals = effective_signals(state, prefs)
-    outputs = [dict(o, builtin=o.get('builtin', is_builtin(o.get('name', ''), prefs.get('phoneDisplay', '')))) for o in state.get('outputs', [])]
+    outputs = [dict(o, builtin=o.get('builtin', is_builtin(o.get('name', ''), prefs.get('phoneDisplay', ''), prefs))) for o in state.get('outputs', [])]
     external = [o['name'] for o in outputs if not o['builtin']]
     layouts, off = {}, []
     for out in outputs:

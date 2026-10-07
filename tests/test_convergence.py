@@ -263,6 +263,25 @@ class ServiceTests(unittest.TestCase):
             service.set_outputs([PHONE], {'convergeMoveApps': False})
             self.assertNotIn('windows', events[-1])
 
+    def test_old_phone_display_set_to_desktop_is_not_a_phone(self):
+        prefs = {'phoneDisplay': 'HDMI-A-1', 'displayModes': {'HDMI-A-1': 'desktop'}, 'mode': 'desktop'}
+        self.assertFalse(pol.is_builtin('HDMI-A-1', 'HDMI-A-1', prefs))
+        self.assertFalse(pol.is_builtin('HDMI-A-1', 'HDMI-A-1', {'mode': 'desktop'}))
+        self.assertTrue(pol.is_builtin('HDMI-A-1', 'HDMI-A-1', {'mode': 'phone'}))
+        self.assertTrue(pol.is_builtin('eDP-1', '', prefs))
+
+    def test_desktop_layout_panel_never_moves_windows(self):
+        events = []
+        fake = FakeHypr()
+        with tempfile.TemporaryDirectory() as tmp:
+            service = svc.Service(events.append, HyprActions(fake), win.Memory(pathlib.Path(tmp) / 'w.json'))
+            service.set_input(dict(IDLE, lid='open'))
+            service.set_outputs([PHONE], {})
+            service.set_outputs([PHONE, MONITOR], {})
+            # A laptop lid makes the built-in panel a desktop, so docking leaves every window where it is.
+            self.assertNotIn('windows', events[-1])
+            self.assertFalse(any(op[0] in ('floating', 'fullscreen') for op in getattr(fake, 'ops', [])))
+
     def test_service_without_hyprland_is_honest(self):
         events = []
         service = svc.Service(events.append)

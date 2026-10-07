@@ -113,6 +113,31 @@ class Adapter(unittest.TestCase):
         self.assertEqual(pw.PhoneWindows(broken).fit(['DSI-1']), 0)
         self.assertFalse(pw.PhoneWindows(broken).split('DSI-1', '0x1', '0x2'))
 
+    def test_release_restores_tiling_after_phone_mode(self):
+        state = {'0x1': {'floating': False, 'fullscreen': 0}, '0x2': {'floating': False, 'fullscreen': 0}}
+        calls = []
+        def runner(args):
+            calls.append(args)
+            if args[:2] == ['hyprctl', '-j']:
+                if args[2] == 'clients':
+                    return json.dumps([{'address': a, 'mapped': True, 'monitor': 0, 'workspace': {'id': 1}, 'class': 'k', 'title': a,
+                                        'floating': v['floating'], 'fullscreen': v['fullscreen'], 'at': [0, 0], 'size': [100, 100]} for a, v in state.items()])
+                return json.dumps([dict(Geometry.MON)])
+            if args[:2] == ['hyprctl', 'eval']:
+                return 'ok'
+            return ''
+        w = pw.PhoneWindows(runner)
+        w._remember(json.loads(runner(['hyprctl', '-j', 'clients'])), ['0x1', '0x2'])
+        # Phone mode floated one window and maximized the other.
+        state['0x1']['floating'] = True
+        state['0x2']['fullscreen'] = 1
+        calls.clear()
+        self.assertEqual(w.release(), 2)
+        code = ' '.join(' '.join(c) for c in calls)
+        self.assertIn('action="disable"', code)
+        self.assertIn('fullscreen_state({internal=0,client=0', code)
+        self.assertEqual(w.originals, {})
+
     def test_split_places_both(self):
         calls = []
         def runner(args):

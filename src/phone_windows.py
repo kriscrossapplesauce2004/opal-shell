@@ -111,6 +111,8 @@ class PhoneWindows:
         self.available = None
         # Lua-config Hyprland refuses legacy dispatch and keyword commands, so every action goes through HyprActions.
         self.hypr = HyprActions(self.runner)
+        # The first state of every window that phone mode changed, so leaving phone mode can give it back.
+        self.originals = {}
 
     @staticmethod
     def _run(args):
@@ -146,7 +148,9 @@ class PhoneWindows:
         names = [n for n in phone_outputs if isinstance(n, str) and _OUTPUT.fullmatch(n)]
         if not names or not self.probe():
             return 0
-        plan = plan_fit(self._json('clients'), self._json('monitors'), set(names), modes)
+        clients = self._json('clients')
+        plan = plan_fit(clients, self._json('monitors'), set(names), modes)
+        self._remember(clients, [step['address'] for step in plan])
         changed = 0
         for step in plan:
             if step['do'] == 'clamp':
@@ -161,9 +165,47 @@ class PhoneWindows:
         if not self.probe() or not _ADDRESS.fullmatch(address or ''):
             return False
         x, y, w, h = (int(v) for v in rect)
+        self._remember(self._json('clients'), [address])
         if floating:
             self._act(self.hypr.set_floating, address, True)
         return self._act(self.hypr.geometry, address, x, y, w, h)
+
+    def _remember(self, clients, addresses):
+        by_address = {c.get('address'): c for c in clients}
+        for address in addresses:
+            client = by_address.get(address)
+            if client and address not in self.originals:
+                self.originals[address] = {'floating': bool(client.get('floating')), 'fullscreen': int(client.get('fullscreen') or 0)}
+
+    def release(self, outputs=None):
+        """Give windows back the floating and fullscreen state they had before phone mode changed them.
+
+        With outputs, only windows now on those outputs are released. Returns how many windows were restored.
+        """
+        if not self.originals or not self.probe():
+            return 0
+        names = {n for n in (outputs or []) if isinstance(n, str) and _OUTPUT.fullmatch(n)}
+        try:
+            clients = self._json('clients')
+            monitors = {m.get('id'): m.get('name') for m in self._json('monitors')}
+        except (ValueError, OSError, subprocess.SubprocessError):
+            return 0
+        restored = 0
+        for client in clients:
+            address = client.get('address')
+            first = self.originals.get(address)
+            if first is None or (names and monitors.get(client.get('monitor')) not in names):
+                continue
+            if int(client.get('fullscreen') or 0) != first['fullscreen']:
+                self._act(self.hypr.fullscreen, address, first['fullscreen'])
+            if bool(client.get('floating')) != first['floating']:
+                self._act(self.hypr.set_floating, address, first['floating'])
+            del self.originals[address]
+            restored += 1
+        # Windows that closed are forgotten.
+        live = {c.get('address') for c in clients}
+        self.originals = {a: v for a, v in self.originals.items() if a in live}
+        return restored
 
     def split(self, output, left, right, ratio=0.5, top=48, bottom=0, keyboard=0, workspace=0):
         """Put two windows side by side on one output. Both first move to the shown workspace, so a split never spans two."""

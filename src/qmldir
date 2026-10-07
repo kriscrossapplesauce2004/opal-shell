@@ -139,3 +139,4 @@ RoomPreview 1.0 RoomPreview.qml
 RoomsHome 1.0 RoomsHome.qml
 RoomsWidgets 1.0 RoomsWidgets.qml
 AssistantSteps 1.0 AssistantSteps.qml
+TabletBar 1.0 TabletBar.qml
