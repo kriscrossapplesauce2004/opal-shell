@@ -54,7 +54,7 @@ Tablet is part of phone mode. When the output is wide, phone mode becomes a tabl
 
 Each workstream works on its own branch. Shared files (`Hub.qml`, `shell.qml`, `backend.py`, `qmldir`, `Theme.qml`) get small additive edits only. Put new logic in new files.
 
-### G. Rooms home (new phone style, chosen 2026-10-07)
+### G. Rooms home (built, then removed 2026-10-07 at the user's request; MorphChip and the contextual pills stay)
 The design comes from three rounds of rendered prototypes. `tests/prototypes3.qml` is the visual reference. Renders are in `~/.local/state/opal/artifacts/launcher-prototypes/round3/`. Phone mode gets a `phoneStyle` preference: `classic` (the current home) or `rooms`. Phone and tablet use the same parts.
 - **Glance:** the date, a large clock and live chips (media, unread by app, focus timer, docked state) on a scrimmed wallpaper.
 - **Earlier chips:** finished things (closed apps, ended games, older files) appear as small chips with an app icon.

@@ -64,17 +64,6 @@ class BackendTests(unittest.TestCase):
         self.command({'action':'preference','key':'glass','value':0})
         self.assertEqual(self.backend.prefs['glass'], .78)
 
-    def test_rooms_preferences_are_validated(self):
-        self.command({'action':'preference','key':'phoneStyle','value':'rooms'})
-        self.assertEqual(self.backend.prefs['phoneStyle'],'rooms')
-        self.command({'action':'preference','key':'phoneStyle','value':'grid'})
-        self.assertEqual(self.backend.prefs['phoneStyle'],'rooms')
-        self.command({'action':'preference','key':'roomNames','value':{'1':'Code','2':'Play'}})
-        self.assertEqual(self.backend.prefs['roomNames'],{'1':'Code','2':'Play'})
-        for bad in ({'x':'Code'},{'1':''},{'1':'a'*41},['Code']):
-            self.command({'action':'preference','key':'roomNames','value':bad})
-            self.assertEqual(self.backend.prefs['roomNames'],{'1':'Code','2':'Play'})
-
     def test_quick_access_guide_preference_is_boolean(self):
         self.command({'action':'preference','key':'quickAccessGuide','value':False})
         self.assertIs(self.backend.prefs['quickAccessGuide'], False)

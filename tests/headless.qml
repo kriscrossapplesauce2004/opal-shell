@@ -176,8 +176,6 @@ ShellRoot {
             {name:"hypr-urgent-dark",ui:"workspace",w:1280,h:120,shelf:true,hyprFix:true,submap:"resize"},
             {name:"hypr-urgent-light",ui:"workspace",w:1280,h:120,shelf:true,hyprFix:true,submap:"resize",light:true},
             {name:"hypr-submap-reset",ui:"workspace",w:1280,h:120,shelf:true,hyprFix:true,submap:"reset"},
-            {name:"hypr-urgent-room-dark",ui:"roomcard",w:360,h:260,hyprFix:true},
-            {name:"hypr-urgent-room-light",ui:"roomcard",w:360,h:260,hyprFix:true,light:true},
             {name:"taskbar-drag",ui:"taskbar",w:700,h:64,drag:true},
             {name:"start-home",ui:"start",w:1280,h:800},
             {name:"start-home-light",ui:"start",w:1280,h:800,light:true},
@@ -257,7 +255,6 @@ ShellRoot {
                 A.approvals=[{id:"x1",tool:"close_window",label:"Close a window",detail:"firefox",risk:"high"},{id:"x2",tool:"open_target",label:"Open a link or file",detail:"https://wiki.hyprland.org/Configuring/",risk:"medium"}];
             }
         }
-        Component {id:roomCardView;Opal.RoomCard {room:Opal.Rooms.list[0];current:false;previews:false}}
         Component {id:taskbarView;Opal.TaskStrip {labels:false}}
         Component {id:audioView;Opal.AudioPanel {}}
         Component {id:settingsView;Opal.Settings {}}
@@ -613,7 +610,7 @@ ShellRoot {
                 Opal.GameState.receive({event:"gamePerf",fpsLimit:60,overlay:"compact",mangohud:true,gamemode:{available:true,active:true,clients:1},profiles:{available:true,profiles:["power-saver","balanced","performance"],active:"balanced"},tdp:test.noTdp ? null : {watts:15,min:4,max:25},gpu:test.noTdp ? null : {level:"auto"},controllers:[{name:"DualSense",percent:64,charging:false},{name:"Xbox Controller",percent:12,charging:false}]});
                 Opal.GameState.quickAccess=true;
             }
-            view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="roomcard" ? roomCardView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
+            view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
             if(test.ui==="quickaccess"){view.item.qa.tabIndex=test.tab||0;}
             if(test.qs!==undefined)view.item.phone=true;
             if(test.detailGrow!==undefined){const it=view.item;it.detailOrigin=Qt.rect(14,150,150,36);it.detailKind="wifi";it.detail=test.detailGrow;}

@@ -54,17 +54,16 @@ Item {
         }
     }
 
-    // Home recedes as the drawer rises. The phone style picks the classic grid or Rooms.
+    // Home recedes as the drawer rises.
     Loader {
         id:homeLayer
         anchors.fill:parent
         visible:mobile.progress<1&&!mobile.recents
         opacity:1-mobile.progress*.7
         scale:1-mobile.progress*.06
-        sourceComponent:Hub.prefs.phoneStyle==="rooms" ? roomsHome : classicHome
+        sourceComponent:classicHome
     }
     Component {id:classicHome;PhoneHome {}}
-    Component {id:roomsHome;RoomsHome {}}
     Connections {
         target:homeLayer.item
         function onDragProgress(value) {settle.stop();mobile.dragging=true;mobile.progress=value;}

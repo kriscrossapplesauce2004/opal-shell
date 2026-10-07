@@ -132,12 +132,7 @@ singleton Activities 1.0 Activities.qml
 ActivityPill 1.0 ActivityPill.qml
 ActivitySegment 1.0 ActivitySegment.qml
 SuggestionChips 1.0 SuggestionChips.qml
-singleton Rooms 1.0 Rooms.qml
 MorphChip 1.0 MorphChip.qml
-RoomCard 1.0 RoomCard.qml
-RoomPreview 1.0 RoomPreview.qml
-RoomsHome 1.0 RoomsHome.qml
-RoomsWidgets 1.0 RoomsWidgets.qml
 AssistantSteps 1.0 AssistantSteps.qml
 TabletBar 1.0 TabletBar.qml
 ChoiceGroup 1.0 ChoiceGroup.qml

@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 
-// Tablet navigation: islands that share the full width. Keys at the left, apps and search fill the middle, the room, Claude and the drawer sit at the right.
+// Tablet navigation: islands that share the full width. Keys at the left, apps and search fill the middle, Claude and the drawer sit at the right.
 Item {
     id:bar
     property var screenObj:null
@@ -41,18 +41,6 @@ Item {
         width:rightRow.implicitWidth+16;height:56
         Row {
             id:rightRow;anchors.centerIn:parent;spacing:6
-            // The current room; tap to see every room.
-            Rectangle {
-                visible:Rooms.live&&!!Rooms.currentRoom
-                anchors.verticalCenter:parent.verticalCenter
-                height:40;width:roomRow.implicitWidth+24;radius:20;color:Theme.alpha(Theme.text,.06)
-                Row {id:roomRow;anchors.centerIn:parent;spacing:6
-                    Glyph {name:"space_dashboard";font.pixelSize:17;color:Theme.primary;anchors.verticalCenter:parent.verticalCenter}
-                    MText {text:Rooms.currentRoom ? Rooms.currentRoom.id+" · "+Rooms.currentRoom.name : "";role:"label";anchors.verticalCenter:parent.verticalCenter;width:Math.min(implicitWidth,140);elide:Text.ElideRight}
-                    MText {visible:Rooms.list.length>1;text:"+"+(Rooms.list.length-1);role:"labelS";color:Theme.subtext;anchors.verticalCenter:parent.verticalCenter}}
-                TapHandler {onTapped:bar.recents()}
-                Accessible.role:Accessible.Button;Accessible.name:"Rooms"
-            }
             MButton {anchors.verticalCenter:parent.verticalCenter;icon:"auto_awesome";implicitWidth:44;implicitHeight:44;tooltip:"Ask Claude";onClicked:Hub.openAssistant("")}
             MButton {anchors.verticalCenter:parent.verticalCenter;icon:"apps";filled:true;implicitWidth:44;implicitHeight:44;tooltip:"All apps";onClicked:{if(bar.screenObj)Hub.targetScreen=bar.screenObj;Hub.mobileTab="apps";Hub.page="launcher";}}
         }

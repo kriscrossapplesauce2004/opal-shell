@@ -15,10 +15,8 @@ Item {
     Loader {
         id:widgets
         active:w.showWidgets
-        readonly property bool rooms:Hub.prefs.desktopStyle==="rooms"
-        x:20;y:Math.max(24,w.height*.035);width:Math.min(rooms ? 340 : 270,w.width-40)
-        sourceComponent:rooms ? roomsWidgets : classicWidgets
+        x:20;y:Math.max(24,w.height*.035);width:Math.min(270,w.width-40)
+        sourceComponent:classicWidgets
     }
     Component {id:classicWidgets;DesktopWidgets {width:widgets.width;backdrop:photo;tall:w.height>=820;available:w.height-widgets.y-80}}
-    Component {id:roomsWidgets;RoomsWidgets {width:widgets.width;backdrop:photo;host:w;available:w.height-widgets.y-80}}
 }
