@@ -24,8 +24,8 @@ def run(*args, timeout=1.4):
     if not command_available(args[0]): return ''
     try: return subprocess.check_output(args, stderr=subprocess.DEVNULL, timeout=timeout).decode().strip()
     except (OSError, subprocess.SubprocessError): return ''
-def spawn(args):
-    try: subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+def spawn(args, env=None):
+    try: subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=env)
     except OSError: emit({'event':'message', 'text':f'{args[0]} is not installed'})
 BAR_STYLES = ('islands','dock','split','edge')
 SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery','devices')
@@ -510,6 +510,9 @@ def commands():
                 threading.Thread(target=link_command,args=(c,),daemon=True).start()
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
             elif action=='game-launch': launch_game(c.get('id'))
+            elif action in ('perf-get','perf-set','perf-copy','game-detail','game-uninstall'):
+                import game_perf
+                threading.Thread(target=game_perf.dispatch,args=(c,emit,spawn),daemon=True).start()
             elif action=='system-osk' and c.get('verb') in ('show','hide','toggle'):
                 if not system_osk:
                     emit({'event':'systemOsk','available':False,'running':False,'visible':False,'detail':'System keyboard is not initialized'})
@@ -712,7 +715,8 @@ def launch_game(game_id):
     command = GAMES.get(game_id) if isinstance(game_id, str) else None
     if not command: emit({'event':'message','text':'That game is no longer installed'}); return
     if not shutil.which(command[0]): emit({'event':'message','text':f'{command[0]} is not installed'}); return
-    spawn(command)
+    import game_perf
+    spawn(command, game_perf.launch_env())
     try:
         try: played = json.loads(GAME_STATE.read_text())
         except (OSError, ValueError): played = {}

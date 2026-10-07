@@ -358,4 +358,11 @@ FocusScope {
             }
         }
     }
+    // Controller: the first press wakes the scene, then the D-pad moves between controls and the keyboard types.
+    Connections { target: ControllerNav; function onKey() { if (!scene.revealed && scene.confirmPower === "") scene.reveal(); } }
+    ControllerFocus {
+        anchors.fill: parent; root: scene; priority: 20; closeOnBack: false; preferText: true
+        active: scene.greeter || Hub.locked
+        onBack: { if (scene.confirmPower !== "") scene.confirmPower = ""; else { field.text = ""; if (!scene.greeter) scene.revealed = false; } }
+    }
 }

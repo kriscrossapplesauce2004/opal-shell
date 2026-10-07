@@ -86,6 +86,7 @@ Rectangle {
         MText { visible:a.text!==""; text:a.text; textFormat:Text.PlainText; Layout.fillWidth:true; elide:Text.ElideRight; color:a.filled ? a.fillInk : a.tonal ? Theme.onContainer : a.ink; font.pixelSize:a.compact ? 12 : 14; font.weight:Font.DemiBold }
     }
     activeFocusOnTab: true
+    function controllerActivate() { clicked(); }
     Keys.onReturnPressed: clicked()
     Keys.onSpacePressed: clicked()
     // Keep the Popup in its original coordinate space while avoiding menu-item

@@ -1,6 +1,8 @@
 singleton Theme 1.0 Theme.qml
 singleton Hub 1.0 Hub.qml
 singleton Notifier 1.0 Notifier.qml
+singleton ControllerNav 1.0 ControllerNav.qml
+singleton GameState 1.0 GameState.qml
 NotificationCard 1.0 NotificationCard.qml
 NotificationCenter 1.0 NotificationCenter.qml
 AppTile 1.0 AppTile.qml
@@ -99,3 +101,8 @@ DockWindow 1.0 DockWindow.qml
 PhoneDock 1.0 PhoneDock.qml
 PhoneDockPanel 1.0 PhoneDockPanel.qml
 DockTrackpad 1.0 DockTrackpad.qml
+ControllerFocus 1.0 ControllerFocus.qml
+ControllerHints 1.0 ControllerHints.qml
+QaRow 1.0 QaRow.qml
+QuickAccess 1.0 QuickAccess.qml
+RoundedImage 1.0 RoundedImage.qml
