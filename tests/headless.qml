@@ -169,6 +169,11 @@ ShellRoot {
             {name:"clipboard-text",ui:"clipboard",w:470,h:650},
             {name:"clipboard-phone",ui:"clipboard",w:390,h:844,phone:true},
             {name:"clipboard-widget",ui:"dashboard",w:840,h:700},
+            {name:"hypr-urgent-dark",ui:"workspace",w:1280,h:120,shelf:true,hyprFix:true,submap:"resize"},
+            {name:"hypr-urgent-light",ui:"workspace",w:1280,h:120,shelf:true,hyprFix:true,submap:"resize",light:true},
+            {name:"hypr-submap-reset",ui:"workspace",w:1280,h:120,shelf:true,hyprFix:true,submap:"reset"},
+            {name:"hypr-urgent-room-dark",ui:"roomcard",w:360,h:260,hyprFix:true},
+            {name:"hypr-urgent-room-light",ui:"roomcard",w:360,h:260,hyprFix:true,light:true},
             {name:"taskbar-drag",ui:"taskbar",w:700,h:64,drag:true},
             {name:"start-home",ui:"start",w:1280,h:800},
             {name:"start-home-light",ui:"start",w:1280,h:800,light:true},
@@ -246,6 +251,7 @@ ShellRoot {
                 A.approvals=[{id:"x1",tool:"close_window",label:"Close a window",detail:"firefox",risk:"high"},{id:"x2",tool:"open_target",label:"Open a link or file",detail:"https://wiki.hyprland.org/Configuring/",risk:"medium"}];
             }
         }
+        Component {id:roomCardView;Opal.RoomCard {room:Opal.Rooms.list[0];current:false;previews:false}}
         Component {id:taskbarView;Opal.TaskStrip {labels:false}}
         Component {id:audioView;Opal.AudioPanel {}}
         Component {id:settingsView;Opal.Settings {}}
@@ -566,6 +572,9 @@ ShellRoot {
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{palette:1});
                 Opal.Hub.status=Object.assign({},Opal.Hub.status,{battery:73,charging:true,wifi:true});
             }
+            // Hyprland event fixture: two windows, the web one urgent, and an optional submap.
+            Opal.Hub.status=Object.assign({},Opal.Hub.status,{urgent:test.hyprFix ? ["fixture-web"] : [],submap:test.submap||""});
+            if(test.hyprFix){Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:1,at:[0,0],size:[960,1080]},{title:"Mozilla Firefox",className:"firefox",address:"fixture-web",workspace:1,at:[960,0],size:[960,1080]}];Opal.Hub.status=Object.assign({},Opal.Hub.status,{hypr:true,workspace:1,workspaces:[1],activeAddress:"fixture-project",monitors:[{name:"M",workspace:1,x:0,y:0,width:1920,height:1080,scale:1,transform:0}]});}
             Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{barStyle:test.barStyle||"islands"});
             if(test.ui==="bars")Opal.Hub.compositorActive=true,Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:2},{title:"Mozilla Firefox",className:"firefox",address:"fixture-web",workspace:1}];
             Opal.Hub.osdScreen=null;Opal.Hub.osd=test.osd ? "Volume" : "";
@@ -598,7 +607,7 @@ ShellRoot {
                 Opal.GameState.receive({event:"gamePerf",fpsLimit:60,overlay:"compact",mangohud:true,gamemode:{available:true,active:true,clients:1},profiles:{available:true,profiles:["power-saver","balanced","performance"],active:"balanced"},tdp:test.noTdp ? null : {watts:15,min:4,max:25},gpu:test.noTdp ? null : {level:"auto"},controllers:[{name:"DualSense",percent:64,charging:false},{name:"Xbox Controller",percent:12,charging:false}]});
                 Opal.GameState.quickAccess=true;
             }
-            view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
+            view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="roomcard" ? roomCardView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
             if(test.ui==="quickaccess"){view.item.qa.tabIndex=test.tab||0;}
             if(test.ui==="console"){
                 if(test.tab)view.item.category=test.tab;

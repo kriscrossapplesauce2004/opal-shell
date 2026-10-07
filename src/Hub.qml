@@ -439,6 +439,7 @@ Scope {
         const key=String(w.className||"").toLowerCase().replace(/\.desktop$/i,"").trim();
         return appIndex[key]||null;
     }
+    function urgent(w) { return !!w.address&&(status.urgent||[]).indexOf(w.address)>=0; }
     function active(w) { return w.handle ? w.handle.activated : w.address===status.activeAddress; }
     function activateGroup(g) {
         if(!g.windows.length) { if(g.app)launch(g.app);return; }
@@ -564,6 +565,8 @@ Scope {
                     } else if(e.event === "compositor") {
                         if (e.data.hypr !== undefined) h.compositorActive=!!e.data.hypr;
                         if (e.data.windows !== undefined) h.compositorWindows=e.data.windows;
+                        // A title patch edits one window without a full refresh.
+                        if (e.data.windowTitle) h.compositorWindows=h.compositorWindows.map(w=>w.address===e.data.windowTitle.address ? Object.assign({},w,{title:e.data.windowTitle.title}) : w);
                         h.status=Object.assign({},h.status,e.data);
                     } else if(e.event === "preferences") {
                         h.prefs=e.data;

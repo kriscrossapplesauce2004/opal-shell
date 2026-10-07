@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'src'))
 
-from hypr_events import _drain_events, fullscreen_monitors
+from hypr_events import _drain_events, fullscreen_monitors, new_state
 
 
 class HyprEventTests(unittest.TestCase):
@@ -85,6 +85,43 @@ class HyprEventTests(unittest.TestCase):
                 {'title': title}, {'activeAddress': f'0x{index:x}'},
             )],
         )
+
+    def drain(self, data, state=None):
+        emitted = []
+        refresh = _drain_events(bytearray(data), emitted.append, lambda _: {'id': 1}, state)
+        return emitted, refresh
+
+    def test_urgent_clears_on_focus_and_close(self):
+        state = new_state()
+        emitted, refresh = self.drain(b'urgent>>abc\nurgent>>abc\nurgent>>def\nactivewindowv2>>abc\nclosewindow>>def\n', state)
+        self.assertTrue(refresh)
+        self.assertEqual(emitted, [{'urgent': ['0xabc']}, {'urgent': ['0xabc', '0xdef']},
+                                   {'activeAddress': '0xabc'}, {'urgent': ['0xdef']}, {'urgent': []}])
+        self.assertEqual(state['urgent'], [])
+
+    def test_submap_is_published_without_refresh(self):
+        emitted, refresh = self.drain(b'submap>>resize\nsubmap>>\n')
+        self.assertFalse(refresh)
+        self.assertEqual(emitted, [{'submap': 'resize'}, {'submap': ''}])
+
+    def test_special_workspace_per_monitor(self):
+        state = new_state()
+        emitted, refresh = self.drain(b'activespecialv2>>-98,special:magic,DP-1\nactivespecialv2>>0,,DP-1\n'
+                                    b'activespecial>>special:term,HDMI-A-1\n', state)
+        self.assertTrue(refresh)
+        self.assertEqual(emitted[0], {'special': {'DP-1': 'special:magic'}})
+        self.assertEqual(emitted[1], {'special': {'DP-1': ''}})
+        self.assertEqual(emitted[2], {'special': {'DP-1': '', 'HDMI-A-1': 'special:term'}})
+
+    def test_title_update_skips_refresh(self):
+        emitted, refresh = self.drain(b'windowtitlev2>>1f,Hello, world\n')
+        self.assertFalse(refresh)
+        self.assertEqual(emitted, [{'windowTitle': {'address': '0x1f', 'title': 'Hello, world'}}])
+
+    def test_minimized_toggles(self):
+        state = new_state()
+        emitted, _ = self.drain(b'minimized>>a1,1\nminimized>>a1,1\nminimized>>a1,0\n', state)
+        self.assertEqual(emitted, [{'minimized': ['0xa1']}, {'minimized': []}])
 
 
 if __name__ == '__main__':

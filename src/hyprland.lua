@@ -21,6 +21,10 @@ hl.config({
     decoration = { rounding = p.rounding, blur = { enabled = true, size = 8, passes = 3 },
         shadow = { enabled = true, range = 35, render_power = 3, color = "rgba(080b1880)" } }
 })
+-- Touchscreens swipe workspaces natively. Phone mode uses the shell gesture layer instead. The 3-finger touchpad swipe lives in the user config.
+if opal_mode() ~= "phone" then
+    pcall(hl.config, { gestures = { workspace_swipe_touch = true } })
+end
 -- Written atomically by Opal after resolving each output's actual layout.
 -- Workspace monitor selectors follow workspaces moved between outputs.
 local runtime = os.getenv("XDG_RUNTIME_DIR")

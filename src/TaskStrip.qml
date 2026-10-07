@@ -61,6 +61,7 @@ Item {
                     required property var modelData
                     required property int index
                     readonly property bool dragged:s.draggingKey===modelData.key
+                    readonly property bool urgent:modelData.windows.some(w=>Hub.urgent(w))
                     readonly property bool focused:modelData.windows.some(w=>Hub.active(w))
                     readonly property bool labeled:s.labels&&modelData.windows.length>0&&(s.islandStyle||s.width>500)
                     function openMenu(x,y) {
@@ -120,6 +121,19 @@ Item {
                         }
                         Rectangle {visible:task.modelData.windows.length>0;anchors.bottom:parent.bottom;anchors.bottomMargin:s.islandStyle ? 3 : 2;anchors.horizontalCenter:parent.horizontalCenter;width:task.focused ? 14 : 4;height:s.islandStyle ? 3 : 3;radius:2;color:s.islandStyle ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.primary
                             Behavior on width {NumberAnimation {duration:Theme.motion(260);easing.type:Easing.OutCubic}}
+                        }
+                        // Urgent windows get an error dot that breathes slowly; reduced motion keeps it still.
+                        Rectangle {
+                            id:urgentDot
+                            visible:task.urgent&&!task.focused
+                            anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:task.labeled ? 8 : 6;anchors.topMargin:6
+                            width:10;height:10;radius:5;color:Theme.error;border.width:1;border.color:Theme.surface
+                            SequentialAnimation on opacity {
+                                running:urgentDot.visible&&!Theme.reduceMotion;loops:Animation.Infinite
+                                NumberAnimation {to:.45;duration:900;easing.type:Easing.InOutSine}
+                                NumberAnimation {to:1;duration:900;easing.type:Easing.InOutSine}
+                            }
+                            Accessible.role:Accessible.Indicator;Accessible.name:"Needs attention"
                         }
                         MouseArea {
                             id:mouse;anchors.fill:parent;hoverEnabled:true;acceptedButtons:Qt.LeftButton|Qt.RightButton
