@@ -74,3 +74,65 @@ class ControllerMappingTests(unittest.TestCase):
         self.assertEqual(actions.count('pageUp'), expected_edges)
         self.assertEqual(actions.count('accept'), expected_buttons)
         self.assertEqual(len(actions), expected_edges + expected_buttons)
+
+
+class GuideTests(unittest.TestCase):
+    # Kernel codes: 304 A, 316 Guide, 315 Start.
+    def make(self, profile='generic'):
+        return NavigationState(buttons=[304, 316, 315], profile=profile)
+
+    def test_tap_emits_guide_on_release(self):
+        nav = self.make()
+        self.assertEqual(nav.feed(1, 1, 1, 0), [])
+        self.assertEqual(nav.feed(1, 1, 0, .3), ['guide'])
+
+    def test_slow_release_emits_nothing(self):
+        nav = self.make()
+        nav.feed(1, 1, 1, 0)
+        self.assertEqual(nav.feed(1, 1, 0, .5), [])
+
+    def test_hold_emits_once_while_held_and_release_is_silent(self):
+        nav = self.make()
+        nav.feed(1, 1, 1, 0)
+        self.assertEqual(nav.repeat(.5), [])
+        self.assertAlmostEqual(nav.wait(.5), .1)
+        self.assertEqual(nav.repeat(.6), ['guideHold'])
+        self.assertEqual(nav.repeat(.9), [])
+        self.assertEqual(nav.feed(1, 1, 0, 1.0), [])
+
+    def test_chord_with_accept_suppresses_plain_events(self):
+        nav = self.make()
+        nav.feed(1, 1, 1, 0)
+        self.assertEqual(nav.feed(1, 0, 1, .1), ['guide+accept'])
+        self.assertEqual(nav.feed(1, 0, 0, .15), [])
+        self.assertEqual(nav.feed(1, 1, 0, .2), [])
+        self.assertEqual(nav.repeat(1), [])
+
+    def test_chord_follows_nintendo_swap(self):
+        nav = NavigationState(buttons=[304, 305, 316], profile='nintendo')
+        nav.feed(1, 2, 1, 0)
+        self.assertEqual(nav.feed(1, 1, 1, .1), ['guide+accept'])
+
+    def test_accept_without_guide_is_plain(self):
+        nav = self.make()
+        self.assertEqual(nav.feed(1, 0, 1, 0), ['accept'])
+        nav.feed(1, 0, 0, .1)
+        nav.feed(1, 1, 1, .2)
+        nav.feed(1, 1, 0, .3)
+        self.assertEqual(nav.feed(1, 0, 1, 1), ['accept'])
+
+    def test_start_still_emits_home_on_press(self):
+        self.assertEqual(self.make().feed(1, 2, 1, 0), ['home'])
+
+    def test_startup_snapshot_blocks_held_guide(self):
+        nav = self.make()
+        self.assertEqual(nav.feed(0x81, 1, 1, 0), [])
+        self.assertEqual(nav.repeat(2), [])
+        self.assertEqual(nav.feed(1, 1, 0, 2), [])
+        nav.feed(1, 1, 1, 3)
+        self.assertEqual(nav.feed(1, 1, 0, 3.1), ['guide'])
+
+    def test_fallback_button_eight_is_guide(self):
+        nav = NavigationState()
+        nav.feed(1, 8, 1, 0)
+        self.assertEqual(nav.feed(1, 8, 0, .1), ['guide'])
