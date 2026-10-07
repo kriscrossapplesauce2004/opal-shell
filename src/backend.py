@@ -379,6 +379,8 @@ from power_status import (connected_bluetooth_devices, cpu_governor,
                           parse_upower_batteries, primary_battery,
                           system_batteries)
 hypr_actions = HyprActions()
+import phone_commands
+GAMES_LISTED = []
 
 
 def publish_wallpapers(c):
@@ -476,6 +478,7 @@ def commands():
                     else:hypr_actions.workspace(c.get('number'))
                 except (ValueError,OSError,subprocess.SubprocessError) as error:
                     emit({'event':'message','text':str(error)})
+            elif phone_commands.handle(c,emit,GAMES_LISTED): pass
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
             elif action=='claude-ask' and isinstance(c.get('text'),str) and 0<len(c['text'])<8000:
@@ -705,6 +708,7 @@ def publish_games():
         entry['lastPlayed'] = max(int(entry.get('lastPlayed') or 0), int(played.get(game['id'], 0) if isinstance(played, dict) else 0))
         listed.append(entry)
     listed.sort(key=lambda g: (-g['lastPlayed'], g['title'].lower()))
+    GAMES_LISTED[:]=listed
     emit({'event':'gameLibrary','data':listed})
 
 def launch_game(game_id):
