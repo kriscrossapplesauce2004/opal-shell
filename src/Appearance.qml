@@ -70,6 +70,7 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
             }
         }
         MButton {Layout.fillWidth:true;icon:"home";text:Hub.prefs.desktopWidgets!==false ? "Desktop widgets on" : "Desktop widgets off";tonal:true;onClicked:Hub.set("desktopWidgets",Hub.prefs.desktopWidgets===false)}
+        MButton {Layout.fillWidth:true;visible:Hub.prefs.desktopWidgets!==false;icon:"space_dashboard";text:Hub.prefs.desktopStyle==="rooms" ? "Desktop widgets: Rooms" : "Desktop widgets: Classic";tonal:true;onClicked:Hub.set("desktopStyle",Hub.prefs.desktopStyle==="rooms" ? "classic" : "rooms")}
         MText {text:"TASKBAR & NAVIGATION";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MButton {Layout.fillWidth:true;icon:"expand";text:Hub.prefs.taskbarAutoHide ? "Auto-hide on · zero reserved space" : "Floating shelf · always visible";tonal:true;onClicked:Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide)}
         MButton {Layout.fillWidth:true;icon:"space_dashboard";text:Hub.prefs.phoneStyle==="rooms" ? "Phone home: Rooms" : "Phone home: Classic grid";tonal:true;onClicked:Hub.set("phoneStyle",Hub.prefs.phoneStyle==="rooms" ? "classic" : "rooms")}

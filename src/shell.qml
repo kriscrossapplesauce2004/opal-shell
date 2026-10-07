@@ -86,6 +86,7 @@ ShellRoot {
                     {text:"Settings",icon:"settings",quick:true,run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}},
                     {text:"Dark theme",icon:"dark_mode",checked:!Theme.light,run:()=>Hub.set("light",!Theme.light)},
                     {text:"Desktop widgets",icon:"widgets",checked:Hub.prefs.desktopWidgets!==false,run:()=>Hub.set("desktopWidgets",Hub.prefs.desktopWidgets===false)},
+                    {text:"Rooms widgets",icon:"space_dashboard",checked:Hub.prefs.desktopStyle==="rooms",run:()=>Hub.set("desktopStyle",Hub.prefs.desktopStyle==="rooms" ? "classic" : "rooms")},
                     {text:"Style and colours",icon:"palette",run:()=>output.show("appearance")},
                     {text:"Displays & convergence",icon:"convergence",run:()=>output.show("convergence")}
                 ]}

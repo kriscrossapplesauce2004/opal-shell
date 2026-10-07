@@ -16,7 +16,10 @@ ShellRoot {
             {name:"desk-2-shelf-hover",view:restView,hover:true},
             {name:"desk-3-overview",view:overviewView},
             {name:"desk-4-rest",view:restView},
-            {name:"desk-4-rest-light",view:restView,light:true}
+            {name:"desk-4-rest-light",view:restView,light:true},
+            {name:"desk-widgets",view:widgetsView},
+            {name:"desk-widgets-light",view:widgetsView,light:true},
+            {name:"desk-widgets-chip",view:widgetsView,chip:true}
         ]
         property var c:cases[0]
         function seed() {
@@ -30,7 +33,7 @@ ShellRoot {
                 {title:"JLCPCB – Order",className:"google-chrome",address:"0x6",workspace:3,monitor:"DP-1",at:[W*.64+24,12],size:[W*.36-36,H-120],floating:false,fullscreen:0},
                 {title:"#opal-dev",className:"discord",address:"0x7",workspace:4,monitor:"DP-1",at:[W*.2,H*.1],size:[W*.6,H*.7],floating:true,fullscreen:0}
             ];
-            Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{light:!!c.light});
+            Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{light:!!c.light,desktopStyle:"rooms",desktopWidgets:true,wallpaperPath:"file:///home/melissa/Pictures/Wallpapers/default.png"});
             Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=wins;
             Opal.Hub.status=Object.assign({},Opal.Hub.status,{hypr:true,workspace:1,workspaces:[1,2,3,4],monitors:[{name:"DP-1",workspace:1,x:0,y:0,width:W,height:H,scale:1,transform:0}],activeAddress:"0x1",track:"snowfall",artist:"lofi girl",playing:true});
             Opal.PhoneState.activity={files:[{kind:"file",title:"ROADMAP-2026-10.md",path:"/tmp/none.md",when:"1 h ago"},{kind:"file",title:"board-notes.txt",path:"/tmp/x"}],games:[{kind:"game",id:"steam:9",title:"Kerbal Space Program"},{kind:"game",id:"steam:8",title:"Fabulously Optimized"}]};
@@ -43,7 +46,8 @@ ShellRoot {
             loader.sourceComponent=null;loader.sourceComponent=c.view;
             prep.restart();
         }
-        Timer {id:prep;interval:500;onTriggered:{fixture.seed();grab.restart();}}
+        Timer {id:prep;interval:500;onTriggered:{fixture.seed();if(fixture.c.chip){const ch=fixture.findChip(loader.item);if(ch)ch.expanded=true;}grab.restart();}}
+        function findChip(item) {if(!item)return null;if(item.sheetWidth!==undefined&&item.text==="snowfall")return item;for(let i=0;i<item.children.length;i++){const f=fixture.findChip(item.children[i]);if(f)return f;}return null;}
         Timer {id:grab;interval:1200;onTriggered:fixture.contentItem.grabToImage(r=>{r.saveToFile(Quickshell.env("OPAL_TEST_OUTPUT")+"/"+fixture.cases[fixture.step].name+".png");fixture.step++;fixture.run();})}
         Component.onCompleted:Qt.callLater(run)
     }
@@ -120,6 +124,13 @@ ShellRoot {
                 Opal.Glyph {name:modelData.glyph||"history";font.pixelSize:20+6*index;anchors.verticalCenter:parent.verticalCenter}
                 Column {Opal.MText {text:modelData.title;font.pixelSize:15+5*index;font.weight:index===2 ? Font.DemiBold : Font.Medium}
                         Opal.MText {text:modelData.meta;role:"labelS";color:Opal.Theme.subtext}}}}
+    }
+
+    // Rooms desktop widgets on the real wallpaper, with the classic shelf look.
+    Component {id:widgetsView
+        Item {
+            Opal.Wallpaper {anchors.fill:parent}
+        }
     }
 
     // 1. Start as Rooms.
