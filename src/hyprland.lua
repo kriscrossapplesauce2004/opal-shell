@@ -41,6 +41,10 @@ hl.layer_rule({ match = { namespace = "^opal-(audio|shade)$" }, blur = true, ign
 -- ignore_alpha keeps blur confined to that translucent card.
 hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+-- Newer card surfaces animate themselves and blur only their painted cards.
+hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+-- Gesture, edge and split layers are input surfaces: no blur and no compositor animation.
+hl.layer_rule({ match = { namespace = "^opal-(gesture|edge|split)$" }, blur = false, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-(audio|shade)-dismiss$" }, blur = false, no_anim = true })
 local function bind(key, command)
     hl.unbind(key)
