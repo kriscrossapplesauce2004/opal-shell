@@ -4,7 +4,9 @@ import Quickshell.Wayland
 // Workspace indicator: slides down from the top edge on a workspace switch, then slides away.
 PanelWindow {
     id: osd
-    screen: Hub.chooseScreen()
+    // The target is computed once; reading the window screen back would make a binding loop with visible.
+    readonly property var target: Hub.chooseScreen()
+    screen: target
     property int shown: 0
     property int baseline: -1
     property bool out: false
@@ -25,7 +27,7 @@ PanelWindow {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     color: "transparent"
     // Desktop bars show the workspace in the clock pill instead.
-    readonly property bool inBar: screen && Hub.layoutFor(screen.width, screen.height, screen.name) === "desktop" && (Hub.status.fullscreenMonitors || []).indexOf(screen.name) < 0
+    readonly property bool inBar: !!target && Hub.layoutFor(target.width, target.height, target.name) === "desktop" && (Hub.status.fullscreenMonitors || []).indexOf(target.name) < 0
     visible: pill.y > -pill.height && !inBar
     mask: Region {}
     // The first value after startup is only a baseline, so login and reload stay quiet.
