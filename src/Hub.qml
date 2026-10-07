@@ -214,14 +214,46 @@ Scope {
         knownDisplays=names;
         if(dockScreen&&names.indexOf(dockScreen.name)<0) {
             const gone=dockScreen.name;
-            dockNotice=false;dockScreen=null;
+            dockNotice=false;dockMenu=false;dockScreen=null;dockResult=null;dockMirrored=false;
             if(docked&&dockOutput===gone) {
                 docked=false;command({action:"pointer-stop"});phoneDark=false;
                 const next=Object.assign({},sessionModes);delete next[gone];sessionModes=next;
                 message("Undocked. Your apps are back on the phone.");
             }
         }
-        if(added.length) {dockScreen=added[added.length-1];dockNotice=true;dockTimer.restart();command({action:"monitors"});}
+        if(added.length) {
+            dockScreen=added[added.length-1];dockResult=null;dockMirrored=false;dockMenu=false;
+            command({action:"monitors"});
+            // A remembered choice applies at once; the card only confirms it.
+            const saved=(prefs.dockChoices||{})[dockScreen.name];
+            if(saved)Qt.callLater(()=>{if(dockScreen){dockAs(saved.mode,saved.phoneMode);dockResult=Object.assign({},dockResult||{},{remembered:true});}});
+            dockNotice=true;dockTimer.restart();
+        }
+    }
+    // The full dock menu. The compact card opens it with "More options".
+    property bool dockMenu: false
+    // What convergence did for the new screen: {moved, error, remembered}. The card shows it.
+    property var dockResult: null
+    property bool dockMirrored: false
+    // The convergence controller registers itself here so the card can undo its work.
+    property var convergence: null
+    function dockAs(screenMode,phoneMode) {
+        if(!dockScreen)return;
+        const out=dockScreen.name;
+        const monitor=monitors.find(m=>m.name===out);
+        const phone=phoneMode||phoneDockMode||"trackpad";
+        if(convergence){convergence.disown(out);if(screenMode==="mirror")convergence.revertWindows();}
+        if(dockMirrored&&screenMode!=="mirror"&&monitor)command({action:"monitors-apply",displays:[{name:out,mode:"preferred",x:monitor.x,y:monitor.y,scale:monitor.scale,transform:0,mirror:"none"}],keep:false});
+        dockMirrored=screenMode==="mirror"&&phoneScreen!==null;
+        applyDock({mode:screenMode,phoneMode:phone,apps:[],resolution:"",scale:monitor ? monitor.scale : 1,remember:true});
+        dockNotice=true;dockTimer.restart();
+    }
+    function dockPhoneAs(phoneMode) {
+        if(!dockScreen)return;
+        setPhoneDockMode(phoneMode);docked=phoneScreen!==null;dockOutput=dockScreen.name;
+        const saved=Object.assign({},prefs.dockChoices||{});
+        saved[dockScreen.name]=Object.assign({mode:sessionModes[dockScreen.name]||"desktop",resolution:"",scale:1},saved[dockScreen.name]||{},{phoneMode:phoneMode});
+        set("dockChoices",saved);
     }
     Timer {interval:3000;running:true;onTriggered:{h.knownDisplays=h.displayTopology.slice();h.displaysReady=true;}}
     Timer {id:dockTimer;interval:120000;onTriggered:h.dockNotice=false}
@@ -260,7 +292,7 @@ Scope {
             saved[out]={mode:choice.mode,phoneMode:choice.phoneMode,resolution:choice.resolution||"",scale:choice.scale||1};
             set("dockChoices",saved);
         }
-        docked=!!phone;dockOutput=out;dockNotice=false;dockTimer.stop();
+        docked=!!phone;dockOutput=out;dockNotice=false;dockMenu=false;dockTimer.stop();
         if(phone)setPhoneDockMode(choice.phoneMode||"trackpad");
         targetScreen=dockScreen;
     }

@@ -79,9 +79,10 @@ ShellRoot {
             {name:"wallpaper-studio-images",ui:"wallpaper",w:800,h:860,photo:true},
             {name:"wallpaper-studio-phone",ui:"wallpaper",w:360,h:740},
             {name:"touch-apps-monitor",ui:"phone",w:1920,h:1080,drawer:true},
-            {name:"dock-welcome",ui:"dock",w:580,h:290},
-            {name:"dock-welcome-phone",ui:"dock",w:366,h:374,phone:true},
-            {name:"dock-welcome-phone-light",ui:"dock",w:336,h:374,phone:true,light:true},
+            {name:"dock-welcome",ui:"dock",w:440,h:250},
+            {name:"dock-welcome-docked",ui:"dock",w:440,h:250,docked:true},
+            {name:"dock-welcome-phone",ui:"dock",w:412,h:330,phone:true,docked:true},
+            {name:"dock-welcome-phone-light",ui:"dock",w:360,h:440,phone:true,docked:true,light:true},
             {name:"phone-switcher-monitor",ui:"switcher",w:1080,h:880,recent:true,phone:true},
             {name:"glass",ui:"glass",w:960,h:740},
             {name:"convergence-dark",ui:"convergence",w:800,h:820},
@@ -193,7 +194,7 @@ ShellRoot {
         }
         Component {id:switcherView;Opal.WindowSwitcher {}}
         Component {id:wallpaperStudio;Opal.WallpaperPicker {}}
-        Component {id:dockView;Opal.DockWelcome {displayName:"USB-C · External monitor"}}
+        Component {id:dockView;Opal.DockWelcome {}}
         Component {id:glassView;Item {Opal.Wallpaper {anchors.fill:parent;showWidgets:false} Opal.Surface {anchors.fill:parent;anchors.margins:24;translucency:.55;Opal.Convergence {anchors.fill:parent}}}}
         Component {id:undoToastView;Item {
             Rectangle {anchors.fill:parent;color:Opal.Theme.base}
@@ -353,6 +354,7 @@ ShellRoot {
                 Opal.Hub.displaysReady=true;Opal.Hub.knownDisplays=["internal-fixture"];
                 Opal.Hub.updateDisplays([{name:"internal-fixture"},{name:"external-fixture"}]);
                 if(!Opal.Hub.dockNotice||Opal.Hub.dockScreen.name!=="external-fixture"||Opal.Hub.page!==page)console.error("ASSERTION_FAILED: nonexclusive hotplug welcome");
+                if(Opal.Hub.dockMenu)console.error("ASSERTION_FAILED: hotplug opened the full dock menu");
                 Opal.Hub.updateDisplays([{name:"internal-fixture"}]);
                 if(Opal.Hub.dockNotice||Opal.Hub.dockScreen!==null)console.error("ASSERTION_FAILED: unplug cleanup");
                 Opal.Hub.knownDisplays=known;Opal.Hub.displaysReady=ready;
@@ -489,7 +491,12 @@ ShellRoot {
                 if(view.item.windows.length!==1)console.error("ASSERTION_FAILED: switcher filtering");
                 view.item.query="";
             }
-            if(test.ui==="dock")view.item.phone=!!test.phone;
+            if(test.ui==="dock") {
+                view.item.phone=!!test.phone;view.item.hasPhone=!!test.phone;
+                view.item.displayName=test.phone ? "Dell U2720Q" : "LG UltraFine";
+                view.item.screenMode=test.docked ? "desktop" : "";
+                view.item.result=test.docked ? {moved:3} : null;
+            }
             if(test.ui==="wallpaper") {
                 const original=JSON.stringify(Opal.Hub.prefs);
                 view.item.draftPath="";view.item.draftDim=.15;

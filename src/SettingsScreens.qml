@@ -113,7 +113,7 @@ Flickable {
                     text: parent.saved ? "Starts with your saved setup: " + ({desktop: "Desktop", console: "Play", phone: "Touch", mirror: "Mirror"})[parent.saved.mode] + ", phone as " + ({trackpad: "trackpad", screen: "second screen", panel: "control panel"})[parent.saved.phoneMode] + "." : "Shows the dock menu so you can choose." }
                 MButton { visible: !!parent.saved; text: "Forget"; compact: true; onClicked: { const next = Object.assign({}, Hub.prefs.dockChoices || {}); delete next[page.current.name]; Hub.set("dockChoices", next); } }
                 MButton { text: "Show dock menu"; icon: "cast_connected"; compact: true; tonal: true
-                    onClicked: { const screen = Quickshell.screens.find(s => page.current && s.name === page.current.name); if (screen) { Hub.close(); Hub.dockScreen = screen; Hub.dockNotice = true; } } }
+                    onClicked: { const screen = Quickshell.screens.find(s => page.current && s.name === page.current.name); if (screen) { Hub.close(); Hub.dockScreen = screen; Hub.dockMenu = true; } } }
             }
             MText { text: "Resolution"; role: "label"; color: Theme.primary; Layout.leftMargin: 6; Layout.topMargin: 6 }
             ComboBox {

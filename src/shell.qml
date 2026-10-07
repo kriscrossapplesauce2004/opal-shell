@@ -208,6 +208,7 @@ ShellRoot {
     PowerProfileWindow {}
     TaskbarContextWindow {}
     DockWindow {}
+    DockWelcomeWindow {}
     PhoneDock {}
     ConvergenceController {}
     PanelWindow {

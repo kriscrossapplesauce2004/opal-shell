@@ -6,7 +6,7 @@ import Quickshell.Wayland
 PanelWindow {
     id: window
     screen: Hub.internalScreen || Quickshell.screens[0]
-    visible: Hub.dockNotice && Hub.dockScreen !== null
+    visible: Hub.dockMenu && Hub.dockScreen !== null
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
@@ -24,7 +24,7 @@ PanelWindow {
             modes: { const m = Hub.monitors.find(m => Hub.dockScreen && m.name === Hub.dockScreen.name); return m ? m.modes : []; }
             remembered: Hub.dockScreen ? (Hub.prefs.dockChoices || {})[Hub.dockScreen.name] || null : null
             onStarted: choice => Hub.applyDock(choice)
-            onDismissed: Hub.dockNotice = false
+            onDismissed: Hub.dockMenu = false
         }
     }
 }

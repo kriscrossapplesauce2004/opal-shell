@@ -18,6 +18,11 @@ Scope {
     readonly property bool toastVisible:toastText!==""
     readonly property var toastScreen:Hub.targetScreen||Quickshell.screens[0]||null
     property var pendingState:null
+    readonly property bool canUndo:Object.keys(undoModes).length>0||undoWindows||undoRotation>=0
+    Component.onCompleted:Hub.convergence=c
+    // A user choice on the docking card wins over the automatic layout for that screen.
+    function disown(name) {const own=Object.assign({},owned);delete own[name];owned=own;const modes=Object.assign({},undoModes);delete modes[name];undoModes=modes;}
+    function revertWindows() {if(undoWindows){send({cmd:"undo"});undoWindows=false;}}
 
     function outputs() {return Quickshell.screens.map(s=>({name:s.name,width:s.width,height:s.height}));}
     function send(obj) {if(service.running)service.write(JSON.stringify(obj)+"\n");}
@@ -59,6 +64,12 @@ Scope {
             undoWindows=!!(e.windows&&e.windows.moved>0);
             undoRotation=-1;
             const detail=e.windows&&e.windows.error ? e.windows.error : (e.off&&e.off.length ? "Built-in display idle while the lid is closed" : "");
+            // A new screen gets the docking card, not a second toast.
+            if(e.trigger==="Hotplug"&&Hub.dockScreen&&(e.externalAdded||[]).indexOf(Hub.dockScreen.name)>=0) {
+                if(Hub.dockMirrored)revertWindows();
+                Hub.dockResult=Object.assign({},Hub.dockResult||{},{moved:!Hub.dockMirrored&&e.windows ? e.windows.moved||0 : 0,error:e.windows&&e.windows.error ? e.windows.error : ""});
+                return;
+            }
             show(e.text,detail);
         } else if(e.event==="windows") {
             if(e.error)Hub.message(e.error);
