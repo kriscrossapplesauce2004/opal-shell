@@ -106,3 +106,4 @@ ControllerHints 1.0 ControllerHints.qml
 QaRow 1.0 QaRow.qml
 QuickAccess 1.0 QuickAccess.qml
 RoundedImage 1.0 RoundedImage.qml
+GameDetail 1.0 GameDetail.qml

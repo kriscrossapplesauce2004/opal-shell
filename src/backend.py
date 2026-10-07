@@ -398,7 +398,7 @@ def commands():
             c=json.loads(line); action=c.get('action')
             if action=='preference':
                 key=c.get('key'); value=c.get('value')
-                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate','onboarded','linkEnabled','linkClipboard','linkSession','linkImportKde') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
+                valid = key=='controllerLayout' and value in ('standard','nintendo') or key=='barStyle' and value in BAR_STYLES or key=='iconStyle' and value in ('raw','squircle','themed') or key=='mode' and value in ('auto','desktop','phone','console') or key in ('palette','wallpaper') and type(value)==int and 0<=value<=3 or key in ('light','dnd','taskbarAutoHide','taskbarLabels','phoneButtons','reduceMotion','taskbarCenter','taskbarClockDate','autoRotate','onboarded','linkEnabled','linkClipboard','linkSession','linkImportKde','quickAccessGuide') and type(value)==bool or key=='glass' and type(value) in (int,float) and .45<=value<=1
                 valid = valid or key=='themeExport' and isinstance(value,list) and all(v in system_tools.TARGETS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='schedules' and valid_schedules(value)
                 valid = valid or key=='profiles' and valid_profiles(value)
@@ -728,13 +728,13 @@ def launch_game(game_id):
         pass
 
 def controllers():
-    from controller_mapping import device_maps, button_action, axis_orientation
+    from controller_mapping import device_maps, device_info, family, ranked_devices, NavigationState
     # Linux joystick API, read-only. Never grabs devices or injects global input.
     while True:
-        paths=glob.glob('/dev/input/js*')
         f=None
         name=''
-        for p in paths:
+        profile='generic'
+        for p in ranked_devices(glob.glob('/dev/input/js*')):
             candidate=None
             try:
                 import fcntl
@@ -747,41 +747,26 @@ def controllers():
                 # Absolute pointer devices can expose js nodes too; they are not gamepads.
                 if buttons[0]<6 or any(word in candidate_name.lower() for word in ('pointer','mouse','keyboard')):
                     candidate.close(); continue
-                f=candidate; name=candidate_name; break
+                info=device_info(p)
+                f=candidate; name=candidate_name; profile=family(info['name'] or candidate_name,info['vendor']); break
             except OSError:
                 if candidate: candidate.close()
         emit({'event':'controller','connected':f is not None,'name':name})
         if f is None: time.sleep(5); continue
         try:
             button_codes,axis_codes=device_maps(f)
-            previous={}
-            held={}
+            # NavigationState owns hysteresis, repeat, trigger edges and the startup snapshot.
+            navigation=NavigationState(button_codes,axis_codes,profile)
             while True:
                 now=time.monotonic()
-                wait=max(0,min((due-now for _,due in held.values()),default=2))
-                if not select.select([f],[],[],wait)[0]:
-                    now=time.monotonic()
-                    for axis,(key,due) in list(held.items()):
-                        if now>=due:
-                            emit({'event':'navigation','key':key})
-                            held[axis]=(key,now+.13)
+                if not select.select([f],[],[],navigation.wait(now))[0]:
+                    for key in navigation.repeat(time.monotonic()): emit({'event':'navigation','key':key})
                     continue
                 data=f.read(8)
                 if len(data)!=8: break
                 _,value,kind,number=struct.unpack('IhBB',data)
-                if kind & 0x80: continue
-                nav=None
-                if kind==1 and value==1:
-                    nav=button_action(number,prefs.get('controllerLayout','standard'),button_codes)
-                orientation=axis_orientation(number,axis_codes) if kind==2 else None
-                if orientation:
-                    direction=0 if abs(value)<16000 else (1 if value>0 else -1)
-                    if direction and previous.get(number)!=direction:
-                        nav=('right' if direction>0 else 'left') if orientation=='horizontal' else ('down' if direction>0 else 'up')
-                        held[number]=(nav,time.monotonic()+.38)
-                    elif not direction: held.pop(number,None)
-                    previous[number]=direction
-                if nav: emit({'event':'navigation','key':nav})
+                for key in navigation.feed(kind,number,value,time.monotonic(),prefs.get('controllerLayout','standard')):
+                    emit({'event':'navigation','key':key})
         except OSError: pass
         finally: f.close()
         time.sleep(2)

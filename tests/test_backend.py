@@ -64,6 +64,12 @@ class BackendTests(unittest.TestCase):
         self.command({'action':'preference','key':'glass','value':0})
         self.assertEqual(self.backend.prefs['glass'], .78)
 
+    def test_quick_access_guide_preference_is_boolean(self):
+        self.command({'action':'preference','key':'quickAccessGuide','value':False})
+        self.assertIs(self.backend.prefs['quickAccessGuide'], False)
+        self.command({'action':'preference','key':'quickAccessGuide','value':'no'})
+        self.assertIs(self.backend.prefs['quickAccessGuide'], False)
+
     def test_preference_stream_persists_each_valid_update(self):
         values = [.45 + (number % 56) / 100 for number in range(96)]
         stream = ''.join(json.dumps({'action':'preference', 'key':'glass', 'value':value}) + '\n' for value in values)

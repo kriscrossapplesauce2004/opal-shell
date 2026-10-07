@@ -30,6 +30,8 @@ QtObject {
         usingController = true;
         if (GameState.quickAccess) { GameState.closeQuickAccess(); return; }
         if (Hub.locked) return;
+        // Steam also reacts to Guide. This setting lets Steam keep it.
+        if (Hub.prefs.quickAccessGuide === false) return;
         if (Hub.prefs.mode === "console" && !GameState.gameActive) { Hub.toggle("launcher"); return; }
         GameState.openQuickAccess(false);
     }

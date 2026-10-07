@@ -13,6 +13,11 @@ class ShellIpcTests(unittest.TestCase):
         duplicates = sorted({n for n in names if names.count(n) > 1})
         self.assertEqual(duplicates, [], 'Duplicate IPC functions break shell.qml: %s' % duplicates)
 
+    def test_quick_access_ipc_and_window_exist(self):
+        text = SHELL.read_text()
+        self.assertIn('function quickaccess():void {GameState.toggleQuickAccess();}', text)
+        self.assertIn('opal-quick-access', text)
+
     def test_mcp_server_calls_existing_ipc_functions(self):
         text = SHELL.read_text()
         names = set(re.findall(r'^\s*function (\w+)\(', text[text.index('IpcHandler {'):], re.M))
