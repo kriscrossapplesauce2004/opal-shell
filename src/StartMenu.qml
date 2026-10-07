@@ -63,7 +63,7 @@ FocusScope {
     }
     function accept(fresh) {
         if(calculator){if(Hub.calculation!=="")Hub.command({action:"clipboard",text:Hub.calculation});}
-        else if(claude){if(query.slice(1).trim())Hub.askClaude(query.slice(1));}
+        else if(claude){if(query.slice(1).trim())Hub.openAssistant(query.slice(1).trim());}
         else if(web){if(query.slice(1).trim()){Hub.command({action:"web",text:query.slice(1).trim()});Hub.close();}}
         else invoke(selected,fresh);
     }
@@ -304,7 +304,7 @@ FocusScope {
                         TextEdit {
                             id:answerText;width:parent.width;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap
                             textFormat:TextEdit.MarkdownText
-                            text:Hub.claudeAnswer!=="" ? Hub.claudeAnswer : Hub.claudeBusy ? "Thinking…" : "Type a question after ! and press Enter. Claude can also change Opal for you, like \"switch to dark mode\"."
+                            text:Hub.claudeAnswer!=="" ? Hub.claudeAnswer : Hub.claudeBusy ? "Thinking…" : "Type a question after ! and press Enter to continue in the Claude assistant. It can also change Opal for you, like \"switch to dark mode\"."
                             color:Hub.claudeError ? Theme.error : Hub.claudeAnswer!=="" ? Theme.text : Theme.subtext
                             font.family:Theme.font;font.pixelSize:14
                         }

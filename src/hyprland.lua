@@ -40,6 +40,7 @@ hl.layer_rule({ match = { namespace = "^opal-(audio|shade)$" }, blur = true, ign
 -- The taskbar menu is a full-screen input host with one painted card.
 -- ignore_alpha keeps blur confined to that translucent card.
 hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-assistant$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-(audio|shade)-dismiss$" }, blur = false, no_anim = true })
 local function bind(key, command)
@@ -56,6 +57,10 @@ bind("SUPER + CTRL + G", qs .. "gaming")
 bind("SUPER + CTRL + D", qs .. "desktop")
 bind("SUPER + X", qs .. "controls")
 bind("SUPER + V", qs .. "clipboard")
+bind("SUPER + A", qs .. "assistant")
+-- Copilot keys send XF86Assistant or Super+Shift+F23.
+bind("XF86Assistant", qs .. "assistant")
+bind("SUPER + SHIFT + F23", qs .. "assistant")
 bind("SUPER + M", "kitty -e btop")
 bind("SUPER + ALT + L", qs .. "lock")
 bind("SUPER + L", qs .. "lock")

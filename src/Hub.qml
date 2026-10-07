@@ -123,6 +123,8 @@ Scope {
     property bool claudeBusy: false
     property bool claudeError: false
     function askClaude(text) { const t=text.trim();if(!t)return;claudeRequest++;claudeAnswer="";claudeTools=[];claudeError=false;claudeBusy=true;command({action:"claude-ask",text:t,id:claudeRequest}); }
+    // The assistant panel. Super+A, the Assistant key, Home long-press and "!" in Start open it.
+    function openAssistant(text) {targetScreen=chooseScreen();query="";AssistantState.capture();closeAudio();page="assistant";if(text&&text.trim()!=="")AssistantState.send(text);}
     function stopClaude() { command({action:"claude-stop"});claudeBusy=false; }
     // System reports from system_tools.py.
     property var health: ({disks:[],temperatures:{},hottest:0})
@@ -590,6 +592,7 @@ Scope {
                     else if(e.event === "recentActivity"||e.event === "torch"||e.event === "batteryStats") PhoneState.ingest(e);
                     else if(e.event === "monitors") h.monitors=e.data;
                     else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
+                    else if(e.event.indexOf("assistant") === 0) AssistantState.ingest(e);
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}
                     else if(e.event === "orientation") h.applyOrientation(e.transform);
                     else if(e.event === "navigation" && h.prefs.mode === "console") { if(e.key==="home") h.toggle("launcher"); else if(h.page!=="") h.navigate(e.key); }
