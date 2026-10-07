@@ -21,6 +21,17 @@ class HyprActionsTests(unittest.TestCase):
         self.assertIn('hl.dsp.focus({workspace="4"})',run.call_args.args[0][2])
         self.assertEqual(sum(c.args[0]==['hyprctl','eval','return true'] for c in run.call_args_list),1)
 
+    def test_lua_fullscreen_uses_string_modes_and_window_target(self):
+        run=Mock(return_value='ok');actions=HyprActions(run)
+        actions.fullscreen('0xabc',1)
+        code=run.call_args.args[0][2]
+        self.assertIn('mode="maximized",action="set",window=w',code)
+        actions.fullscreen('0xabc',2)
+        self.assertIn('mode="fullscreen",action="set",window=w',run.call_args.args[0][2])
+        actions.fullscreen('0xabc',0)
+        self.assertIn('fullscreen_state({internal=0,client=0,action="set",window=w})',run.call_args.args[0][2])
+        self.assertFalse(any('hl.dsp.focus' in str(c) for c in run.call_args_list))
+
     def test_move_uses_native_window_move_and_validates(self):
         run=Mock(return_value='ok');actions=HyprActions(run)
         actions.move('0xabc',3,follow=True)

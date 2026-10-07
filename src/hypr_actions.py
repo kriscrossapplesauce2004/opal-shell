@@ -150,8 +150,12 @@ class HyprActions:
         """Set fullscreen mode 0 (off), 1 (maximize) or 2 (fullscreen). Hyprland acts on the focused window, so focus returns afterwards."""
         self._validate_address(address)
         if mode not in (0,1,2):raise ValueError('Invalid fullscreen mode')
+        if self.is_lua():
+            # The Lua dispatcher accepts a window target, so focus does not change.
+            if mode:self._lua_window(address,'hl.dispatch(hl.dsp.window.fullscreen({mode="'+('fullscreen' if mode==2 else 'maximized')+'",action="set",window=w}))')
+            else:self._lua_window(address,'hl.dispatch(hl.dsp.window.fullscreen_state({internal=0,client=0,action="set",window=w}))')
+            return
         self.focus(address)
-        if self.is_lua():self.runner(['hyprctl','eval','pcall(function() hl.dispatch(hl.dsp.window.fullscreen({mode='+str(mode)+'})) end)'])
-        elif mode:self.runner(['hyprctl','dispatch','fullscreen','0' if mode==2 else '1'])
+        if mode:self.runner(['hyprctl','dispatch','fullscreen','0' if mode==2 else '1'])
         else:self.runner(['hyprctl','dispatch','fullscreenstate','0 0'])
         if restore_focus and restore_focus!=address:self.focus(restore_focus)
