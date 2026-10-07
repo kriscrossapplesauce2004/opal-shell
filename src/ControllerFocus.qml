@@ -36,7 +36,10 @@ Item {
         if (active) ControllerNav.claim(cf);
         else { ControllerNav.release(cf); current = null; moved = false; keyboard.close(); }
     }
-    Component.onCompleted: { if (active) { ControllerNav.claim(cf); if (ControllerNav.usingController) Qt.callLater(selectInitial); } }
+    Component.onCompleted: { if (active) { ControllerNav.claim(cf); if (ControllerNav.usingController) selectSoon(); } }
+    // A deferred selection must die with this object; Qt.callLater could run it after the page is destroyed and crash the shell.
+    function selectSoon() { selectTimer.restart(); }
+    Timer { id: selectTimer; interval: 0; onTriggered: cf.selectInitial() }
     Component.onDestruction: ControllerNav.release(cf)
     Connections { target: ControllerNav; function onKey(name) { cf.handle(name); } }
     // A moving pointer hands focus back to the mouse.

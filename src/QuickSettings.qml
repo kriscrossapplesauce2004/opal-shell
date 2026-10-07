@@ -54,7 +54,7 @@ Item {
         for(let i=0;i<items.length;i++)if(items[i].y<=scroller.contentY+8)index=i;
         index=Math.max(0,Math.min(items.length-1,index+delta));
         scroller.contentY=Math.max(0,Math.min(scroller.contentHeight-scroller.height,items[index].y));
-        Qt.callLater(padFocus.selectInitial);
+        padFocus.selectSoon();
     }
     ColumnLayout {
         id:main

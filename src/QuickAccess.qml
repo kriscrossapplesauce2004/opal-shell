@@ -20,7 +20,7 @@ Item {
 
     function step(delta) {
         tabIndex = (tabIndex + delta + tabs.length) % tabs.length;
-        if (ControllerNav.usingController) Qt.callLater(padFocus.selectInitial);
+        if (ControllerNav.usingController) padFocus.selectSoon();
     }
     function cycle(list, current, delta) {
         const i = Math.max(0, list.indexOf(current));
