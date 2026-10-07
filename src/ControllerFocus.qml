@@ -18,6 +18,7 @@ Item {
     property bool textKeyboard: true
     // Start on a text field when the surface has one, as the lock screen and polkit do.
     property bool preferText: false
+    property bool moved: false
     property Item current: null
     readonly property bool keyboardOpen: keyboard.open
     readonly property bool hintsVisible: showHints && active && (Hub.controller || ControllerNav.usingController) && !keyboard.open
@@ -33,7 +34,7 @@ Item {
 
     onActiveChanged: {
         if (active) ControllerNav.claim(cf);
-        else { ControllerNav.release(cf); current = null; keyboard.close(); }
+        else { ControllerNav.release(cf); current = null; moved = false; keyboard.close(); }
     }
     Component.onCompleted: { if (active) { ControllerNav.claim(cf); if (ControllerNav.usingController) Qt.callLater(selectInitial); } }
     Component.onDestruction: ControllerNav.release(cf)
@@ -192,6 +193,8 @@ Item {
     function handle(name) {
         if (!active || ControllerNav.top !== cf) return;
         if (keyboard.open) { keyboard.handle(name); return; }
+        // A surface that wakes on the first press may only now show its field.
+        if (preferText && !moved) { selectInitial(); moved = true; }
         if (name === "up" || name === "down" || name === "left" || name === "right") {
             if ((name === "left" || name === "right") && valid(current) && adjust(current, name === "right" ? 1 : -1)) return;
             move(name);
@@ -341,6 +344,24 @@ Item {
         anchors.leftMargin: Math.max(12, (cf.width - 760) / 2); anchors.rightMargin: anchors.leftMargin; anchors.bottomMargin: 12
         height: Math.min(implicitHeight, cf.height * .6)
         transform: Translate { y: (1 - keyboard.slide) * (keyboard.height + 24) }
+        // A solid backing keeps the keys readable over any page.
+        Rectangle { z: -1; anchors.fill: parent; radius: keyboard.radius; color: Theme.level(2) }
+        // The typed text shows above the keys, because the field itself may sit under the keyboard.
+        Rectangle {
+            id: preview
+            y: -height - 8; width: parent.width; height: 54; radius: height / 2
+            color: Theme.level(2)
+            border.width: 2; border.color: Theme.primary
+            readonly property string typed: keyboard.target ? (keyboard.target.echoMode === TextInput.Password ? "●".repeat(keyboard.target.text.length) : keyboard.target.text) : ""
+            Row {
+                anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; leftMargin: 22; rightMargin: 22 }
+                layoutDirection: Qt.LeftToRight
+                spacing: 2; clip: true
+                MText { id: typedText; text: preview.typed; role: "title"; width: Math.min(implicitWidth, parent.width - 6); elide: Text.ElideLeft; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle { width: 2; height: 24; radius: 1; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                MText { visible: preview.typed === ""; text: keyboard.target && keyboard.target.placeholderText ? keyboard.target.placeholderText : keyboard.secureInput ? "Password" : "Type here"; role: "body"; color: Theme.subtext; anchors.verticalCenter: parent.verticalCenter; leftPadding: 8 }
+            }
+        }
         inputTarget: target
         secureInput: !!target && target.echoMode === TextInput.Password
         contextLabel: target && target.objectName === "polkitResponse" ? "Password" : "Type"

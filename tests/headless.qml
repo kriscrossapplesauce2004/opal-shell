@@ -165,7 +165,7 @@ ShellRoot {
             {name:"console-detail-hd",ui:"console",w:1280,h:800,detail:true,pad:["down"]},
             {name:"console-detail-light",ui:"console",w:1280,h:800,detail:true,light:true,pad:["down","down"]},
             {name:"console-hub-library",ui:"console",w:1280,h:800,hub:4},
-            {name:"pad-guard",ui:"shapes",w:600,h:310,guard:true},
+            {name:"pad-guard",ui:"shapes",w:600,h:310,guard:true,pad:[]},
             {name:"qa-close",ui:"quickaccess",w:1280,h:800,tab:2,pad:["down","back"],expectClosed:true},
             {name:"qa-tab-step",ui:"quickaccess",w:1280,h:800,tab:0,pad:["nextTab","nextTab","down"],expectTab:2},
             {name:"pad-lock",ui:"lock",w:1440,h:900,reveal:true,music:true,pad:["accept"]},
@@ -464,20 +464,6 @@ ShellRoot {
             }
             if(test.ui==="padsettings")Opal.Hub.settingsSection=test.section||"";
             if(test.pad)padInput.restart();
-            if(test.guard) {
-                // Nothing is open: only Guide may react, so a game never loses its input to Opal.
-                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{mode:"desktop"});
-                ["accept","down","back","pin","menu","nextTab"].forEach(key=>Opal.ControllerNav.input(key));
-                if(Opal.GameState.quickAccess||Opal.Hub.page!=="")console.error("ASSERTION_FAILED: controller input leaked with nothing open");
-                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:false});
-                Opal.ControllerNav.input("home");
-                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide ignored the quickAccessGuide setting");
-                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:true});
-                Opal.ControllerNav.input("home");
-                if(!Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not open Quick Access");
-                Opal.ControllerNav.input("home");
-                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not close Quick Access");
-            }
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{
@@ -628,6 +614,21 @@ ShellRoot {
             id:padInput;interval:220
             onTriggered:{
                 const test=fixture.cases[fixture.step];
+                if(test.guard) {
+                    Opal.Hub.page="";Opal.GameState.quickAccess=false;
+                // Nothing is open: only Guide may react, so a game never loses its input to Opal.
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{mode:"desktop"});
+                ["accept","down","back","pin","menu","nextTab"].forEach(key=>Opal.ControllerNav.input(key));
+                if(Opal.GameState.quickAccess||Opal.Hub.page!=="")console.error("ASSERTION_FAILED: controller input leaked with nothing open");
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:false});
+                Opal.ControllerNav.input("home");
+                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide ignored the quickAccessGuide setting");
+                Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:true});
+                Opal.ControllerNav.input("home");
+                if(!Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not open Quick Access");
+                Opal.ControllerNav.input("home");
+                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not close Quick Access");
+            }
                 // Settings page: the first press chooses a start item. Later presses move through the real focus engine.
                 (test.pad||[]).forEach(key=>Opal.ControllerNav.input(key));
                 if(test.expectClosed&&Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: B did not close Quick Access");

@@ -46,10 +46,19 @@ package installation, or `--no-hyprland` to leave Hyprland untouched.
 - Super+Space: launcher. Super+Comma: shade. Super+N: inbox.
 - `opal phone` / Super+Ctrl+P: compact touch-sized app drawer, home clock, bottom Android-style navigation, and an adaptive shell-local keyboard for Opal search fields.
 - `opal console` / Super+Ctrl+G: large game-first library, Steam Big Picture button, keyboard / joystick navigation.
+- `opal quickaccess` / Super+Ctrl+Q / Guide button: Quick Access over the running game (see Game mode below).
 - `opal desktop` / Super+Ctrl+D: restore desktop layout.
 - `opal appearance`: personalize colors, light/dark, glass density, local wallpaper images, layout.
 - `opal close`: dismiss overlay. `opal inspect`: read-only JSON diagnostics.
 - All three layouts are shell layouts, not compositor display rotations or replacements for applications' own UI. Phone mode keeps a shell-local keyboard as a fallback, while Opal also starts Squeekboard as the real Wayland input method when it is installed.
+
+## Game mode
+
+Quick Access is a layer-shell overlay, so it works over any compositor and over fullscreen games. Guide opens it in every layout (turn that off in Quick Access if Steam should keep Guide). It shows the running game with session time, switch and quit, a Performance section, quick settings, notifications and controller batteries.
+
+- **Performance** (`game_perf.py`): the frame limit and overlay level are written to an Opal-owned MangoHud file, `~/.local/state/opal/mangohud/MangoHud.conf`. Your own MangoHud config is never touched. Games that Opal starts get `MANGOHUD_CONFIGFILE`; Steam games need the launch option that Quick Access copies. GameMode status and power profiles come from `gamemoded` and `powerprofilesctl`. The power limit and GPU level rows appear only when the AMD sysfs files already exist and are writable by you; Opal never changes device permissions.
+- **Controller navigation everywhere**: while any Opal overlay is open, the D-pad, A, B, X, LB and RB drive it (Quick Settings, notifications, Settings, polkit, lock screen, power menu, keyboard). `ControllerFocus.qml` finds clickable items, moves a visible focus ring between them and scrolls them into view; text fields open the on-screen keyboard. Nothing is handled while no overlay is open, and the joystick stays read-only.
+- **Library**: a hero for the selected or last played game, Running and Unplayed lists, sort (RT), a detail sheet (LT) with local Steam playtime from `localconfig.vdf` and a Steam uninstall hand-off, and smooth scrolling.
 
 ## Docking and convergence
 
