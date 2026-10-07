@@ -109,7 +109,7 @@ ShellRoot {
                 Loader {anchors.fill:parent;active:statusbar.visible;sourceComponent:phoneStatusContent}
                 Component {id:phoneStatusContent;PhoneStatus {anchors.fill:parent;output:statusbar.screen;fpsEnabled:root.fpsEnabled;fps:root.fps}}
             }
-            Loader {active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {output:output.modelData}}}
+            Loader {active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {target:output.modelData}}}
             Loader {active:output.layoutMode==="desktop"&&Hub.prefs.barStyle==="split";sourceComponent:Component {TopBar {screen:output.modelData}}}
             PanelWindow {
                 screen:output.modelData

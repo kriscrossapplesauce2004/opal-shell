@@ -7,15 +7,15 @@ import Quickshell.Wayland
 PanelWindow {
     id:bar
     // The output comes from the loader. Reading the window screen back would make a binding loop with visible.
-    property var output:null
-    screen:output
-    readonly property string layoutMode:Hub.layoutFor(output ? output.width : 1920,output ? output.height : 1080,output ? output.name : "")
+    property var target:null
+    screen:target
+    readonly property string layoutMode:Hub.layoutFor(target ? target.width : 1920,target ? target.height : 1080,target ? target.name : "")
     readonly property bool phone:layoutMode==="phone"
     readonly property bool autoHide:!phone&&!!Hub.prefs.taskbarAutoHide
     readonly property bool consoleMode:layoutMode==="console"
-    readonly property bool fullscreen:!!output&&(Hub.status.fullscreenMonitors||[]).indexOf(output.name)>=0
+    readonly property bool fullscreen:!!target&&(Hub.status.fullscreenMonitors||[]).indexOf(target.name)>=0
     // On a tablet the app dock is part of the navigation bar, which is then taller.
-    readonly property bool tablet:phone&&!!output&&PhoneState.isTablet(output)&&Hub.prefs.tabletDock!==false
+    readonly property bool tablet:phone&&!!target&&PhoneState.isTablet(target)&&Hub.prefs.tabletDock!==false
     readonly property var taskbarMenuEntries:Hub.taskbarMenu()
     property bool revealed:false
     readonly property bool contextOpen:Hub.taskbarContextOpen&&Hub.taskbarContextScreen===bar.screen
