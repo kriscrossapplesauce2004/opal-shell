@@ -25,7 +25,7 @@ class SystemToolsTests(unittest.TestCase):
             self.assertIn('@define-color accent_color #84d7b0;', (home / '.config/gtk-4.0/opal.css').read_text())
             self.assertEqual((home / '.config/gtk-3.0/gtk.css').read_text().count('@import "opal.css";'), 1)
             self.assertTrue((home / '.config/qt6ct/colors/Opal.conf').exists())
-            t.remove_export(['gtk', 'kitty', 'qt'], home)
+            t.remove_export(['gtk', 'kitty', 'qt'], home, runner=lambda a: calls.append(a) or Result())
             self.assertNotIn('opal-theme', (home / '.config/kitty/kitty.conf').read_text())
             self.assertFalse((home / '.config/gtk-4.0/opal.css').exists())
 
