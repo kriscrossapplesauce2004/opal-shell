@@ -16,7 +16,7 @@ OPAL_MARK = '/* Opal theme */'
 SHAPES = {'xs': 8, 'sm': 12, 'md': 16, 'lg': 24, 'xl': 32}
 ACCENTS = {'blue': '#3584e4', 'teal': '#2190a4', 'green': '#3a944a', 'yellow': '#c88800', 'orange': '#ed5b00',
            'red': '#e62d42', 'pink': '#d56199', 'purple': '#9141ac', 'slate': '#6f8396'}
-FLATPAK_PATHS = ('xdg-config/gtk-3.0:ro', 'xdg-config/gtk-4.0:ro', 'xdg-config/Kvantum:ro', 'xdg-config/qt6ct:ro',
+FLATPAK_PATHS = ('xdg-config/kdeglobals:ro', 'xdg-config/gtk-3.0:ro', 'xdg-config/gtk-4.0:ro', 'xdg-config/Kvantum:ro', 'xdg-config/qt6ct:ro',
                  '~/.themes:ro', '~/.icons:ro', 'xdg-data/icons:ro', 'xdg-data/themes:ro')
 STATE_REL = '.local/state/opal/theme-export-state.json'
 
@@ -433,15 +433,21 @@ def export_kde(ctx, c, light, options):
     ini_apply(ctx, 'kde', '.config/kdeglobals', changes)
     theme = platform_theme(options)
     if theme:
-        own_file(ctx, 'kde', '.config/environment.d/opal-qt.conf', '# Opal: Qt apps use the Opal colours and Kvantum.\nQT_QPA_PLATFORMTHEME=%s\n' % theme)
+        # Qt 5 apps have no KDE platform plugin here, so the style is also forced; Qt 6 apps get the same value from kdeglobals.
+        style = 'kvantum' if ctx.kvantum() else ''
+        own_file(ctx, 'kde', '.config/environment.d/opal-qt.conf', '# Opal: Qt apps use the Opal colours and Kvantum.\nQT_QPA_PLATFORMTHEME=%s\n' % theme + ('QT_STYLE_OVERRIDE=%s\n' % style if style else ''))
         session_env(ctx, 'QT_QPA_PLATFORMTHEME', theme)
+        if style: session_env(ctx, 'QT_STYLE_OVERRIDE', style)
         ctx.target('kde')['platformTheme'] = theme
+        ctx.target('kde')['styleOverride'] = style
     kde_notify(ctx, (0, 2))
 
 def revert_kde(ctx):
     had_theme = bool(ctx.state.get('kde', {}).get('platformTheme'))
+    had_style = bool(ctx.state.get('kde', {}).get('styleOverride'))
     ini_revert(ctx, 'kde'); remove_owned(ctx, 'kde'); ctx.state.pop('kde', None)
     if had_theme: session_env(ctx, 'QT_QPA_PLATFORMTHEME', '')
+    if had_style: session_env(ctx, 'QT_STYLE_OVERRIDE', '')
     kde_notify(ctx, (0, 2))
 
 # ---------- Kvantum theme ----------
@@ -474,85 +480,144 @@ def kv_indicator(name, x, y, size, fill, border, mark, round_):
     return out + '</g>'
 
 def kv_elements(c, light):
-    """Return the frame table. Each entry is a base name, a radius and its state colours."""
+    """Return the frame table: base name, corner size and the fill of each state.
+
+    Shapes are border-free tonal fills, like Material 3. Round shapes come from frame.expansion in the config, which
+    scales the corners; a drawn border would scale with them, so only the text field keeps an outline.
+    """
     p = palette(c, light)
-    hover = mix(c['surfaceHigh'], c['primary'], .12)
-    press = mix(c['surfaceHigh'], c['primary'], .24)
+    hover = mix(c['surfaceHigh'], c['primary'], .10)
+    press = mix(c['surfaceHigh'], c['primary'], .22)
+    clear = c['base']
     flat = lambda f: (f, f)
-    button = {'normal': (c['surfaceHigh'], p['outlineVariant']), 'focused': (hover, c['primary']), 'pressed': (press, c['primary']),
-              'toggled': (c['primaryContainer'], c['primary']), 'default': (c['primary'], c['primary']), 'disabled': (c['surface'], c['surface'])}
-    field = {'normal': (p['lowest'], p['outline']), 'focused': (p['lowest'], c['primary']), 'disabled': (c['surface'], p['outlineVariant'])}
-    tab = {'normal': (c['surface'], c['surface']), 'focused': (hover, hover), 'toggled': (c['primaryContainer'], c['primaryContainer']), 'pressed': (press, press), 'disabled': flat(c['surface'])}
+    tonal = {'normal': flat(c['surfaceHigh']), 'focused': flat(hover), 'pressed': flat(press), 'toggled': flat(c['primaryContainer']),
+             'disabled': flat(mix(c['base'], c['surfaceHigh'], .5))}
+    # Tool buttons rest on a faint tonal pill, so a toolbar reads as a group of controls, not loose icons.
+    tool = {'normal': flat(mix(clear, c['text'], .055)), 'focused': flat(mix(clear, c['text'], .11)), 'pressed': flat(mix(clear, c['text'], .17)),
+            'toggled': flat(c['primaryContainer']), 'disabled': flat(clear)}
+    # A border would scale up with the rounded corners, so focus is a tint, not an outline.
+    field = {'normal': flat(mix(p['lowest'], c['surfaceHigh'], .6)), 'focused': flat(mix(mix(p['lowest'], c['surfaceHigh'], .6), c['primary'], .14)),
+             'disabled': flat(c['surface'])}
+    item = {'normal': flat(p['lowest']), 'focused': flat(mix(p['lowest'], c['text'], .07)), 'pressed': flat(mix(p['lowest'], c['text'], .12)),
+            'toggled': flat(c['secondaryContainer'] if 'secondaryContainer' in c else mix(c['base'], c['secondary'], .26)), 'disabled': flat(p['lowest'])}
     return [
-        ('button', 16, button), ('tbutton', 16, button), ('lineedit', 12, field), ('tab', 12, tab),
-        ('menu', 12, {'normal': (c['surfaceHigh'], p['outlineVariant'])}),
-        ('menuitem', 12, {'normal': flat(c['surfaceHigh']), 'focused': flat(c['primaryContainer']), 'toggled': flat(c['primaryContainer'])}),
-        ('itemview', 8, {'normal': flat(p['lowest']), 'focused': flat(hover), 'toggled': flat(c['primaryContainer']), 'pressed': flat(press), 'disabled': flat(p['lowest'])}),
-        ('toolbar', 8, {'normal': flat(c['surface'])}), ('dock', 12, {'normal': (c['surface'], p['outlineVariant'])}),
-        ('group', 16, {'normal': (c['base'], p['outlineVariant'])}), ('tooltip', 8, {'normal': (c['surfaceHigh'], p['outline'])}),
-        ('header', 8, {'normal': flat(c['surface'])}),
-        ('progress', 12, {'normal': flat(c['surfaceHigh'])}), ('progress-pattern', 12, {'normal': flat(c['primary'])}),
-        ('slider', 6, {'normal': flat(c['surfaceHigh'])}), ('slider-pattern', 6, {'normal': flat(c['primary'])}),
-        ('slider-handle', 12, {'normal': flat(c['primary']), 'focused': flat(c['primary']), 'pressed': flat(mix(c['primary'], c['text'], .2))}),
-        ('scrollbar', 8, {'normal': flat(c['base'])}), ('scrollbar-slider', 8, {'normal': flat(mix(c['base'], c['text'], .30)), 'focused': flat(c['subtext']), 'pressed': flat(c['primary'])}),
+        ('button', 4, dict(tonal, default=flat(c['primaryContainer']))), ('tbutton', 4, tool), ('combo', 4, tonal), ('lineedit', 4, field),
+        ('tab', 4, {'normal': flat(clear), 'focused': flat(hover), 'pressed': flat(press), 'toggled': flat(c['primaryContainer']), 'disabled': flat(clear)}),
+        ('menu', 4, {'normal': flat(c['surfaceHigh'])}),
+        ('menuitem', 4, {'normal': flat(c['surfaceHigh']), 'focused': flat(mix(c['surfaceHigh'], c['text'], .08)), 'toggled': flat(c['primaryContainer'])}),
+        ('itemview', 4, item),
+        ('toolbar', 4, {'normal': flat(c['base'])}), ('dock', 4, {'normal': flat(c['surface'])}),
+        ('group', 4, {'normal': flat(c['surface'])}), ('tooltip', 4, {'normal': flat(c['surfaceHigh'])}),
+        ('header', 4, {'normal': flat(p['lowest']), 'focused': flat(mix(p['lowest'], c['text'], .06))}),
+        ('progress', 4, {'normal': flat(c['surfaceHigh'])}), ('progress-pattern', 4, {'normal': flat(c['primary']), 'disabled': flat(p['disabled'])}),
+        ('slider', 3, {'normal': flat(c['surfaceHigh']), 'toggled': flat(c['primary']), 'disabled': flat(c['surface'])}),
+        ('scrollbar', 4, {'normal': flat(c['base'])}),
+        ('scrollbar-slider', 4, {'normal': flat(mix(c['base'], c['text'], .28)), 'focused': flat(mix(c['base'], c['text'], .42)), 'pressed': flat(c['primary'])}),
     ]
+
+def kv_cursor(name, fill, ring):
+    """Slider handle: a short rounded bar, as in Material 3 expressive sliders."""
+    return '<g id="%s"><rect width="20" height="20" fill="none"/><rect x="7" y="0" width="6" height="20" rx="3" fill="%s"/><rect x="7.5" y="0.5" width="5" height="19" rx="2.5" fill="none" stroke="%s" stroke-width="1"/></g>' % (name, fill, ring)
 
 def kv_svg(c, light):
     out, y = [], 0
+    # View items and attached widgets only round when an "expand-" copy of their frame exists.
+    expandable = ('itemview', 'combo', 'lineedit', 'tbutton', 'tab')
     for base, r, states in kv_elements(c, light):
         for state, (fill, border) in states.items():
             out.append(kv_frame('%s-%s' % (base, state), 0, y, r, fill, border)); y += 3 * r + 4
+            if base in expandable:
+                out.append(kv_frame('expand-%s-%s' % (base, state), 0, y, r, fill, border)); y += 3 * r + 4
     p = palette(c, light)
-    for kind, round_ in (('checkbox', False), ('radio', True)):
-        for suffix, fill, border, mark in (('normal', p['lowest'], p['outline'], None), ('focused', p['lowest'], c['primary'], None), ('pressed', mix(p['lowest'], c['primary'], .2), c['primary'], None),
-                                           ('disabled', c['surface'], p['outlineVariant'], None), ('checked', c['primary'], c['primary'], 'dot' if round_ else 'check'),
-                                           ('checked-focused', c['primary'], c['text'], 'dot' if round_ else 'check'), ('checked-pressed', mix(c['primary'], c['text'], .2), c['primary'], 'dot' if round_ else 'check'),
-                                           ('checked-disabled', p['disabled'], p['disabled'], 'dot' if round_ else 'check')) + ((('tristate', c['primary'], c['primary'], 'dash'),) if not round_ else ()):
-            item = kv_indicator('%s-%s' % (kind, suffix), 0, y, 20, fill, border, mark, round_)
-            out.append(item.replace('#MARK#', c['onPrimary'] if mark else c['text'])); y += 24
+    # Indicators. Kvantum names checked states as checked-normal, checked-focused and so on.
+    on, off_ring = c['primary'], c['subtext']
+    states = (('normal', 'none', off_ring, None), ('focused', mix(c['base'], c['text'], .08), c['text'], None), ('pressed', mix(c['base'], c['primary'], .2), c['primary'], None),
+              ('disabled', 'none', p['disabled'], None),
+              ('checked-normal', on, on, 'mark'), ('checked-focused', mix(on, c['text'], .12), mix(on, c['text'], .12), 'mark'),
+              ('checked-pressed', mix(on, c['text'], .24), mix(on, c['text'], .24), 'mark'), ('checked-disabled', p['disabled'], p['disabled'], 'mark'))
+    for kind in ('checkbox', 'radio'):
+        rows = states + ((('tristate-normal', on, on, 'dash'), ('tristate-focused', mix(on, c['text'], .12), mix(on, c['text'], .12), 'dash')) if kind == 'checkbox' else ())
+        for suffix, fill, ring, mark in rows:
+            g = '<g id="%s-%s" transform="translate(0,%d)">' % (kind, suffix, y)
+            if kind == 'radio':
+                g += '<circle cx="10" cy="10" r="8.5" fill="none" stroke="%s" stroke-width="2"/>' % ring
+                if mark: g += '<circle cx="10" cy="10" r="4.5" fill="%s"/>' % fill
+            else:
+                g += '<rect x="2" y="2" width="16" height="16" rx="4" fill="%s" stroke="%s" stroke-width="2"/>' % (fill if mark else 'none', ring)
+                if mark == 'mark': g += '<path d="M5.5,10.5 L8.5,13.5 L14.5,7" fill="none" stroke="%s" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' % c['onPrimary']
+                elif mark == 'dash': g += '<path d="M6,10 L14,10" stroke="%s" stroke-width="2.2" stroke-linecap="round"/>' % c['onPrimary']
+            out.append(g + '</g>'); y += 24
+    # Chevron arrows for combo boxes, spin boxes, menus and scroll areas.
+    paths = {'down': 'M4,7 L10,13 L16,7', 'up': 'M4,13 L10,7 L16,13', 'left': 'M13,4 L7,10 L13,16', 'right': 'M7,4 L13,10 L7,16'}
+    for direction, d in paths.items():
+        for suffix, ink in (('normal', c['subtext']), ('focused', c['text']), ('pressed', c['text']), ('toggled', c['onPrimaryContainer']), ('disabled', p['disabled'])):
+            out.append('<g id="arrow-%s-%s" transform="translate(0,%d)"><rect width="20" height="20" fill="none"/><path d="%s" fill="none" stroke="%s" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>' % (direction, suffix, y, d, ink)); y += 24
+    for prefix in ('slidercursor', 'slidercursor-tickless'):
+        for suffix, fill in (('normal', c['primary']), ('focused', mix(c['primary'], c['text'], .15)), ('pressed', mix(c['primary'], c['text'], .3)), ('disabled', p['disabled'])):
+            out.append('<g transform="translate(0,%d)">%s</g>' % (y, kv_cursor('%s-%s' % (prefix, suffix), fill, c['base']))); y += 24
     body = ''.join(out)
     return '<?xml version="1.0" encoding="UTF-8"?>\n<!-- Opal generated Kvantum theme -->\n<svg xmlns="http://www.w3.org/2000/svg" width="64" height="%d" viewBox="0 0 64 %d">%s</svg>\n' % (y, y, body)
 
 def kv_config(c, light):
     p = palette(c, light)
-    def frame(name, base, r, extra=''):
-        return '[%s]\ninherits=PanelButtonCommand\nframe=true\nframe.element=%s\ninterior=true\ninterior.element=%s\nframe.top=%d\nframe.bottom=%d\nframe.left=%d\nframe.right=%d\n%s\n' % (name, base, base, r, r, r, r, extra)
-    general = {'author': 'Opal', 'comment': 'Generated from the Opal palette', 'x11drag': 'menubar_and_primary_toolbar', 'alt_mnemonic': 'true', 'left_tabs': 'true', 'attach_active_tab': 'false',
-               'mirror_doc_tabs': 'true', 'group_toolbar_buttons': 'false', 'toolbar_item_spacing': '4', 'toolbar_interior_spacing': '6', 'spread_progressbar': 'true', 'composite': 'true',
-               'menu_shadow_depth': '8', 'tooltip_shadow_depth': '6', 'splitter_width': '6', 'scroll_width': '10', 'scroll_arrows': 'false', 'scroll_min_extent': '36', 'slider_width': '6',
-               'slider_handle_width': '20', 'slider_handle_length': '20', 'tickless_slider_handle_size': '20', 'check_size': '20', 'transient_scrollbar': 'false', 'transient_groove': 'false',
-               'layout_spacing': '6', 'layout_margin': '8', 'submenu_overlap': '0', 'animate_states': 'true', 'button_contents_shift': 'false', 'combo_as_lineedit': 'true', 'combo_menu': 'true',
-               'hide_combo_checkboxes': 'true', 'spin_button_width': '24', 'opaque': 'kaffeine,kmplayer,subtitlecomposer,kdenlive,vlc,smplayer,smplayer2,avidemux,avidemux2_qt4,avidemux3_qt4,avidemux3_qt5,kamoso,QtCreator,Qt-subapplication,Krita',
+    def section(name, element, frame=3, expansion=0, interior=True, extra=''):
+        text = '[%s]\ninherits=PanelButtonCommand\nframe=true\nframe.element=%s\ninterior=%s\ninterior.element=%s\nframe.top=%d\nframe.bottom=%d\nframe.left=%d\nframe.right=%d\n' % (
+            name, element, 'true' if interior else 'false', element, frame, frame, frame, frame)
+        if expansion: text += 'frame.expansion=%d\n' % expansion
+        return text + extra
+    general = {'author': 'Opal', 'comment': 'Generated from the Opal palette', 'x11drag': 'menubar_and_primary_toolbar', 'alt_mnemonic': 'true', 'left_tabs': 'false', 'attach_active_tab': 'false',
+               'mirror_doc_tabs': 'true', 'group_toolbar_buttons': 'false', 'toolbar_item_spacing': '2', 'toolbar_interior_spacing': '4', 'toolbar_separator_thickness': '0', 'spread_progressbar': 'true',
+               'progressbar_thickness': '8', 'composite': 'true', 'menu_shadow_depth': '8', 'tooltip_shadow_depth': '6', 'splitter_width': '4', 'scroll_width': '8', 'scroll_arrows': 'false',
+               'scroll_min_extent': '40', 'slider_width': '6', 'slider_handle_width': '20', 'slider_handle_length': '20', 'tickless_slider_handle_size': '20', 'check_size': '20',
+               'transient_scrollbar': 'true', 'transient_groove': 'true', 'layout_spacing': '6', 'layout_margin': '9', 'submenu_overlap': '0', 'animate_states': 'true',
+               'button_contents_shift': 'false', 'combo_as_lineedit': 'true', 'combo_menu': 'true', 'hide_combo_checkboxes': 'true', 'combo_focus_rect': 'false', 'spin_button_width': '22',
+               'opaque': 'kaffeine,kmplayer,subtitlecomposer,kdenlive,vlc,smplayer,smplayer2,avidemux,avidemux2_qt4,avidemux3_qt4,avidemux3_qt5,kamoso,QtCreator,Qt-subapplication,Krita',
                'reduce_window_opacity': '0', 'reduce_menu_opacity': '0', 'translucent_windows': 'false', 'blurring': 'false', 'popup_blurring': 'false', 'vertical_spin_indicators': 'false',
                'inline_spin_indicators': 'true', 'joined_inactive_tabs': 'false', 'center_normal_tabs': 'false', 'small_icon_size': '16', 'large_icon_size': '32', 'button_icon_size': '16',
-               'toolbar_icon_size': '22', 'fill_rubberband': 'true', 'dialog_button_layout': '0', 'scrollbar_in_view': 'true', 'respect_DE': 'true', 'no_inactiveness': 'false'}
+               'toolbar_icon_size': '22', 'fill_rubberband': 'true', 'dialog_button_layout': '0', 'scrollbar_in_view': 'true', 'respect_DE': 'true', 'no_inactiveness': 'false', 'no_focus_rect': 'true',
+               'menu_separator_height': '9', 'tree_branch_line': 'false', 'click_behavior': '0'}
     colors = {'window.color': c['base'], 'inactive.window.color': c['base'], 'base.color': p['lowest'], 'inactive.base.color': p['lowest'], 'alt.base.color': c['surface'], 'inactive.alt.base.color': c['surface'],
               'button.color': c['surfaceHigh'], 'light.color': c['surfaceHigh'], 'mid.light.color': c['surface'], 'dark.color': mix(c['base'], '#000000', .2), 'mid.color': p['outlineVariant'],
               'highlight.color': c['primary'], 'inactive.highlight.color': c['primaryContainer'], 'text.color': c['text'], 'inactive.text.color': c['subtext'], 'window.text.color': c['text'],
               'inactive.window.text.color': c['subtext'], 'button.text.color': c['text'], 'disabled.text.color': p['disabled'], 'tooltip.text.color': c['text'], 'highlight.text.color': c['onPrimary'],
-              'link.color': c['primary'], 'link.visited.color': c['tertiary']}
+              'link.color': c['primary'], 'link.visited.color': c['tertiary'], 'progress.indicator.text.color': c['text']}
+    ink = lambda normal, toggle=None: 'text.normal.color=%s\ntext.focus.color=%s\ntext.press.color=%s\ntext.toggle.color=%s\n' % (normal, normal, normal, toggle or c['onPrimaryContainer'])
     parts = ['[%General]\n' + ''.join('%s=%s\n' % kv for kv in general.items()), '[GeneralColors]\n' + ''.join('%s=%s\n' % kv for kv in colors.items())]
-    parts.append('[PanelButtonCommand]\nframe=true\nframe.element=button\ninterior=true\ninterior.element=button\nframe.top=16\nframe.bottom=16\nframe.left=16\nframe.right=16\ntext.normal.color=%s\ntext.focus.color=%s\ntext.press.color=%s\ntext.toggle.color=%s\ntext.shadow=0\ntext.margin=4\ntext.iconspacing=6\nindicator.size=10\nindicator.element=arrow\n' % (c['text'], c['text'], c['text'], c['onPrimaryContainer']))
-    parts.append(frame('PanelButtonTool', 'tbutton', 16, 'text.normal.color=%s\ntext.toggle.color=%s\n' % (c['text'], c['onPrimaryContainer'])))
-    parts.append(frame('LineEdit', 'lineedit', 12, 'text.margin=4\n'))
-    parts.append(frame('ToolbarButton', 'tbutton', 16))
-    parts.append('[Toolbar]\ninherits=PanelButtonCommand\nframe=false\ninterior=true\ninterior.element=toolbar\n')
-    parts.append(frame('Menu', 'menu', 12))
-    parts.append('[MenuItem]\ninherits=PanelButtonCommand\nframe=true\nframe.element=menuitem\ninterior=true\ninterior.element=menuitem\nframe.top=12\nframe.bottom=12\nframe.left=12\nframe.right=12\ntext.normal.color=%s\ntext.focus.color=%s\n' % (c['text'], c['onPrimaryContainer']))
-    parts.append(frame('Tab', 'tab', 12, 'text.normal.color=%s\ntext.toggle.color=%s\n' % (c['subtext'], c['onPrimaryContainer'])))
-    parts.append(frame('ItemView', 'itemview', 8, 'text.normal.color=%s\ntext.toggle.color=%s\n' % (c['text'], c['onPrimaryContainer'])))
-    parts.append(frame('Dock', 'dock', 12))
-    parts.append(frame('GroupBox', 'group', 16))
-    parts.append(frame('ToolTip', 'tooltip', 8, 'text.normal.color=%s\n' % c['text']))
-    parts.append(frame('HeaderSection', 'header', 8))
-    parts.append(frame('Progressbar', 'progress', 12, 'text.normal.color=%s\n' % c['text']))
-    parts.append(frame('ProgressbarContents', 'progress-pattern', 12))
-    parts.append(frame('Slider', 'slider', 6, 'groove.thickness=6\n'))
-    parts.append('[SliderCursor]\ninherits=PanelButtonCommand\nframe=false\ninterior=true\ninterior.element=slider-handle\n')
-    parts.append(frame('Scrollbar', 'scrollbar', 8))
-    parts.append('[ScrollbarSlider]\ninherits=PanelButtonCommand\nframe=true\nframe.element=scrollbar-slider\ninterior=true\ninterior.element=scrollbar-slider\nframe.top=8\nframe.bottom=8\nframe.left=8\nframe.right=8\n')
-    parts.append('[CheckBox]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\nindicator.element=checkbox\ntext.margin=2\n')
-    parts.append('[RadioButton]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\nindicator.element=radio\ntext.margin=2\n')
+    # Buttons are tonal pills. The default button uses the primary container, so the normal text colour stays readable.
+    parts.append('[PanelButtonCommand]\nframe=true\nframe.element=button\ninterior=true\ninterior.element=button\nframe.top=3\nframe.bottom=3\nframe.left=3\nframe.right=3\nframe.expansion=64\n'
+                 'text.margin.top=5\ntext.margin.bottom=5\ntext.margin.left=12\ntext.margin.right=12\ntext.shadow=0\ntext.iconspacing=6\nindicator.size=10\nindicator.element=arrow\n'
+                 'min_width=+1font\nmin_height=+0.5font\n' + ink(c['text']))
+    parts.append(section('PanelButtonTool', 'tbutton', 3, 64, extra='text.margin.left=8\ntext.margin.right=8\ntext.margin.top=4\ntext.margin.bottom=4\n' + ink(c['text'])))
+    parts.append(section('ToolbarButton', 'tbutton', 3, 64, extra='text.margin.left=8\ntext.margin.right=8\ntext.margin.top=4\ntext.margin.bottom=4\n' + ink(c['text'])))
+    parts.append(section('ComboBox', 'combo', 3, 64, extra='text.margin.left=12\ntext.margin.right=8\ntext.margin.top=4\ntext.margin.bottom=4\n' + ink(c['text'])))
+    parts.append('[IndicatorSpinBox]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\nindicator.element=arrow\n' + ink(c['text']))
+    parts.append(section('LineEdit', 'lineedit', 3, 64, interior=True, extra='text.margin.left=10\ntext.margin.right=10\ntext.margin.top=4\ntext.margin.bottom=4\n'))
+    parts.append('[Toolbar]\ninherits=PanelButtonCommand\nframe=false\ninterior=true\ninterior.element=toolbar\nframe.expansion=0\n')
+    parts.append(section('Menu', 'menu', 4, 24, extra='frame.expansion=24\n'))
+    parts.append(section('MenuItem', 'menuitem', 3, 64, extra='text.margin.left=10\ntext.margin.right=10\ntext.margin.top=4\ntext.margin.bottom=4\n' + ink(c['text'])))
+    parts.append(section('MenuBarItem', 'menuitem', 3, 64, extra=ink(c['text'])))
+    parts.append(section('Tab', 'tab', 3, 64, extra='text.margin.left=14\ntext.margin.right=14\ntext.margin.top=5\ntext.margin.bottom=5\n' + ink(c['subtext'])))
+    parts.append('[TabFrame]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\n')
+    # Selected rows are rounded tonal pills inside the view.
+    parts.append(section('ItemView', 'itemview', 3, 64, extra='text.margin.left=6\ntext.margin.right=6\ntext.margin.top=2\ntext.margin.bottom=2\n' + ink(c['text'], c['text'])))
+    # Views, docks and frames lose the bevel; separation comes from tone.
+    parts.append('[GenericFrame]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\n')
+    parts.append(section('Dock', 'dock', 3, 0, extra='frame=false\n'))
+    parts.append('[DockTitle]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\ntext.bold=true\n' + ink(c['subtext']))
+    parts.append(section('GroupBox', 'group', 4, 24, extra='frame=true\ntext.bold=true\n'))
+    parts.append(section('ToolTip', 'tooltip', 4, 32, extra=ink(c['text'])))
+    parts.append(section('HeaderSection', 'header', 3, 0, extra=ink(c['subtext']) + 'text.bold=true\n'))
+    parts.append(section('Progressbar', 'progress', 3, 64, extra='text.margin=0\ntext.bold=true\n' + ink(c['text'])))
+    parts.append(section('ProgressbarContents', 'progress-pattern', 3, 64))
+    parts.append(section('Slider', 'slider', 3, 64))
+    parts.append('[SliderCursor]\ninherits=PanelButtonCommand\nframe=false\ninterior=true\ninterior.element=slidercursor\n')
+    parts.append(section('Scrollbar', 'scrollbar', 3, 0, extra='frame=false\n'))
+    parts.append(section('ScrollbarSlider', 'scrollbar-slider', 3, 64))
+    parts.append('[ScrollbarGroove]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\n')
+    parts.append('[CheckBox]\ninherits=PanelButtonCommand\nframe=false\ninterior=true\ninterior.element=checkbox\nframe.expansion=0\ntext.margin.left=4\n' + ink(c['text'], c['text']))
+    parts.append('[RadioButton]\ninherits=PanelButtonCommand\nframe=false\ninterior=true\ninterior.element=radio\nframe.expansion=0\ntext.margin.left=4\n' + ink(c['text'], c['text']))
+    parts.append('[Focus]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\n')
+    parts.append('[StatusBar]\ninherits=PanelButtonCommand\nframe=false\ninterior=false\n')
     return '\n'.join(parts)
 
 def export_qt(ctx, c, light, options):

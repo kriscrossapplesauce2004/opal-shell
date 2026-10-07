@@ -7,7 +7,7 @@ Item {
     id:q
     property string confirm:""
     property bool editing:false
-    readonly property bool phone:Hub.targetScreen ? Hub.layoutFor(Hub.targetScreen.width,Hub.targetScreen.height,Hub.targetScreen.name)==="phone" : Hub.prefs.mode==="phone"
+    property bool phone:Hub.targetScreen ? Hub.layoutFor(Hub.targetScreen.width,Hub.targetScreen.height,Hub.targetScreen.name)==="phone" : Hub.prefs.mode==="phone"
     readonly property var catalog:[
         {id:"sliders",title:"Brightness and volume",icon:"tune"},
         {id:"tiles",title:"Quick tiles",icon:"grid_view"},
@@ -20,6 +20,21 @@ Item {
         {id:"battery",title:"Device batteries",icon:"battery_full"},
         {id:"devices",title:"Your devices",icon:"devices"}
     ]
+    // Phone: the sheet opens with one row of round tiles; a pull or the handle opens the full grid. Desktop is always full.
+    property bool expanded:!phone
+    property real expansion:phone ? (expanded ? 1 : 0) : 1
+    Behavior on expansion {NumberAnimation {duration:Theme.motion(420);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasized}}
+    // Detail pages grow out of the tile or chip that opened them.
+    property rect detailOrigin:Qt.rect(width/2-60,120,120,48)
+    property string detailKind:""
+    property real detail:Hub.controlDetail!=="" ? 1 : 0
+    Behavior on detail {NumberAnimation {duration:Theme.motion(Hub.controlDetail!=="" ? 460 : 320);easing.type:Easing.BezierSpline;easing.bezierCurve:Hub.controlDetail!=="" ? Theme.emphasizedDecelerate : Theme.emphasizedAccelerate}}
+    onDetailChanged:if(detail===0&&Hub.controlDetail==="")detailKind=""
+    Connections {target:Hub;function onControlDetailChanged(){if(Hub.controlDetail!=="")q.detailKind=Hub.controlDetail;}}
+    function openDetail(id,source) {
+        if(source){const p=source.mapToItem(q,0,0);detailOrigin=Qt.rect(p.x,p.y,source.width,source.height);}
+        Hub.settings(id==="wifi" ? "network" : "bluetooth");
+    }
     readonly property var sections:Array.isArray(Hub.prefs.sheetSections) ? Hub.prefs.sheetSections.filter(id=>catalog.some(c=>c.id===id)) : ["sliders","tiles","media","notifications"]
     function title(id) {const c=catalog.find(c=>c.id===id);return c ? c.title : id;}
     function icon(id) {const c=catalog.find(c=>c.id===id);return c ? c.icon : "widgets";}
@@ -47,7 +62,7 @@ Item {
     }
     ColumnLayout {
         id:main
-        visible:Hub.controlDetail==="";anchors.fill:parent;anchors.margins:14;anchors.bottomMargin:14+padFocus.hintSpace;spacing:10
+        visible:q.detail<1;enabled:Hub.controlDetail==="";opacity:1-.6*q.detail;anchors.fill:parent;anchors.margins:14;anchors.bottomMargin:14+padFocus.hintSpace;spacing:10
         Rectangle {visible:q.phone;Layout.alignment:Qt.AlignHCenter;Layout.preferredWidth:40;Layout.preferredHeight:4;radius:2;color:Theme.outline}
         // Header: large clock and date, status on the right.
         RowLayout {Layout.fillWidth:true;Layout.leftMargin:6;Layout.rightMargin:4;spacing:8
@@ -62,6 +77,18 @@ Item {
                 MButton {icon:"settings";compact:true;implicitWidth:38;implicitHeight:38;ink:Theme.subtext;tooltip:"Settings";onClicked:Hub.openSettings()}
                 MButton {icon:"power";compact:true;implicitWidth:38;implicitHeight:38;ink:Theme.subtext;tooltip:"Power";onClicked:q.confirm="menu"}
             }
+        }
+        // Status chips: each one grows into its page.
+        Flow {
+            visible:q.phone;Layout.fillWidth:true;Layout.leftMargin:2;spacing:8
+            MorphChip {id:wifiChip;icon:Hub.status.wifi ? "wifi" : "wifi_off";text:Hub.status.wifi ? Hub.status.network : "Offline";selected:!!Hub.status.wifi;onClicked:q.openDetail("wifi",wifiChip)}
+            MorphChip {
+                id:btChip
+                readonly property var device:Hub.connectivity.bluetooth.items.find(d=>d.active)||null
+                icon:Hub.status.bluetooth ? "bluetooth" : "bluetooth_disabled";text:device ? device.name : Hub.status.bluetooth ? "Bluetooth" : "Off";selected:device!==null
+                onClicked:q.openDetail("bluetooth",btChip)
+            }
+            MorphChip {visible:Hub.status.battery>=0;icon:Hub.status.charging ? "battery_charging_full" : "battery_5_bar";text:Hub.status.battery+"%"+(Hub.status.charging ? " · charging" : "");onClicked:Hub.openSettings("power")}
         }
         Flickable {
             id:scroller
@@ -152,15 +179,41 @@ Item {
             MButton {icon:"next";implicitWidth:44;implicitHeight:44;contained:true;tooltip:"Sound";onClicked:Hub.openAudio(Hub.targetScreen)}
         }
     }}
-    Component {id:tilesSection;QuickTileDeck {editing:q.editing}}
+    Component {id:tilesSection;ColumnLayout {spacing:4
+        QuickTileDeck {
+            id:deckItem
+            Layout.fillWidth:true
+            editing:q.editing;t:q.editing ? 1 : q.expansion
+            onPageRequested:(id,source)=>q.openDetail(id,source)
+        }
+        // Handle: tap or pull to open or close the full grid.
+        Item {
+            visible:q.phone&&!q.editing;Layout.fillWidth:true;Layout.preferredHeight:28
+            Glyph {anchors.centerIn:parent;name:"expand_more";rotation:180*q.expansion;font.pixelSize:22;color:Theme.subtext}
+            TapHandler {onTapped:q.expanded=!q.expanded}
+            Accessible.role:Accessible.Button;Accessible.name:q.expanded ? "Fewer tiles" : "All tiles"
+        }
+        DragHandler {
+            enabled:q.phone&&!q.editing;target:null;xAxis.enabled:false
+            onActiveChanged:if(!active&&Math.abs(translation.y)>24)q.expanded=translation.y>0
+        }
+    }}
     Component {id:mediaSection;Item {implicitHeight:Hub.status.track!=="" ? media.implicitHeight : 0;MediaCard {id:media;width:parent.width;visible:Hub.status.track!=="";compact:true;expandable:true}}}
     Component {id:inboxSection;ColumnLayout {spacing:8
         RowLayout {Layout.fillWidth:true;Layout.leftMargin:6
             MText {text:"Notifications";role:"titleS";Layout.fillWidth:true}
             MButton {visible:Notifier.inbox.length>0;text:"Clear all";compact:true;implicitHeight:30;ink:Theme.subtext;onClicked:Notifier.clear()}
         }
+        SuggestionChips {Layout.fillWidth:true;Layout.leftMargin:2}
         NotificationGroups {Layout.fillWidth:true;visible:Notifier.inbox.length>0}
-        MText {visible:Notifier.inbox.length===0;Layout.fillWidth:true;Layout.leftMargin:6;text:Hub.dnd ? "No notifications. Do not disturb is on." : "No notifications";role:"bodyS";color:Theme.subtext;Layout.bottomMargin:4}
+        RowLayout {
+            visible:Notifier.inbox.length===0;Layout.fillWidth:true;Layout.leftMargin:6;Layout.topMargin:4;Layout.bottomMargin:6;spacing:12
+            Rectangle {Layout.preferredWidth:40;Layout.preferredHeight:40;radius:20;color:Theme.alpha(Theme.primary,.14)
+                Glyph {anchors.centerIn:parent;name:Hub.dnd ? "do_not_disturb_on" : "done_all";font.pixelSize:20;color:Theme.primary}}
+            ColumnLayout {spacing:0;Layout.fillWidth:true
+                MText {text:"All caught up";role:"label";font.weight:Font.DemiBold}
+                MText {text:Hub.dnd ? "Do not disturb is on" : "New notifications show up here";role:"labelS";color:Theme.subtext}}
+        }
     }}
     Component {id:calendarSection;CalendarWidget {implicitHeight:300}}
     Component {id:monitorSection;Rectangle {implicitHeight:monitorRow.implicitHeight+28;radius:Theme.shapeLg;color:Theme.level(3)
@@ -212,7 +265,25 @@ Item {
         }
         MText {visible:!(Hub.status.batteries||[]).length;Layout.leftMargin:6;text:"No batteries found";role:"bodyS";color:Theme.subtext}
     }}
-    Loader {property bool controllerModal:true;anchors.fill:parent;anchors.margins:16;active:Hub.controlDetail!=="";visible:active;sourceComponent:Component {ConnectionPanel {kind:Hub.controlDetail||"wifi"}}}
+    Rectangle {
+        id:detailSurface
+        property bool controllerModal:true
+        visible:q.detailKind!==""&&q.detail>0
+        readonly property real k:q.detail
+        x:q.detailOrigin.x+(8-q.detailOrigin.x)*k
+        y:q.detailOrigin.y+(8-q.detailOrigin.y)*k
+        width:q.detailOrigin.width+(q.width-16-q.detailOrigin.width)*k
+        height:q.detailOrigin.height+(q.height-16-q.detailOrigin.height)*k
+        radius:Math.min(height/2,q.detailOrigin.height/2+(28-q.detailOrigin.height/2)*k)
+        color:Qt.tint(Theme.secondaryContainer,Theme.alpha(Theme.level(2),Math.min(1,k*1.5)))
+        clip:true
+        Loader {
+            x:8;y:8;width:q.width-32;height:q.height-32
+            active:q.detailKind!==""
+            opacity:Math.max(0,(detailSurface.k-.4)/.6)
+            sourceComponent:Component {ConnectionPanel {kind:q.detailKind||"wifi"}}
+        }
+    }
     Rectangle {property bool controllerModal:true;visible:q.confirm!=="";anchors.fill:parent;radius:28;color:Theme.level(2)
         MouseArea {anchors.fill:parent}
         ColumnLayout {anchors.centerIn:parent;width:parent.width-48;spacing:10

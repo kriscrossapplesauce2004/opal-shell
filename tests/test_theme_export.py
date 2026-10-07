@@ -74,6 +74,9 @@ class ThemeExportTests(unittest.TestCase):
         self.assertEqual(te.ini_get(files['.config/kdeglobals'], 'KDE', 'widgetStyle'), 'kvantum')
         self.assertIn('QT_QPA_PLATFORMTHEME=kde', files['.config/environment.d/opal-qt.conf'])
         self.assertTrue(runner.find('systemctl', '--user', 'set-environment', 'QT_QPA_PLATFORMTHEME=kde'))
+        self.assertIn('QT_STYLE_OVERRIDE=kvantum', files['.config/environment.d/opal-qt.conf'])
+        self.assertTrue(runner.find('systemctl', '--user', 'set-environment', 'QT_STYLE_OVERRIDE=kvantum'))
+        self.assertEqual(te.ini_get(files['.config/kdeglobals'], 'General', 'widgetStyle'), 'kvantum')
         self.assertTrue(runner.find('dbus-update-activation-environment', '--systemd', 'QT_QPA_PLATFORMTHEME=kde'))
         self.assertTrue(any('hl.env("QT_QPA_PLATFORMTHEME", "kde")' in ' '.join(c) for c in runner.find('hyprctl', 'eval')))
         # A temporary home must never change this process.
@@ -83,6 +86,7 @@ class ThemeExportTests(unittest.TestCase):
         te.revert(('kde',), home=self.home, runner=runner2, which=which, kvantum=lambda: True)
         self.assertNotIn('.config/environment.d/opal-qt.conf', tree(self.home))
         self.assertTrue(runner2.find('systemctl', '--user', 'unset-environment', 'QT_QPA_PLATFORMTHEME'))
+        self.assertTrue(runner2.find('systemctl', '--user', 'unset-environment', 'QT_STYLE_OVERRIDE'))
 
     def test_ini_set_inserts_after_last_real_line(self):
         text = '[General]\nfont=Inter\n\n[KDE]\ncontrast=4\n'
@@ -103,7 +107,7 @@ class ThemeExportTests(unittest.TestCase):
         for base in ('button-normal', 'button-pressed', 'lineedit-focused', 'tab-toggled', 'progress-pattern-normal'):
             for part in ('', '-top', '-bottom', '-left', '-right', '-topleft', '-topright', '-bottomleft', '-bottomright'):
                 self.assertIn(base + part, ids)
-        self.assertIn('checkbox-checked', ids); self.assertIn('radio-normal', ids)
+        for name in ('checkbox-checked-normal', 'radio-checked-normal', 'radio-normal', 'slidercursor-tickless-normal', 'slider-toggled-top'): self.assertIn(name, ids)
         self.assertNotIn('#MARK#', svg)
         config = te.kv_config(LIGHT, True)
         self.assertIn('[%General]', config); self.assertIn('window.color=#f7f0ff', config)
