@@ -205,6 +205,7 @@ ShellRoot {
     TaskbarContextWindow {}
     DockWindow {}
     PhoneDock {}
+    PhoneGestureLayer {}
     PanelWindow {
         id:notificationPopups
         screen:Notifier.popupScreen || Quickshell.screens[0]

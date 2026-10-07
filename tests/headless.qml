@@ -110,6 +110,21 @@ ShellRoot {
             {name:"appearance-phone",ui:"appearance",w:328,h:740},
             {name:"shade-scrolled",ui:"shade",w:490,h:700,scroll:true},
             {name:"appearance-scrolled",ui:"appearance",w:620,h:800,scroll:true},
+            {name:"phone-412",ui:"phone",w:412,h:915,task:true},
+            {name:"phone-412-light",ui:"phone",w:412,h:915,task:true,light:true},
+            {name:"phone-412-drawer",ui:"phone",w:412,h:915,apps:true,task:true,filterText:"fi"},
+            {name:"tablet-1280",ui:"phone",w:1280,h:800,task:true},
+            {name:"tablet-1280-light",ui:"phone",w:1280,h:800,task:true,light:true},
+            {name:"tablet-dock",ui:"tabletdock",w:1280,h:180},
+            {name:"tablet-dock-light",ui:"tabletdock",w:1280,h:180,light:true},
+            {name:"phone-battery",ui:"battery",w:412,h:915},
+            {name:"phone-battery-light",ui:"battery",w:412,h:915,light:true},
+            {name:"gesture-home",ui:"gesture",w:412,h:915,gesture:"home",progress:.45},
+            {name:"gesture-recents",ui:"gesture",w:412,h:915,gesture:"recents",progress:.5},
+            {name:"gesture-switch",ui:"gesture",w:412,h:915,gesture:"switch",dx:150},
+            {name:"gesture-back",ui:"gesture",w:412,h:915,gesture:"back",progress:1,light:true},
+            {name:"lock-extras",ui:"lockfx",w:412,h:915},
+            {name:"lock-ambient",ui:"lockfx",w:412,h:915,ambient:true},
             {name:"phone-home",ui:"phone",w:390,h:844},
             {name:"phone-home-light",ui:"phone",w:390,h:844,light:true},
             {name:"phone-switcher",ui:"phone",w:390,h:844,recent:true},
@@ -201,6 +216,24 @@ ShellRoot {
             Opal.DesktopShelf {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:64}
         }}
         Component {id:phone;Opal.MobileHome {}}
+        Component {id:tabletDockView;Item {
+            Rectangle {anchors.fill:parent;color:Opal.Theme.base}
+            Opal.TabletDockTray {anchors.centerIn:parent;screenObj:null}
+        }}
+        Component {id:batteryView;Opal.BatteryStats {}}
+        Component {id:gestureView;Item {
+            Opal.Wallpaper {anchors.fill:parent;showWidgets:false}
+            Opal.GestureStage {anchors.fill:parent}
+        }}
+        Component {id:lockFxView;Item {
+            Opal.Wallpaper {anchors.fill:parent;showWidgets:false}
+            Opal.LockExtras {
+                anchors.fill:parent
+                scene:Item {property bool revealed:false;property bool greeter:false}
+                fixtureItems:[{notification:{appName:"Messages",summary:"Sam: dinner at 7?",appIcon:""}},{notification:{appName:"Calendar",summary:"Design review in 10 min",appIcon:""}},{notification:{appName:"Firefox",summary:"Download finished",appIcon:""}}]
+                ambientOn:!!fixture.cases[fixture.step].ambient
+            }
+        }}
         Component {id:phoneBars;Item {
             property alias navigation:phoneNav
             Opal.PhoneStatus {anchors.top:parent.top;width:parent.width;height:48}
@@ -292,6 +325,19 @@ ShellRoot {
             Opal.Wallpaper {anchors.fill:parent}
             Opal.DesktopShelf {id:workspaceShelf;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:64}
         }}
+        // Re-applied while a scene renders, because the isolated backend also answers.
+        function applyTaskFixture() {
+            const test=cases[step];
+            if(test.task||test.ui==="tabletdock"||test.ui==="battery"||test.ui==="gesture"||test.ui==="lockfx") {
+                Opal.PhoneState.activity={files:[{title:"Trip budget.ods",path:"/x/a",icon:"description",ago:"12 min ago",when:1},{title:"Boarding pass.pdf",path:"/x/b",icon:"picture_as_pdf",ago:"2 h ago",when:1},{title:"Beach.jpg",path:"/x/c",icon:"image",ago:"Yesterday",when:1}],games:[{id:"steam:1",title:"Celeste",cover:"",ago:"Yesterday",when:1}]};
+                Opal.PhoneState.torch={available:true,on:false,name:"white:flash"};
+                Opal.PhoneState.battery={available:true,status:test.light ? "Charging" : "Discharging",percent:64,watts:3.4,volts:3.92,hours:6.4,health:91,cycles:212,celsius:31.5};
+                const base=Date.now()-3600000;Opal.PhoneState.batteryHistory=Array.from({length:30},(_,i)=>({t:base+i*120000,percent:Math.round(80-i*.55),watts:3}));
+                Opal.Hub.status=Object.assign({},Opal.Hub.status,{track:"Evening Drive",artist:"Local player",playing:false,battery:64,charging:!!test.light,profile:"balanced"});
+                Opal.Hub.linkDevices=[{id:"a".repeat(32),name:"OnePlus 7",paired:true,reachable:true,session:{app:"firefox",appName:"Firefox",title:"Hyprland wiki",track:"",playing:false}}];
+            }
+        }
+        Timer {interval:100;repeat:true;running:fixture.step<fixture.cases.length&&!!(fixture.cases[fixture.step].task||fixture.cases[fixture.step].ui==="battery");onTriggered:fixture.applyTaskFixture()}
         function scrollEnd(item) {
             if(item.contentHeight!==undefined&&item.contentHeight>item.height)item.contentY=item.contentHeight-item.height;
             for(let child of item.children||[])scrollEnd(child);
@@ -386,7 +432,14 @@ ShellRoot {
                 Opal.Hub.query=test.searchText||"";Opal.Hub.page="launcher";Opal.Hub.launcherSection="apps";
                 Opal.Hub.claudeAnswer=test.claude ? "Done. Your bar is now a **dock**: one pill with apps on the left and status on the right." : "";Opal.Hub.claudeTools=test.claude ? ["get preferences","set preference"] : [];
             }
-            view.sourceComponent=test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
+            applyTaskFixture();
+            if(test.ui==="gesture") {
+                const gw=[{title:"Project notes",className:"org.kde.kate",workspace:1,address:"fixture-1"},{title:"A good playlist",className:"firefox",workspace:2,address:"fixture-2"}];
+                Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=gw;Opal.Hub.status=Object.assign({},Opal.Hub.status,{hypr:false,activeAddress:"fixture-1"});
+                Opal.PhoneState.phase=test.gesture;Opal.PhoneState.progress=test.progress||0;Opal.PhoneState.dx=test.dx||0;Opal.PhoneState.dy=-(test.progress||0)*test.h*.5;Opal.PhoneState.edge=-1;
+            } else if(Opal.PhoneState.phase!=="")Opal.PhoneState.finish();
+            if(test.filterText)Opal.Hub.query=test.filterText;
+            view.sourceComponent=test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : gaming;
             if(test.ui==="start") {
                 view.item.menu.section=test.allApps ? "all" : "pinned";
                 Qt.callLater(()=>{

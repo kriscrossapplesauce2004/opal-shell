@@ -553,6 +553,7 @@ Scope {
                     else if(e.event === "linkPairRequest") h.linkPairRequest={id:e.id,name:e.name,code:e.code};
                     else if(e.event === "health") h.health={disks:e.disks,temperatures:e.temperatures,hottest:e.hottest};
                     else if(e.event === "updates") h.updates={pacman:e.pacman,flatpak:e.flatpak};
+                    else if(e.event === "recentActivity"||e.event === "torch"||e.event === "batteryStats") PhoneState.ingest(e);
                     else if(e.event === "monitors") h.monitors=e.data;
                     else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}

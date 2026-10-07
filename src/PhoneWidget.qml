@@ -7,6 +7,7 @@ Item {
     property bool editing: false
     signal remove()
     signal longPressed()
+    signal tapped()
     implicitHeight: loader.item ? loader.item.implicitHeight : 0
     height: implicitHeight
     Loader {
@@ -14,7 +15,7 @@ Item {
         width: parent.width
         sourceComponent: widget.kind === "glance" ? glance : widget.kind === "stack" ? stack : widget.kind === "media" ? media : widget.kind === "calendar" ? calendar : widget.kind === "battery" ? battery : focus
     }
-    TapHandler { onLongPressed: widget.longPressed() }
+    TapHandler { onLongPressed: widget.longPressed(); onTapped: widget.tapped() }
     Rectangle {
         visible: widget.editing
         anchors.right: parent.right; anchors.top: parent.top; anchors.margins: -4

@@ -99,3 +99,16 @@ DockWindow 1.0 DockWindow.qml
 PhoneDock 1.0 PhoneDock.qml
 PhoneDockPanel 1.0 PhoneDockPanel.qml
 DockTrackpad 1.0 DockTrackpad.qml
+singleton PhoneState 1.0 PhoneState.qml
+PhoneGestureLayer 1.0 PhoneGestureLayer.qml
+GestureCard 1.0 GestureCard.qml
+PenWatcher 1.0 PenWatcher.qml
+TaskAwareSection 1.0 TaskAwareSection.qml
+PhoneTabletDock 1.0 PhoneTabletDock.qml
+SplitDivider 1.0 SplitDivider.qml
+PhoneTorch 1.0 PhoneTorch.qml
+LockExtras 1.0 LockExtras.qml
+AmbientClock 1.0 AmbientClock.qml
+BatteryStats 1.0 BatteryStats.qml
+GestureStage 1.0 GestureStage.qml
+TabletDockTray 1.0 TabletDockTray.qml

@@ -7,15 +7,17 @@ Item {
     id:home
     property bool wide:width>=720
     property bool editing:false
+    property bool batteryOpen:false
     property var openFolder:null
     property int openFolderPage:-1
     property int openFolderIndex:-1
-    readonly property int columns:4
+    readonly property int columns:PhoneState.columnsFor(pager.width,wide)
     readonly property real gridWidth:wide ? pager.width*.55 : pager.width
     readonly property real cellWidth:gridWidth/columns
-    readonly property real cellHeight:Math.min(116,Math.max(96,cellWidth*1.2))
+    readonly property real cellHeight:PhoneState.cellHeight(cellWidth)
     readonly property int dockCount:wide ? 0 : Math.min(4,Hub.favoriteApps.length)
     readonly property var layout:Hub.phoneHome
+    PenWatcher {anchors.fill:parent}
     signal dragProgress(real value)
     signal dragFinished(bool open)
     signal openDrawer(bool search)
@@ -93,7 +95,7 @@ Item {
         ListView {
             id:pager
             Layout.fillWidth:true;Layout.fillHeight:true
-            orientation:ListView.Horizontal;snapMode:ListView.SnapOneItem;highlightRangeMode:ListView.StrictlyEnforceRange
+            orientation:ListView.Horizontal;snapMode:ListView.SnapOneItem;highlightRangeMode:ListView.StrictlyEnforceRange;highlightMoveDuration:Theme.motion(300)
             boundsBehavior:Flickable.StopAtBounds;clip:true
             interactive:!pageDelegateDragging
             property bool pageDelegateDragging:false
@@ -103,13 +105,16 @@ Item {
                 required property var modelData
                 required property int index
                 width:pager.width;height:pager.height
+                // Neighbour pages recede while the finger moves, so a page change feels continuous.
+                readonly property real distance:Math.min(1,Math.abs(x-pager.contentX)/Math.max(1,pager.width))
+                opacity:1-distance*.55;scale:1-distance*.05
                 // Long-press on empty space enters edit mode.
                 MouseArea {anchors.fill:parent;onPressAndHold:home.editing=true}
                 Flickable {
                     anchors.fill:parent;contentHeight:pageColumn.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
                     interactive:!pager.pageDelegateDragging
                     Column {
-                        id:pageColumn;width:parent.width;spacing:14
+                        id:pageColumn;width:home.wide ? parent.width*.42 : parent.width;spacing:14
                         Repeater {
                             model:page.modelData.widgets
                             PhoneWidget {
@@ -117,7 +122,14 @@ Item {
                                 width:pageColumn.width;kind:modelData;editing:home.editing
                                 onRemove:home.removeWidget(page.index,modelData)
                                 onLongPressed:home.editing=true
+                                onTapped:if(modelData==="battery"&&!home.editing)home.batteryOpen=true
                             }
+                        }
+                        Loader {
+                            width:parent.width;active:page.index===0&&!home.editing
+                            visible:active&&!!item&&item.cards.length>0
+                            height:visible ? item.implicitHeight : 0
+                            sourceComponent:TaskAwareSection {}
                         }
                     }
                         // Icon grid with absolute cells, so a dragged item can float.
@@ -146,7 +158,7 @@ Item {
                                     PhoneAppIcon {
                                         visible:!cell.folder&&cell.app!==null
                                         anchors.horizontalCenter:parent.horizontalCenter;y:6
-                                        app:cell.app||({name:"",icon:""});size:Math.min(60,home.cellWidth-24)
+                                        app:cell.app||({name:"",icon:""});size:PhoneState.iconSize(home.cellWidth)
                                         enabled:!home.editing
                                         onActivated:Hub.launch(cell.app)
                                     }
@@ -156,7 +168,7 @@ Item {
                                         anchors.horizontalCenter:parent.horizontalCenter;y:10;spacing:7
                                         Rectangle {
                                             anchors.horizontalCenter:parent.horizontalCenter
-                                            width:Math.min(60,home.cellWidth-24);height:width;radius:width*.3
+                                            width:PhoneState.iconSize(home.cellWidth);height:width;radius:width*.3
                                             color:Theme.level(3)
                                             Grid {
                                                 anchors.centerIn:parent;columns:2;spacing:4
@@ -255,6 +267,7 @@ Item {
                         anchors.fill:parent;anchors.leftMargin:18;anchors.rightMargin:6;spacing:8
                         Glyph {name:"search";font.pixelSize:22;color:Theme.primary}
                         MText {text:"Search apps";role:"body";color:Theme.subtext;Layout.fillWidth:true}
+                        PhoneTorch {implicitWidth:40;implicitHeight:40;compact:true}
                         MButton {icon:"calculate";compact:true;implicitWidth:40;implicitHeight:40;ink:Theme.subtext;tooltip:"Calculator";onClicked:{Hub.query="= ";home.openDrawer(true);}}
                         MButton {icon:"apps";compact:true;implicitWidth:40;implicitHeight:40;ink:Theme.subtext;tooltip:"All apps";onClicked:home.openDrawer(false)}
                     }
@@ -262,6 +275,13 @@ Item {
                 }
             }
         }
+    }
+
+    // Battery page.
+    Rectangle {
+        anchors.fill:parent;visible:home.batteryOpen;color:Theme.alpha(Theme.base,.97)
+        MouseArea {anchors.fill:parent}
+        Loader {anchors.fill:parent;active:home.batteryOpen;sourceComponent:BatteryStats {onCloseRequested:home.batteryOpen=false}}
     }
 
     // Widget picker.
