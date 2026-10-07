@@ -10,9 +10,10 @@ Scope {
             required property var modelData
             screen: modelData
             anchors { bottom: true; left: true; right: true }
+            // Fixed place above the navigation bar. The navigation bar reserves this room, so the stacking does not depend on map order.
+            exclusionMode: ExclusionMode.Ignore
             margins.bottom: PhoneState.navHeight
             implicitHeight: 84
-            exclusiveZone: 84
             WlrLayershell.layer: WlrLayer.Top
             WlrLayershell.namespace: "opal-tablet-dock"
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None

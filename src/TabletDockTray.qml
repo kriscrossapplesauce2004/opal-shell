@@ -4,8 +4,10 @@ import Quickshell
 Item {
     id: dock
     property var screenObj: null
+    // Flat: drawn inside the navigation bar, with no floating tray of its own.
+    property bool flat: false
     implicitWidth: tray.width
-    implicitHeight: 72
+    implicitHeight: flat ? 60 : 72
     width: implicitWidth
     height: implicitHeight
     readonly property var pinned: Hub.favoriteApps.slice(0, 8)
@@ -21,9 +23,9 @@ Item {
         id: tray
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        height: 72; width: row.implicitWidth + 24; radius: 36
-        color: Theme.alpha(Theme.dockTint, Math.max(.7, Hub.prefs.glass))
-        border.width: 1; border.color: Theme.outline
+        height: dock.flat ? 60 : 72; width: row.implicitWidth + (dock.flat ? 0 : 24); radius: height / 2
+        color: dock.flat ? "transparent" : Theme.alpha(Theme.dockTint, Math.max(.7, Hub.prefs.glass))
+        border.width: dock.flat ? 0 : 1; border.color: Theme.outline
         Row {
             id: row
             anchors.centerIn: parent
@@ -55,7 +57,7 @@ Item {
         id: icon
         property var app: null
         readonly property var windows: Hub.windows.filter(w => Hub.appForWindow(w) === icon.app)
-        width: PhoneState.hit + 8; height: 64
+        width: PhoneState.hit + 8; height: dock.flat ? 60 : 64
         OpalMenu {
             id: menu; title: icon.app ? icon.app.name : ""; icon: "apps"
             entries: {

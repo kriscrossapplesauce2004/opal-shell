@@ -8,6 +8,11 @@ Item {
     property bool editing:false
     readonly property bool wide:width>=760
     readonly property var room:Rooms.currentRoom
+    // On a tablet the navigation bar holds the apps and search, so Rooms leaves them out.
+    readonly property bool navDock:wide&&Hub.prefs.tabletDock!==false
+    // On an empty room the card area shows every room instead of an empty card.
+    readonly property bool overview:!!room&&room.windows.length===0&&Rooms.list.some(r=>r.windows.length>0)
+    Component.onCompleted:PhoneState.refreshActivity()
     // Docked: rooms live on the monitor. The card shrinks into its chip and the chip row moves to the top.
     property bool docked:Hub.docked
     property real dockT:docked ? 1 : 0
@@ -81,6 +86,22 @@ Item {
                 sheetWidth:440;sheetHeight:330
                 sheet:Component {DockWelcome {anchors.fill:parent}}
             }
+            MorphChip {
+                visible:!Hub.focusRunning&&Hub.focusSeconds>=25*60
+                icon:"timer";text:"Focus";host:home
+                sheetWidth:360;sheetHeight:180
+                sheet:Component {FocusCard {anchors.fill:parent;anchors.margins:4}}
+            }
+            MorphChip {
+                icon:Hub.status.wifi ? "wifi" : "wifi_off";text:Hub.status.wifi ? (Hub.status.network||"Wi-Fi") : "Offline";host:home
+                sheetWidth:380;sheetHeight:400
+                sheet:Component {ConnectionPanel {anchors.fill:parent;anchors.margins:12;kind:"wifi";embedded:true}}
+            }
+            MorphChip {
+                visible:Hub.status.battery>=0
+                icon:Hub.status.charging ? "battery_charging_full" : Hub.status.battery<=20 ? "battery_alert" : "battery_5_bar"
+                text:Hub.status.battery+"%";selected:Hub.status.battery<=20&&!Hub.status.charging
+            }
         }
         Item {width:1;height:4}
         MText {visible:Rooms.earlier.length>0;text:"EARLIER";role:"labelS";color:Theme.primary;font.letterSpacing:1.3}
@@ -127,7 +148,25 @@ Item {
         id:roomArea
         x:home.roomsX;width:home.roomsW
         anchors.bottom:undockedChips.top;anchors.bottomMargin:12
-        height:home.wide ? home.height-undockedChips.height-pins.height-bar.height-120 : Math.max(180,Math.min(250,undockedChips.y-story.y-story.height-24))
+        height:home.wide ? undockedChips.y-36 : Math.max(180,Math.min(250,undockedChips.y-story.y-story.height-24))
+        // Overview: every room with windows, drawn with its layout. Tap one to go there.
+        Grid {
+            visible:home.overview&&home.dockT===0
+            x:24;width:parent.width-48;height:parent.height
+            columns:home.wide ? 3 : 2;spacing:12
+            readonly property var shown:Rooms.list.filter(r=>r.windows.length>0).slice(0,home.wide ? 6 : 4)
+            readonly property int rowsUsed:Math.max(1,Math.ceil(shown.length/columns))
+            Repeater {
+                model:parent.shown
+                RoomCard {
+                    required property var modelData
+                    room:modelData;previews:false;radius:24
+                    width:(parent.width-parent.spacing*(parent.columns-1))/parent.columns
+                    height:Math.min(home.wide ? 440 : 260,(parent.height-parent.spacing*(parent.rowsUsed-1))/parent.rowsUsed)
+                    onEntered:Rooms.enter(modelData)
+                }
+            }
+        }
     }
     RoomCard {
         id:card
@@ -140,7 +179,7 @@ Item {
         height:restRect.height+(chipRect.height-restRect.height)*home.dockT
         radius:Math.min(height/2,30)
         opacity:home.dockT<.75 ? 1 : (1-home.dockT)*4
-        visible:opacity>0&&home.room!==null
+        visible:opacity>0&&home.room!==null&&!home.overview
         previews:home.dockT===0
         onEntered:{}
         // The card's own content fades early so the shrink reads as a surface, not a squashed picture.
@@ -150,7 +189,7 @@ Item {
     // Neighbour room peeking at the right edge, a promise that rooms swipe.
     RoomCard {
         readonly property var next:Rooms.list[Rooms.list.indexOf(home.room)+1]||null
-        visible:next!==null&&home.dockT===0&&!home.wide
+        visible:next!==null&&home.dockT===0&&!home.wide&&!home.overview
         room:next;previews:false
         x:home.width-18;y:roomArea.y+20;width:home.width-48;height:roomArea.height-40;opacity:.7
         onEntered:Rooms.enter(next)
@@ -172,7 +211,7 @@ Item {
     Flow {
         id:undockedChips
         x:home.roomsX+24;width:home.roomsW-48
-        anchors.bottom:pins.top;anchors.bottomMargin:home.wide ? 14 : 18
+        anchors.bottom:home.navDock ? parent.bottom : pins.top;anchors.bottomMargin:home.navDock ? 14 : home.wide ? 14 : 18
         spacing:8
         opacity:1-Math.min(1,home.dockT*2.5)
         visible:opacity>0
@@ -212,6 +251,7 @@ Item {
     // ---- Pins and search.
     Row {
         id:pins
+        visible:!home.navDock
         x:home.wide ? home.roomsX+24 : (home.width-width)/2
         anchors.bottom:bar.top;anchors.bottomMargin:16
         spacing:home.wide ? 24 : Math.max(12,(home.width-48-5*46)/4)
@@ -221,6 +261,7 @@ Item {
     }
     Rectangle {
         id:bar
+        visible:!home.navDock
         anchors.bottom:parent.bottom;anchors.bottomMargin:12
         x:home.wide ? (home.width-width)/2 : 12;width:home.wide ? 560 : home.width-24
         height:56;radius:28;color:Theme.alpha(Theme.level(3),.94)

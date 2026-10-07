@@ -3,7 +3,6 @@ import Quickshell
 import Quickshell.Wayland
 // Gesture feedback and edge zones for phone outputs. The feedback surface never takes input.
 Scope {
-    PhoneTabletDock {}
     SplitDivider {}
     // One feedback surface on the output where the finger is.
     PanelWindow {

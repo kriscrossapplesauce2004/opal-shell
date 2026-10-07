@@ -77,8 +77,21 @@ class Geometry(unittest.TestCase):
     def test_plan(self):
         mons = [self.MON, dict(self.MON, id=1, name='DP-1')]
         plan = pw.plan_fit(self.clients(), mons, {'DSI-1'}, {'game': 'fullscreen'})
-        self.assertEqual(plan, [{'address': '0x1', 'do': 'maximize'}, {'address': '0x3', 'do': 'clamp'}, {'address': '0x5', 'do': 'fullscreen'}])
+        # Only the front tiled window is fitted (no focus history here, so the first one); the small dialog is clamped.
+        self.assertEqual(plan, [{'address': '0x1', 'do': 'maximize'}, {'address': '0x3', 'do': 'clamp'}])
         self.assertEqual(pw.plan_fit(self.clients(), mons, set()), [])
+
+    def test_two_windows_do_not_take_turns(self):
+        mons = [dict(self.MON, activeWorkspace={'id': 1})]
+        a = {'address': '0xa', 'class': 'kitty', 'monitor': 0, 'workspace': {'id': 1}, 'mapped': True, 'floating': False, 'fullscreen': 1, 'size': [1, 1], 'focusHistoryID': 1}
+        b = {'address': '0xb', 'class': 'chrome', 'monitor': 0, 'workspace': {'id': 1}, 'mapped': True, 'floating': False, 'fullscreen': 0, 'size': [1, 1], 'focusHistoryID': 0}
+        # The focused window takes the place once.
+        self.assertEqual(pw.plan_fit([a, b], mons, {'DSI-1'}), [{'address': '0xb', 'do': 'maximize'}])
+        # After that, Hyprland has moved the state over and nothing more is planned, so the windows never swap again.
+        self.assertEqual(pw.plan_fit([dict(a, fullscreen=0), dict(b, fullscreen=1)], mons, {'DSI-1'}), [])
+        # Windows on a hidden workspace are left alone.
+        c = dict(b, address='0xc', workspace={'id': 2}, focusHistoryID=2)
+        self.assertEqual(pw.plan_fit([dict(a, fullscreen=0), dict(b, fullscreen=1), c], mons, {'DSI-1'}), [])
 
 class Adapter(unittest.TestCase):
     def test_fit_calls_and_graceful_absence(self):
@@ -93,8 +106,8 @@ class Adapter(unittest.TestCase):
             assert args[1] not in ('dispatch', 'keyword'), args
             return ''
         w = pw.PhoneWindows(runner)
-        self.assertEqual(w.fit(['DSI-1']), 3)
-        self.assertTrue(any('hl.dsp.window.fullscreen' in ' '.join(a) for a in calls))
+        self.assertEqual(w.fit(['DSI-1']), 2)
+        self.assertTrue(any('hl.dsp.window.fullscreen' in ' '.join(a) or 'hl.dsp.window.center' in ' '.join(a) for a in calls))
         self.assertEqual(w.fit(['bad name!']), 0)
         def broken(args): raise OSError('no hyprctl')
         self.assertEqual(pw.PhoneWindows(broken).fit(['DSI-1']), 0)

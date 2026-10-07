@@ -46,10 +46,26 @@ def plan_fit(clients, monitors, phone_outputs, modes=None):
     """Return window actions for clients on phone outputs. Desktop outputs are never touched."""
     modes = modes or {}
     by_id = {m['id']: m for m in monitors if m.get('name') in phone_outputs}
+    # Hyprland keeps one maximized window per workspace. Fitting every window makes them take the place in turn
+    # and never stop, so only the front window (the latest in focus history) of each visible phone workspace is fitted.
+    front = {}
+    for client in clients:
+        monitor = by_id.get(client.get('monitor'))
+        if not monitor or not client.get('mapped') or client.get('hidden') or client.get('floating'):
+            continue
+        workspace = (client.get('workspace') or {}).get('id')
+        if workspace != (monitor.get('activeWorkspace') or {}).get('id', workspace):
+            continue
+        rank = client.get('focusHistoryID', 1 << 30)
+        if workspace not in front or rank < front[workspace].get('focusHistoryID', 1 << 30):
+            front[workspace] = client
+    chosen = {c.get('address') for c in front.values()}
     plan = []
     for client in clients:
         monitor = by_id.get(client.get('monitor'))
         if not monitor or not client.get('mapped') or client.get('hidden') or not _ADDRESS.fullmatch(client.get('address', '')):
+            continue
+        if not client.get('floating') and client.get('address') not in chosen:
             continue
         cls = (client.get('class') or client.get('initialClass') or '').lower()
         mode = modes.get(cls, 'maximize')

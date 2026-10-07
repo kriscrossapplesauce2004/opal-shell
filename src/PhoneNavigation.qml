@@ -4,7 +4,9 @@ import QtQuick.Layouts
 Item {
     id:nav
     property var output:null
-    implicitHeight:Hub.prefs.phoneButtons ? 64 : 48
+    // On a tablet the app dock is part of this bar: keys at the left, apps in the middle, the gesture strip at the bottom edge.
+    readonly property bool tablet:!!output&&PhoneState.isTablet(output)&&Hub.prefs.tabletDock!==false
+    implicitHeight:tablet ? 68 : Hub.prefs.phoneButtons ? 64 : 48
     function go(tab) {if(output)Hub.targetScreen=output;Hub.mobileTab=tab;Hub.page="launcher";}
     // Home closes every Opal surface; the embedded home screen is then what remains.
     function home() {if(output)Hub.targetScreen=output;PhoneState.goHome();}
@@ -13,7 +15,9 @@ Item {
     Rectangle {anchors.fill:parent;color:Hub.page===""||Hub.page==="launcher" ? "transparent" : Theme.alpha(Theme.base,.6)}
     // Three buttons: back triangle, home circle and recents square, drawn as outlines.
     RowLayout {
-        visible:!!Hub.prefs.phoneButtons;anchors.centerIn:parent;width:Math.min(parent.width-48,300);spacing:0
+        visible:!!Hub.prefs.phoneButtons;spacing:0
+        width:nav.tablet ? 216 : Math.min(parent.width-48,300)
+        x:nav.tablet ? 12 : (parent.width-width)/2;y:(parent.height-height)/2
         NavKey {
             tooltip:"Back";onActivated:nav.back()
             Glyph {anchors.centerIn:parent;name:"play_arrow";rotation:180;font.pixelSize:26;color:Theme.text}
@@ -27,9 +31,16 @@ Item {
             Rectangle {anchors.centerIn:parent;width:16;height:16;radius:4;color:"transparent";border.width:2.5;border.color:Theme.text}
         }
     }
+    Loader {
+        active:nav.tablet;anchors.verticalCenter:parent.verticalCenter;anchors.verticalCenterOffset:Hub.prefs.phoneButtons ? 0 : -6
+        x:Hub.prefs.phoneButtons ? Math.max(240,(parent.width-width)/2) : (parent.width-width)/2
+        sourceComponent:Component {TabletDockTray {flat:true;screenObj:nav.output}}
+    }
     // Gesture pill: the finger moves a live card. Up goes home, up and hold shows recents, sideways switches apps.
     Item {
-        visible:!Hub.prefs.phoneButtons;anchors.fill:parent
+        visible:!Hub.prefs.phoneButtons
+        anchors {left:parent.left;right:parent.right;bottom:parent.bottom}
+        height:nav.tablet ? 16 : parent.height
         Rectangle {
             id:pill
             anchors.centerIn:parent

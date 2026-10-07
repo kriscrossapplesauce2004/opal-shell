@@ -75,7 +75,7 @@ ShellRoot {
                     Component {id:desktopBackdrop;Wallpaper {showWidgets:morph.shown==="desktop"&&Hub.prefs.desktopWidgets!==false}}
                     // Non-exclusive homes live behind applications. Only the explicit overlay takes keys.
                     Loader {
-                        anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? 48 : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? (Hub.prefs.phoneButtons ? 64 : 48) : 84}
+                        anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? 48 : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? (PhoneState.isTablet(output.modelData)&&Hub.prefs.tabletDock!==false ? 68 : Hub.prefs.phoneButtons ? 64 : 48) : 84}
                         active:morph.shown!=="desktop"&&Hub.page===""
                         sourceComponent:morph.shown==="phone" ? phoneHome : gameHome
                     }
@@ -109,7 +109,7 @@ ShellRoot {
                 Loader {anchors.fill:parent;active:statusbar.visible;sourceComponent:phoneStatusContent}
                 Component {id:phoneStatusContent;PhoneStatus {anchors.fill:parent;output:statusbar.screen;fpsEnabled:root.fpsEnabled;fps:root.fps}}
             }
-            Loader {active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {screen:output.modelData}}}
+            Loader {active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {output:output.modelData}}}
             Loader {active:output.layoutMode==="desktop"&&Hub.prefs.barStyle==="split";sourceComponent:Component {TopBar {screen:output.modelData}}}
             PanelWindow {
                 screen:output.modelData

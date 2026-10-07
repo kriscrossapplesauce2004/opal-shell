@@ -6,11 +6,16 @@ import Quickshell.Wayland
 
 PanelWindow {
     id:bar
-    readonly property string layoutMode:Hub.layoutFor(screen ? screen.width : 1920,screen ? screen.height : 1080,screen ? screen.name : "")
+    // The output comes from the loader. Reading the window screen back would make a binding loop with visible.
+    property var output:null
+    screen:output
+    readonly property string layoutMode:Hub.layoutFor(output ? output.width : 1920,output ? output.height : 1080,output ? output.name : "")
     readonly property bool phone:layoutMode==="phone"
     readonly property bool autoHide:!phone&&!!Hub.prefs.taskbarAutoHide
     readonly property bool consoleMode:layoutMode==="console"
-    readonly property bool fullscreen:screen&&(Hub.status.fullscreenMonitors||[]).indexOf(screen.name)>=0
+    readonly property bool fullscreen:!!output&&(Hub.status.fullscreenMonitors||[]).indexOf(output.name)>=0
+    // On a tablet the app dock is part of the navigation bar, which is then taller.
+    readonly property bool tablet:phone&&!!output&&PhoneState.isTablet(output)&&Hub.prefs.tabletDock!==false
     readonly property var taskbarMenuEntries:Hub.taskbarMenu()
     property bool revealed:false
     readonly property bool contextOpen:Hub.taskbarContextOpen&&Hub.taskbarContextScreen===bar.screen
@@ -26,7 +31,7 @@ PanelWindow {
     }
     anchors {bottom:true;left:true;right:true}
     visible:!consoleMode&&!fullscreen
-    implicitHeight:phone ? (Hub.prefs.phoneButtons ? 64 : 48) : Hub.prefs.barStyle==="edge" ? 52 : 64
+    implicitHeight:phone ? (tablet ? 68 : Hub.prefs.phoneButtons ? 64 : 48) : Hub.prefs.barStyle==="edge" ? 52 : 64
     exclusiveZone:(autoHide||consoleMode||fullscreen) ? 0 : implicitHeight
     color:"transparent"
     WlrLayershell.namespace:"opal-shelf"
