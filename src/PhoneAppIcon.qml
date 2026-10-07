@@ -16,7 +16,9 @@ Item {
         width:icon.size;height:width;radius:width*.3
         color:"transparent"
         border.width:icon.selected ? 3 : 0;border.color:Theme.primary
-        opacity:mouse.pressed ? .7 : 1
+        opacity:mouse.pressed ? .8 : 1
+        scale:mouse.pressed ? .9 : 1
+        Behavior on scale {NumberAnimation {duration:Theme.motion(120);easing.type:Easing.OutCubic}}
         AppIcon {anchors.fill:parent;anchors.margins:icon.selected ? 4 : 0;app:icon.app}
         // Running apps get a small dot under the bubble.
         Rectangle {

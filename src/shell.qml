@@ -211,6 +211,7 @@ ShellRoot {
     DockWelcomeWindow {}
     PhoneDock {}
     ConvergenceController {}
+    PhoneGestureLayer {}
     PanelWindow {
         id:notificationPopups
         screen:Notifier.popupScreen || Quickshell.screens[0]

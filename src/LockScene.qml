@@ -246,7 +246,7 @@ FocusScope {
         Item { Layout.fillWidth: true }
         // Lock: notification counts per app, no content.
         Repeater {
-            model: scene.greeter ? [] : scene.notificationGroups.slice(0, 4)
+            model: scene.greeter || (Hub.prefs.lockNotifications || "title") !== "count" ? [] : scene.notificationGroups.slice(0, 4)
             Rectangle {
                 required property var modelData
                 Layout.preferredHeight: 40; Layout.preferredWidth: countRow.implicitWidth + 22
@@ -357,5 +357,9 @@ FocusScope {
                 }
             }
         }
+    }
+    // Phone extras: notification titles, torch and the ambient clock.
+    Loader { anchors.fill: parent; z: 5; active: !scene.greeter; sourceComponent: LockExtras {}
+        onLoaded: item.scene = scene
     }
 }
