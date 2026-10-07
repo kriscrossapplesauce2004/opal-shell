@@ -67,6 +67,31 @@ class ThemeExportTests(unittest.TestCase):
         self.assertEqual(te.ini_get(files['.config/Kvantum/kvantum.kvconfig'], 'General', 'theme'), 'Opal')
         self.assertEqual(te.ini_get(files['.config/gtk-3.0/settings.ini'], 'Settings', 'gtk-cursor-theme-size'), '32')
 
+    def test_kde_makes_kvantum_and_opal_the_default_for_all_qt_apps(self):
+        which = tools('systemctl', 'dbus-update-activation-environment', 'hyprctl', 'dbus-send')
+        done, runner = self.run_export(targets=('kde',), which=which, options=dict(OPTS, platformTheme='kde'))
+        files = tree(self.home)
+        self.assertEqual(te.ini_get(files['.config/kdeglobals'], 'KDE', 'widgetStyle'), 'kvantum')
+        self.assertIn('QT_QPA_PLATFORMTHEME=kde', files['.config/environment.d/opal-qt.conf'])
+        self.assertTrue(runner.find('systemctl', '--user', 'set-environment', 'QT_QPA_PLATFORMTHEME=kde'))
+        self.assertTrue(runner.find('dbus-update-activation-environment', '--systemd', 'QT_QPA_PLATFORMTHEME=kde'))
+        self.assertTrue(any('hl.env("QT_QPA_PLATFORMTHEME", "kde")' in ' '.join(c) for c in runner.find('hyprctl', 'eval')))
+        # A temporary home must never change this process.
+        import os
+        self.assertNotEqual(os.environ.get('QT_QPA_PLATFORMTHEME'), 'kde-from-test')
+        runner2 = Fake(GS)
+        te.revert(('kde',), home=self.home, runner=runner2, which=which, kvantum=lambda: True)
+        self.assertNotIn('.config/environment.d/opal-qt.conf', tree(self.home))
+        self.assertTrue(runner2.find('systemctl', '--user', 'unset-environment', 'QT_QPA_PLATFORMTHEME'))
+
+    def test_kde_keeps_user_widget_style_when_kvantum_missing(self):
+        (self.home / '.config').mkdir(parents=True)
+        (self.home / '.config/kdeglobals').write_text('[KDE]\nwidgetStyle=Breeze\n')
+        self.run_export(targets=('kde',), kvantum=lambda: False, options=dict(OPTS, platformTheme=''))
+        files = tree(self.home)
+        self.assertEqual(te.ini_get(files['.config/kdeglobals'], 'KDE', 'widgetStyle'), 'Breeze')
+        self.assertNotIn('.config/environment.d/opal-qt.conf', files)
+
     def test_kvantum_svg_is_valid_with_all_slices(self):
         svg = te.kv_svg(DARK, False)
         root = ET.fromstring(svg)

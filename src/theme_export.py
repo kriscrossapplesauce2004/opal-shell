@@ -6,7 +6,7 @@ Portal note: xdg-desktop-portal answers org.freedesktop.appearance from a backen
 On Hyprland that backend is xdg-desktop-portal-gtk, and it reads gsettings.
 KDE apps that use xdg-desktop-portal-kde read kdeglobals, and Opal writes both.
 """
-import colorsys, json, pathlib, re, shutil, threading
+import colorsys, json, os, pathlib, re, shutil, threading
 
 import system_tools as base_tools
 
@@ -402,16 +402,43 @@ def kde_notify(ctx, categories):
     for category in categories:
         ctx.run(['dbus-send', '--session', '--type=signal', '/KGlobalSettings', 'org.kde.KGlobalSettings.notifyChange', 'int32:%d' % category, 'int32:0'])
 
+def platform_theme(options):
+    """Pick the Qt platform theme every app uses: KDE's plasma-integration, else qt6ct."""
+    if options.get('platformTheme') in ('kde', 'qt6ct', ''): return options['platformTheme']
+    plugins = [d for root in ('/usr/lib', '/usr/lib64', '/usr/lib/x86_64-linux-gnu', '/usr/lib/aarch64-linux-gnu') for d in pathlib.Path(root).glob('qt6/plugins/platformthemes')]
+    if any((d / 'KDEPlasmaPlatformTheme6.so').exists() for d in plugins): return 'kde'
+    if any((d / 'libqt6ct.so').exists() for d in plugins): return 'qt6ct'
+    return ''
+
+def session_env(ctx, name, value):
+    """Give a variable to apps started from now on: systemd and D-Bus activation, Hyprland and, for the real home only, this process."""
+    pair = '%s=%s' % (name, value)
+    if ctx.which('systemctl'): ctx.run(['systemctl', '--user', 'set-environment' if value else 'unset-environment', pair if value else name])
+    if value and ctx.which('dbus-update-activation-environment'): ctx.run(['dbus-update-activation-environment', '--systemd', pair])
+    if value and ctx.which('hyprctl'): ctx.run(['hyprctl', 'eval', 'hl.env(%s, %s)' % (json.dumps(name), json.dumps(value))])
+    if ctx.home == pathlib.Path(base_tools.HOME):
+        if value: os.environ[name] = value
+        else: os.environ.pop(name, None)
+
 def export_kde(ctx, c, light, options):
     own_file(ctx, 'kde', '.local/share/color-schemes/Opal.colors', kde_scheme_text(c, light))
     changes = {'General': {'ColorScheme': 'Opal'}}
     for name, keys in kde_sections(c, light).items(): changes[name] = keys
+    # Kvantum draws every Qt app when KDE's platform theme reads the widget style from kdeglobals.
+    if ctx.kvantum(): changes.setdefault('KDE', {})['widgetStyle'] = 'kvantum'
     ini_apply(ctx, 'kde', '.config/kdeglobals', changes)
-    kde_notify(ctx, (0,))
+    theme = platform_theme(options)
+    if theme:
+        own_file(ctx, 'kde', '.config/environment.d/opal-qt.conf', '# Opal: Qt apps use the Opal colours and Kvantum.\nQT_QPA_PLATFORMTHEME=%s\n' % theme)
+        session_env(ctx, 'QT_QPA_PLATFORMTHEME', theme)
+        ctx.target('kde')['platformTheme'] = theme
+    kde_notify(ctx, (0, 2))
 
 def revert_kde(ctx):
+    had_theme = bool(ctx.state.get('kde', {}).get('platformTheme'))
     ini_revert(ctx, 'kde'); remove_owned(ctx, 'kde'); ctx.state.pop('kde', None)
-    kde_notify(ctx, (0,))
+    if had_theme: session_env(ctx, 'QT_QPA_PLATFORMTHEME', '')
+    kde_notify(ctx, (0, 2))
 
 # ---------- Kvantum theme ----------
 
