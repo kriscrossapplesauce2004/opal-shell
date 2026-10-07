@@ -99,3 +99,7 @@ DockWindow 1.0 DockWindow.qml
 PhoneDock 1.0 PhoneDock.qml
 PhoneDockPanel 1.0 PhoneDockPanel.qml
 DockTrackpad 1.0 DockTrackpad.qml
+LayoutMorph 1.0 LayoutMorph.qml
+UndoToast 1.0 UndoToast.qml
+ConvergenceSettings 1.0 ConvergenceSettings.qml
+ConvergenceController 1.0 ConvergenceController.qml

@@ -141,6 +141,8 @@ Item {
                     }
                 }
 
+                MText {text:"Automatic";font.pixelSize:12;font.weight:Font.Medium;color:Theme.primary;Layout.leftMargin:6;Layout.topMargin:10}
+                ConvergenceSettings {Layout.fillWidth:true}
                 MText {text:"Feel";font.pixelSize:12;font.weight:Font.Medium;color:Theme.primary;Layout.leftMargin:6;Layout.topMargin:10}
                 SettingToggle {Layout.fillWidth:true;first:true;last:false;icon:"animation";title:"Expressive motion";description:"Springy shape and panel transitions.";checked:!Theme.reduceMotion;onToggled:Hub.set("reduceMotion",!Theme.reduceMotion)}
                 SettingToggle {Layout.fillWidth:true;first:false;last:false;icon:"swipe";title:"Gesture navigation";description:"Touch layouts use a gesture strip instead of buttons.";checked:!Hub.prefs.phoneButtons;onToggled:Hub.set("phoneButtons",!Hub.prefs.phoneButtons)}

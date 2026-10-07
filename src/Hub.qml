@@ -112,7 +112,7 @@ Scope {
         const first=orientation<0;
         const changed=orientation!==transform;
         orientation=transform;
-        if(prefs.autoRotate===false||!changed||first&&transform===0)return;
+        if(prefs.autoRotate===false||prefs.convergeAuto===false||prefs.convergeRotate===false||!changed||first&&transform===0)return;
         const phone=Quickshell.screens.find(s=>layoutFor(s.width,s.height,s.name)==="phone"&&(!prefs.phoneDisplay||s.name===prefs.phoneDisplay));
         if(phone)command({action:"rotate",output:phone.name,transform:transform});
     }

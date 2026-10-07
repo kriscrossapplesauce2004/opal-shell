@@ -374,6 +374,7 @@ clipboard = ClipboardHistory(clipboard_emit)
 from connectivity import Connectivity
 connectivity = Connectivity(emit)
 from hypr_actions import HyprActions
+from convergence_policy import PREF_KEYS as CONVERGE_KEYS
 from power_status import (connected_bluetooth_devices, cpu_governor,
                           merge_batteries, parse_bluetooth_battery,
                           parse_upower_batteries, primary_battery,
@@ -412,6 +413,7 @@ def commands():
                 valid = valid or key=='taskbarOrder' and isinstance(value,list) and len(value)<=128 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneDisplay' and isinstance(value,str) and 0<len(value)<=128 and all(ch.isalnum() or ch in '_.:-' for ch in value)
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
+                valid = valid or key in CONVERGE_KEYS and type(value)==bool
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
             elif action=='display-layouts':
