@@ -84,6 +84,10 @@ class ThemeExportTests(unittest.TestCase):
         self.assertNotIn('.config/environment.d/opal-qt.conf', tree(self.home))
         self.assertTrue(runner2.find('systemctl', '--user', 'unset-environment', 'QT_QPA_PLATFORMTHEME'))
 
+    def test_ini_set_inserts_after_last_real_line(self):
+        text = '[General]\nfont=Inter\n\n[KDE]\ncontrast=4\n'
+        self.assertEqual(te.ini_set(text, 'General', 'ColorScheme', 'Opal'), '[General]\nfont=Inter\nColorScheme=Opal\n\n[KDE]\ncontrast=4\n')
+
     def test_kde_keeps_user_widget_style_when_kvantum_missing(self):
         (self.home / '.config').mkdir(parents=True)
         (self.home / '.config/kdeglobals').write_text('[KDE]\nwidgetStyle=Breeze\n')

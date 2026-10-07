@@ -124,7 +124,8 @@ def ini_set(text, section, key, value):
         s = line.strip()
         if s.startswith('[') and s.endswith(']'): current = s[1:-1]; continue
         if current == section:
-            last = i
+            # New keys go after the last real line, not after trailing blank lines.
+            if s: last = i
             if '=' in s and not s.startswith(('#', ';')) and s.split('=', 1)[0].strip() == key: found = i
     if value is None:
         if found is not None: del lines[found]
@@ -425,7 +426,10 @@ def export_kde(ctx, c, light, options):
     changes = {'General': {'ColorScheme': 'Opal'}}
     for name, keys in kde_sections(c, light).items(): changes[name] = keys
     # Kvantum draws every Qt app when KDE's platform theme reads the widget style from kdeglobals.
-    if ctx.kvantum(): changes.setdefault('KDE', {})['widgetStyle'] = 'kvantum'
+    if ctx.kvantum():
+        changes.setdefault('KDE', {})['widgetStyle'] = 'kvantum'
+        # Older KStyle code reads the legacy General key, so it gets the same value.
+        changes['General']['widgetStyle'] = 'kvantum'
     ini_apply(ctx, 'kde', '.config/kdeglobals', changes)
     theme = platform_theme(options)
     if theme:
