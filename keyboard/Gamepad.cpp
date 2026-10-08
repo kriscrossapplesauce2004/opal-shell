@@ -30,8 +30,11 @@ QString Gamepad::buttonAction(int number) {
     case 1: return QStringLiteral("back");
     case 2: return QStringLiteral("space");
     case 3: return QStringLiteral("shift");
-    case 4: return QStringLiteral("mode");
-    case 5: return QStringLiteral("emoji");
+    // LB and RB pick the previous and next suggestion.
+    case 4: return QStringLiteral("prev-suggestion");
+    case 5: return QStringLiteral("next-suggestion");
+    case 6: return QStringLiteral("emoji");
+    case 7: return QStringLiteral("hide");
     default: return QString();
     }
 }
@@ -43,6 +46,13 @@ QString Gamepad::axisAction(int number, int value) {
     case 1: case 7: return value > 0 ? QStringLiteral("down") : QStringLiteral("up");
     default: return QString();
     }
+}
+QString Gamepad::triggerAction(int number, int value) {
+    // Triggers rest at the minimum value and report the maximum when fully pressed.
+    const bool pressed = value > 0;
+    if (number == 2) return pressed ? QStringLiteral("symbols") : QString();
+    if (number == 5) return pressed ? QStringLiteral("cursor-on") : QStringLiteral("cursor-off");
+    return QString();
 }
 void Gamepad::rescan() { if (!connected()) discover(); }
 void Gamepad::discover() {
@@ -76,6 +86,15 @@ void Gamepad::readEvents() {
             if (!name.isEmpty()) emit action(name);
         } else if (event.type == JS_EVENT_AXIS && event.number < 8) {
             const int index = event.number;
+            if (index == 2 || index == 5) {
+                const bool was = axisState[index] > 0;
+                axisState[index] = event.value;
+                if (was != (event.value > 0)) {
+                    const auto name = triggerAction(index, event.value);
+                    if (!name.isEmpty()) emit action(name);
+                }
+                continue;
+            }
             const auto before = axisAction(index, axisState[index]);
             axisState[index] = event.value;
             const auto now = axisAction(index, event.value);

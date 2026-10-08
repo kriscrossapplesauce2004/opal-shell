@@ -8,6 +8,10 @@ private slots:
         QCOMPARE(Gamepad::buttonAction(0), QString("accept"));
         QCOMPARE(Gamepad::buttonAction(1), QString("back"));
         QCOMPARE(Gamepad::buttonAction(3), QString("shift"));
+        QCOMPARE(Gamepad::buttonAction(2), QString("space"));
+        QCOMPARE(Gamepad::buttonAction(4), QString("prev-suggestion"));
+        QCOMPARE(Gamepad::buttonAction(5), QString("next-suggestion"));
+        QCOMPARE(Gamepad::buttonAction(7), QString("hide"));
         QCOMPARE(Gamepad::buttonAction(9), QString());
         QCOMPARE(Gamepad::buttonAction(12), QString());
     }
@@ -20,6 +24,13 @@ private slots:
         QCOMPARE(Gamepad::axisAction(0, 12000), QString());
         QCOMPARE(Gamepad::axisAction(2, 30000), QString());
         QCOMPARE(Gamepad::axisAction(5, -30000), QString());
+    }
+    void triggerMapping() {
+        QCOMPARE(Gamepad::triggerAction(2, 30000), QString("symbols"));
+        QCOMPARE(Gamepad::triggerAction(2, -30000), QString());
+        QCOMPARE(Gamepad::triggerAction(5, 30000), QString("cursor-on"));
+        QCOMPARE(Gamepad::triggerAction(5, -30000), QString("cursor-off"));
+        QCOMPARE(Gamepad::triggerAction(1, 30000), QString());
     }
     void missingDeviceIsSafe() {
         Gamepad pad;

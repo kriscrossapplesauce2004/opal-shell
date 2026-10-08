@@ -18,6 +18,8 @@ public:
     static QString buttonAction(int number);
     // Map one joystick axis direction to a navigation action name.
     static QString axisAction(int number, int value);
+    // Map one trigger axis value to an action name. LT opens symbols, RT holds cursor mode.
+    static QString triggerAction(int number, int value);
     Q_INVOKABLE void rescan();
 signals:
     void changed();
