@@ -25,7 +25,7 @@ Item {
             TapHandler { onTapped: panel.keyboard.startEmojiSearch() }
         }
         RowLayout {
-            Layout.fillWidth: true; Layout.preferredHeight: 38; spacing: 0
+            Layout.fillWidth: true; Layout.preferredHeight: 38; Layout.maximumHeight: 38; Layout.fillHeight: false; spacing: 0
             Repeater {
                 model: panel.keyboard.emojiTabs
                 Key {

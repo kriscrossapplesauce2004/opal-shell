@@ -160,6 +160,7 @@ Item {
             color: key.accent ? key.keyboard.primaryInk : key.keyboard.foreground
             opacity: key.down ? 0.12 : key.hovered ? 0.08 : 0
         }
+        readonly property real tileBox: Math.max(28, Math.min(44, height - 28))
         // Tool tile content: a glyph in a tonal container with a count badge.
         Column {
             visible: key.tile
@@ -167,7 +168,7 @@ Item {
             spacing: 6
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: 44; height: 44; radius: 16
+                width: surface.tileBox; height: surface.tileBox; radius: 16
                 color: key.keyboard.alpha(key.keyboard.primary, 0.16)
                 Glyph { anchors.centerIn: parent; name: key.tile ? key.label : ""; fill: key.toggled ? 1 : 0; font.pixelSize: 24; color: key.keyboard.primary }
                 Rectangle {

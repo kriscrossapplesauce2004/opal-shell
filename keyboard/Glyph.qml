@@ -7,7 +7,7 @@ Text {
     text: name
     font.family: "Material Symbols Rounded"
     font.pixelSize: 22
-    font.variableAxes: ({"FILL": fill, "wght": 400, "opsz": Math.max(20, Math.min(48, font.pixelSize))})
+    font.variableAxes: ({"FILL": fill, "wght": 400, "opsz": 24})
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter
     renderType: Text.QtRendering

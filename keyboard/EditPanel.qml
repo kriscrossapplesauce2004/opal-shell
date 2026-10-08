@@ -14,16 +14,17 @@ Item {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 3
                 radius: 28; color: panel.keyboard.specialColor
                 GridLayout {
+                    id: pad
                     anchors.fill: parent; anchors.margins: 6; columns: 3; rowSpacing: 0; columnSpacing: 0
-                    Item { Layout.fillWidth: true; Layout.fillHeight: true }
-                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_up"; description: "Up"; value: "Up"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1; Layout.preferredHeight: 1 }
-                    Item { Layout.fillWidth: true; Layout.fillHeight: true }
-                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_left"; description: "Left"; value: "Left"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1; Layout.preferredHeight: 1 }
-                    Key { keyboard: panel.keyboard; round: true; glyph: "select"; stacked: true; label: "Select"; description: "Select"; value: "__select"; toggled: panel.keyboard.selecting; latch: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1; Layout.preferredHeight: 1; Layout.margins: 6 }
-                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_right"; description: "Right"; value: "Right"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1; Layout.preferredHeight: 1 }
-                    Item { Layout.fillWidth: true; Layout.fillHeight: true }
-                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_down"; description: "Down"; value: "Down"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1; Layout.preferredHeight: 1 }
-                    Item { Layout.fillWidth: true; Layout.fillHeight: true }
+                    Item { Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_up"; description: "Up"; value: "Up"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Item { Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_left"; description: "Left"; value: "Left"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Key { keyboard: panel.keyboard; round: true; glyph: "select"; stacked: true; label: panel.keyboard.selecting ? "Selecting" : "Select"; description: "Select"; value: "__select"; toggled: panel.keyboard.selecting; accent: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3; Layout.margins: 6 }
+                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_right"; description: "Right"; value: "Right"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Item { Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Key { keyboard: panel.keyboard; big: true; icon: true; label: "keyboard_arrow_down"; description: "Down"; value: "Down"; repeating: true; Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
+                    Item { Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: pad.width / 3; Layout.preferredHeight: pad.height / 3 }
                 }
             }
             ColumnLayout {

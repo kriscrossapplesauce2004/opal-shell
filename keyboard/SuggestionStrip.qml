@@ -6,16 +6,10 @@ import QtQuick.Layouts
 Item {
     id: strip
     required property var keyboard
-    required property var engine
+    property var engine: null
     implicitHeight: 40
     readonly property var toolsButton: tools
-    // Best candidate sits in the middle, as in the design.
-    readonly property var candidates: {
-        const list = strip.engine.suggestions;
-        return list.length >= 3 ? [list[1], list[0], list[2]] : list;
-    }
-    readonly property var chips: keyboard.terminalMode ? [{label: "Paste", action: "__paste"}, {label: "Ctrl C", action: "__ctrlc"}, {label: "Tab", action: "Tab"}]
-        : keyboard.suggestionVisible ? candidates.map(word => ({label: word, action: word})) : []
+    readonly property var chips: keyboard.suggestionChips
     RowLayout {
         anchors.fill: parent; anchors.leftMargin: 4; anchors.rightMargin: 4; spacing: 4
         Key { id: tools; keyboard: strip.keyboard; round: true; icon: true; label: "apps"; value: "__tools"; description: "Tools"; Layout.preferredWidth: 48; Layout.fillHeight: true; toggled: strip.keyboard.panel === "menu" }

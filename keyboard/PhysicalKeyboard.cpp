@@ -9,6 +9,13 @@ PhysicalKeyboard::PhysicalKeyboard(QObject *parent, const QString &source) : QOb
     rescan();
 }
 void PhysicalKeyboard::rescan() {
+    // An environment switch lets previews and tests ignore the real hardware.
+    const auto forced = qEnvironmentVariable("BOREALIS_PHYSICAL");
+    if (forced == QLatin1String("on") || forced == QLatin1String("off")) {
+        const bool now = forced == QLatin1String("on");
+        if (now != found) { found = now; emit changed(); }
+        return;
+    }
     QFile file(path);
     const bool now = file.open(QIODevice::ReadOnly) && detect(file.read(256 * 1024));
     if (now == found) return;

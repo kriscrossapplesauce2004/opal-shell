@@ -1,50 +1,90 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import "EmojiData.js" as EmojiData
 
 Rectangle {
     id: deck
     required property var backend
+    required property var suggestions
     property var preferences: ({})
+    // Opal clipboard history bridge and physical keyboard detector, both optional.
+    property var clips: null
+    property var physicalKeyboard: null
     property bool light: !!preferences.light
     property bool reduceMotion: !!preferences.reduceMotion
     property bool privateInput: backend.sensitive
     property string mode: "letters"
+    // A panel replaces the keys: menu, edit, emoji, clipboard, trackpad, resize, languages or settings.
+    property string panel: ""
     property int shiftState: 0
     property bool control: false
     property bool alt: false
     property int handed: 0
     property bool selecting: false
-    property int emojiPage: 0
+    property bool trackpadSelect: false
+    property bool trackpadHold: false
+    property int emojiPage: 1
+    property string emojiQuery: ""
+    property bool emojiSearching: false
     property string gestureHint: ""
     property var recentEmoji: []
     property bool autoCapitalize: true
     property bool handheld: false
-    required property var suggestions
+    property bool terminalToggle: false
+    property string keyStyleSession: ""
+    property real heightScale: 1
+    property bool floating: false
+    property real floatX: 0
+    property real floatY: 0
+    property real floatWidth: 520
+    property real hostWidth: width
+    // Preview switch that forces the docked bar without a physical keyboard.
+    property bool dockedPreview: false
+    property bool fullRequested: false
+    property string dockedSession: ""
     property string lastChar: ""
     property real lastSpaceTime: 0
     property var focusedKey: null
     property var keyRegistry: []
+    property int suggestionFocus: -1
+    property bool cursorHold: false
+    property rect toolsOrigin: Qt.rect(0, 0, 48, 48)
+    readonly property real menuProgress: progressValue
+    property real progressValue: panel === "menu" ? 1 : 0
+    Behavior on progressValue { NumberAnimation { duration: deck.reduceMotion ? 0 : 340; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.2, 0, 0, 1, 1, 1] } }
+    readonly property string keyStyle: keyStyleSession !== "" ? keyStyleSession : (preferences.keyboardKeyStyle === "borderless" ? "borderless" : "tonal")
+    readonly property string dockedPreference: dockedSession !== "" ? dockedSession : (preferences.keyboardDocked || "auto")
+    readonly property bool dockedWanted: !floating && !handheld && (dockedPreview || dockedPreference === "always" || (dockedPreference !== "never" && !!physicalKeyboard && physicalKeyboard.present))
+    readonly property bool dockedBar: dockedWanted && !fullRequested
+    readonly property bool canFloat: hostWidth >= 720
+    readonly property bool terminalMode: terminalPurpose || terminalToggle
+    readonly property var clipItems: privateInput || !clips ? [] : clips.items
+    readonly property int clipCount: clipItems.length
+    readonly property bool clipAvailable: !!clips && clips.available
+    readonly property var emojiResults: EmojiData.search(emojiQuery)
+    readonly property var emojiTabs: EmojiData.categories
     readonly property bool controllerActive: handheld || typeof gamepad !== "undefined" && gamepad !== null && gamepad.connected
     readonly property string layoutClass: width < 600 ? (width > availableHeight ? "phone-landscape" : "phone") : width < 1000 ? "tablet" : "desktop"
     readonly property bool wideLayout: width >= 720
-    readonly property bool splitLayout: handed === 3 && wideLayout
-    readonly property bool suggestionVisible: !privateInput && (mode === "letters" || mode === "symbols") && !terminalPurpose
-    readonly property bool utilityRowVisible: mode === "emoji" || mode === "edit" || terminalPurpose
-    readonly property var emojiTabs: recentEmoji.length > 0 ? ["Faces", "Hands", "Life", "Recent"] : ["Faces", "Hands", "Life"]
-    readonly property var emojiPages: [
-        [["😀","😊","😂","🥰","😎","🤔","😭","🙃"], ["😍","😘","😅","🤣","😴","😮","😬","🥹"], ["😇","🤗","😏","😤","😢","🫠","🫡","⌫"]],
-        [["👍","👎","👏","🙏","👋","🤝","💪","🫶"], ["💜","❤️","🧡","💛","💚","💙","🖤","🤍"], ["🔥","✨","🎉","✅","👀","💯","💔","⌫"]],
-        [["☕","🌙","☀️","🌧️","🌈","🌸","🌻","🌿"], ["🐈","🐕","🍕","🍰","🍓","🍜","🥐","🍵"], ["💡","🚀","🎵","🎮","🏠","📱","💻","⌫"]]
-    ]
+    readonly property bool splitLayout: handed === 3 && wideLayout && !floating
+    readonly property bool suggestionVisible: !privateInput && (mode === "letters" || mode === "symbols") && !terminalMode
+    readonly property var candidates: {
+        const list = suggestions.suggestions;
+        return list.length >= 3 ? [list[1], list[0], list[2]] : list;
+    }
+    readonly property var suggestionChips: privateInput ? [] : terminalMode ? [{label: "Paste", action: "__paste"}, {label: "Ctrl C", action: "__ctrlc"}, {label: "Tab", action: "Tab"}]
+        : suggestionVisible ? candidates.map(word => ({label: word, action: word})) : []
     property int generation: backend.generation
     property real shiftTime: 0
     property real availableHeight: 800
     property bool compact: availableHeight < 600
     readonly property bool shortLayout: availableHeight < 500
     readonly property bool showNumberRow: mode === "letters" || mode === "symbols"
-    readonly property real contentWidth: handed === 1 || handed === 2 ? Math.min(420, width * 0.82) : layoutClass === "desktop" ? Math.min(width - 32, 1120) : layoutClass === "tablet" ? Math.min(width - 24, 940) : Math.min(width - (width < 400 ? 8 : 16), 860)
-    readonly property real keyHeight: shortLayout ? 38 : compact ? 48 : 60
+    readonly property real floatScale: Math.max(0.8, Math.min(1.35, floatWidth / 520))
+    readonly property real contentWidth: floating ? width - 16 : splitLayout ? width - 16 : handed === 1 || handed === 2 ? Math.min(420, width * 0.82) : layoutClass === "desktop" ? Math.min(width - 32, 1120) : layoutClass === "tablet" ? Math.min(width - 24, 940) : Math.min(width - (width < 400 ? 8 : 16), 860)
+    readonly property real baseKeyHeight: shortLayout ? 38 : compact ? 48 : floating ? 46 * floatScale : 56
+    readonly property real keyHeight: baseKeyHeight * heightScale * (controllerActive ? 1.25 : 1)
     property alias previewLayer: previews
     property int purpose: backend.purpose
     readonly property string fontFamily: "Google Sans Flex"
@@ -81,46 +121,70 @@ Rectangle {
     readonly property bool terminalPurpose: purpose === 12
     readonly property bool email: purpose === 6
     readonly property bool url: purpose === 5
-    function emojiRows(page) {
-        const tab = emojiTabs[page];
-        if (tab === "Recent") {
-            const chunks = [];
-            for (let index = 0; index < recentEmoji.length; index += 8) chunks.push(recentEmoji.slice(index, index + 8).concat(index + 8 >= recentEmoji.length ? ["⌫"] : []));
-            return chunks.length > 0 ? chunks : [["⌫"]];
-        }
-        return emojiPages[tab === "Faces" ? 0 : tab === "Hands" ? 1 : 2];
-    }
-    readonly property var rows: mode === "emoji" ? emojiRows(emojiPage) : mode === "digits" ? [["1","2","3"],["4","5","6"],["7","8","9"],[phonePurpose ? "+" : purpose === 2 ? "0" : ".", phonePurpose ? "0" : purpose === 2 ? "⌫" : "0", phonePurpose ? "⌫" : "⌫"]] : mode === "edit" ? [
-        ["Escape","Tab","Home","Up","End"], ["Ctrl","Alt","Left","Down","Right"], ["Select all","Cut","Copy","Paste","Delete"]
-    ] : mode === "numbers" ? [
+    function emojiRows(page) { return page === 0 ? recentEmoji : EmojiData.glyphs(page); }
+    readonly property var rows: mode === "digits" ? [["1","2","3"],["4","5","6"],["7","8","9"],[phonePurpose ? "+" : purpose === 2 ? "0" : ".", phonePurpose ? "0" : purpose === 2 ? "⌫" : "0", "⌫"]]
+        : mode === "numbers" ? [
         ["1","2","3","4","5","6","7","8","9","0"], ["@","#","$","%","&","*","-","+","(",")"], ["Symbols","!","\"","'",":",";","/","⌫"]
     ] : mode === "symbols" ? [
         ["~","`","|","•","√","π","÷","×","{","}"], ["£","€","¥","^","°","=","_","\\","[","]"], ["Numbers","<",">","?","!","—","…","⌫"]
     ] : ["qwertyuiop".split(""),"asdfghjkl".split(""),["Shift"].concat("zxcvbnm".split("")).concat(["⌫"]) ]
     readonly property real heightBudget: layoutClass === "phone-landscape" ? availableHeight * 0.78 : layoutClass === "phone" ? availableHeight * 0.60 : Math.min(540, availableHeight * 0.58)
-    readonly property real headerHeight: shortLayout ? 36 : 48
     readonly property real suggestionHeight: shortLayout ? 32 : 44
     readonly property real numberHeight: shortLayout ? 30 : 42
-    readonly property real utilityHeight: 36
+    readonly property real hintHeight: controllerActive ? 38 : 0
+    readonly property real topInset: floating ? 22 : 8
     readonly property int gridRows: rows.length + 1
     readonly property int stableRows: 4
     // Reserve the letter-grid rows in every mode, so a mode change cannot resize the deck.
-    readonly property real modeSpacerHeight: Math.max(0, suggestionHeight + numberHeight - (suggestionVisible ? suggestionHeight : 0) - (showNumberRow ? numberHeight : 0) - (utilityRowVisible ? utilityHeight : 0) - Math.max(0, gridRows - stableRows) * keyHeight)
-    readonly property real stableHeight: 20 + headerHeight + suggestionHeight + numberHeight + (controllerActive ? 22 : 0) + stableRows * keyHeight
-    implicitHeight: Math.min(Math.max(layoutClass === "phone-landscape" ? 210 : 224, heightBudget), stableHeight)
-    color: deckSurfaceColor
+    readonly property real modeSpacerHeight: Math.max(0, numberHeight - (showNumberRow ? numberHeight : 0) - Math.max(0, gridRows - stableRows) * keyHeight)
+    readonly property real stableHeight: topInset + 12 + suggestionHeight + numberHeight + hintHeight + stableRows * keyHeight
+    // Panels need room for three tool rows, so they may grow the deck a little on tall screens.
+    readonly property real panelFloor: shortLayout ? 0 : 296
+    readonly property real dockedHeight: 68
+    implicitHeight: dockedBar ? dockedHeight : Math.min(Math.max(layoutClass === "phone-landscape" ? 210 : 224, heightBudget, panelFloor), Math.max(stableHeight, panelFloor))
+    color: dockedBar ? "transparent" : deckSurfaceColor
+    radius: floating && !dockedBar ? 28 : 0
+    border.width: floating && !dockedBar ? 1 : 0
+    border.color: outlineColor
     signal cancelInput()
     function reset() {
-        cancelInput(); shiftState = 0; control = false; alt = false; selecting = false; gestureHint = "";
+        cancelInput(); shiftState = 0; control = false; alt = false; selecting = false; gestureHint = ""; panel = ""; emojiSearching = false; emojiQuery = ""; trackpadHold = false; fullRequested = false; cursorHold = false;
         mode = (purpose >= 2 && purpose <= 4 || purpose >= 9 && purpose <= 11) ? "digits" : "letters";
     }
-    function switchMode(next) { cancelInput(); mode = next; }
+    function switchMode(next) { cancelInput(); panel = ""; mode = next; }
+    function openPanel(name) {
+        cancelInput(); focusedKey = null; emojiSearching = false; emojiQuery = "";
+        if (name === "menu" && menuButton) toolsOrigin = menuButton.mapToItem(deck, 0, 0, menuButton.width, menuButton.height);
+        if ((name === "clipboard" || name === "menu") && clips) clips.refresh();
+        panel = name;
+        if (controllerActive) Qt.callLater(focusFirstKey);
+    }
+    property var menuButton: null
+    function startFloating() {
+        if (!canFloat) return;
+        panel = ""; floatWidth = Math.min(520, hostWidth - 32);
+        floatX = (hostWidth - floatWidth) / 2; floatY = Math.max(8, availableHeight - implicitHeight - 40);
+        floating = true; fullRequested = true;
+    }
+    function moveFloat(x, y) {
+        floatX = Math.max(0, Math.min(hostWidth - width, x));
+        floatY = Math.max(0, Math.min(availableHeight - height, y));
+    }
+    function resizeFloat(w) {
+        floatWidth = Math.max(340, Math.min(Math.min(hostWidth - 16, 760), w));
+        floatX = Math.min(floatX, hostWidth - floatWidth);
+    }
+    function startEmojiSearch() { cancelInput(); panel = ""; mode = "letters"; emojiQuery = ""; emojiSearching = true; }
     function keyLabel(value) {
         const names = {WordLeft:"← word", WordRight:"word →", __select:selecting ? "Selecting" : "Select", Insert:"Ins", PageUp:"PgUp", PageDown:"PgDn", Shift:shiftState === 2 ? "⇪" : "⇧", Symbols:"=\\<", Numbers:"123", Return:"↵", Left:"←", Right:"→", Up:"↑", Down:"↓", Home:"Home", End:"End", Escape:"Esc", Delete:"Del", "Select all":"All"};
         return names[value] || (shiftState && value.length === 1 ? value.toUpperCase() : value);
     }
     function alternatives(value) {
         if (["👍","👎","👏","🙏","👋","💪"].indexOf(value) >= 0) return [value, value + "🏻", value + "🏼", value + "🏽", value + "🏾", value + "🏿"];
+        if (terminalMode) {
+            const shell = {"|":["|","\\","¦"], "~":["~","`","^"], "/":["/","\\"], "-":["-","_","="], "_":["_","$","*"]};
+            if (shell[value]) return shell[value];
+        }
         let values = accents[value] || [];
         const digit = "qwertyuiop".indexOf(value);
         if (mode === "letters" && digit >= 0) values = [String((digit + 1) % 10)].concat(values.length ? values : [value]);
@@ -135,6 +199,7 @@ Rectangle {
         if (focusedKey === item) focusedKey = null;
     }
     function focusFirstKey() {
+        if (focusedKey && focusedKey.revealable) return;
         for (const item of keyRegistry) if (item.revealable) { focusedKey = item; return; }
     }
     function controllerMove(dx, dy) {
@@ -154,22 +219,59 @@ Rectangle {
         if (best) focusedKey = best;
     }
     function controllerActivate() { if (focusedKey && focusedKey.revealable) focusedKey.activate(); }
-    function controllerBack() { backend.key("Backspace", generation, false, false, false); }
+    function controllerBack() { if (emojiSearching) dispatch("Backspace"); else backend.key("Backspace", generation, false, false, false); }
+    // LB picks the first suggestion and RB the last one.
+    function controllerPick(side) {
+        const chips = suggestionChips;
+        if (chips.length === 0) return;
+        suggestionFocus = side < 0 ? 0 : chips.length - 1;
+        pickFlash.restart();
+        chipAction(chips[suggestionFocus].action);
+    }
+    function chipAction(action) {
+        if (action === "__paste") backend.text(terminalMode ? "V" : "v", generation, true, false);
+        else if (action === "__ctrlc") backend.text("c", generation, true, false);
+        else if (action === "Tab") backend.key("Tab", generation, false, false, false);
+        else acceptSuggestion(action);
+    }
+    function pasteClip(entry) {
+        // Clipboard text is committed as text, never typed as key events. Images and cut-off text are skipped.
+        if (privateInput || !entry || entry.kind === "image" || entry.tooLong || !entry.text) return;
+        backend.text(entry.text, generation, false, false);
+        lastChar = entry.text.slice(-1);
+    }
+    function beginTrackpad() { trackpadHold = true; }
+    function endTrackpad() { trackpadHold = false; trackpadSelect = false; }
     function moveCursor(value) {
-        backend.key(value, generation, control, alt, selecting || !!shiftState);
+        backend.key(value, generation, control, alt, selecting || !!shiftState || trackpadSelect);
+    }
+    function editSearch(value) {
+        if (value === "Backspace") emojiQuery = emojiQuery.slice(0, -1);
+        else if (value === " ") emojiQuery += " ";
+        else emojiQuery += value.toLowerCase();
     }
     function dispatch(value) {
         if (value === "__select") { selecting = !selecting; return; }
         if (value.indexOf("__category") === 0) { cancelInput(); emojiPage = Number(value.slice(10)); focusedKey = null; return; }
+        if (value === "__tools") { openPanel(panel === "menu" ? "" : "menu"); return; }
+        if (value === "__keys") { openPanel(""); return; }
+        if (value === "__settings") { openPanel("settings"); return; }
+        if (value.indexOf("__tool-") === 0) { tool(value.slice(7)); return; }
+        if (value.indexOf("__set-") === 0) { setting(value.slice(6)); return; }
+        if (value === "__dock-show") { fullRequested = true; return; }
+        if (value === "__dock-emoji") { fullRequested = true; openPanel("emoji"); return; }
+        if (value === "__dock-clipboard") { fullRequested = true; openPanel("clipboard"); return; }
+        if (value === "__searchdone" || (emojiSearching && value === "Return")) { emojiSearching = false; emojiQuery = ""; panel = "emoji"; return; }
+        if (value === "__paste" || value === "__ctrlc") { chipAction(value); return; }
         if (value === "WordLeft" || value === "WordRight") {
             backend.key(value === "WordLeft" ? "Left" : "Right", generation, true, false, selecting); return;
         }
         if (["Left","Right","Up","Down","Home","End","PageUp","PageDown"].indexOf(value) >= 0) { moveCursor(value); return; }
-        if (value === "__hide") { cancelInput(); backend.hide(); return; }
-        if (value === "__edit") { switchMode(mode === "edit" ? "letters" : "edit"); return; }
+        if (value === "__hide") { cancelInput(); fullRequested = false; backend.hide(); return; }
+        if (value === "__edit") { openPanel(panel === "edit" ? "" : "edit"); return; }
         if (value === "__hand") { cancelInput(); handed = wideLayout ? (handed + 1) % 4 : (handed + 1) % 3; return; }
         if (value === "__layout") { switchMode(mode === "letters" ? "numbers" : "letters"); return; }
-        if (value === "__emoji") { switchMode(mode === "emoji" ? "letters" : "emoji"); return; }
+        if (value === "__emoji") { openPanel(panel === "emoji" ? "" : "emoji"); return; }
         if (value === "Shift") {
             const now = Date.now();
             shiftState = shiftState === 1 && now - shiftTime < 350 ? 2 : shiftState ? 0 : 1;
@@ -179,11 +281,12 @@ Rectangle {
         if (value === "Alt") { alt = !alt; return; }
         if (value === "Symbols" || value === "Numbers") { switchMode(value.toLowerCase()); return; }
         if (value === "⌫") value = "Backspace";
+        if (emojiSearching && (value.length === 1 && value.charCodeAt(0) < 128 || value === "Backspace")) { editSearch(value); return; }
         const shortcuts = {"Select all":"a", Cut:"x", Copy:"c", Paste:"v", Undo:"z", Redo:"y"};
         if (value === " ") {
             const now = Date.now();
-            const sentence = autoCapitalize && !control && !alt && ".!?".indexOf(lastChar) >= 0;
-            if (autoCapitalize && lastChar === " " && now - lastSpaceTime < 280) {
+            const sentence = autoCapitalize && !terminalMode && !control && !alt && ".!?".indexOf(lastChar) >= 0;
+            if (autoCapitalize && !terminalMode && lastChar === " " && now - lastSpaceTime < 280) {
                 backend.key("Backspace", generation, false, false, false);
                 backend.text(". ", generation, false, false);
                 lastChar = " "; lastSpaceTime = 0; shiftState = 1;
@@ -202,13 +305,34 @@ Rectangle {
         } else {
             const committed = shiftState ? value.toUpperCase() : value;
             backend.text(committed, generation, control, alt);
-            if (mode === "emoji" && value.length > 1) recentEmoji = [value].concat(recentEmoji.filter(entry => entry !== value)).slice(0, 24);
+            if ((panel === "emoji" || emojiSearching) && value.length > 1) recentEmoji = [value].concat(recentEmoji.filter(entry => entry !== value)).slice(0, 24);
             lastChar = committed;
         }
-        const autoCaps = autoCapitalize && mode === "letters" && ".!?".indexOf(lastChar) >= 0;
+        const autoCaps = autoCapitalize && !terminalMode && mode === "letters" && ".!?".indexOf(lastChar) >= 0;
         if (shiftState === 1) shiftState = 0;
         if (autoCaps) shiftState = 1;
         control = false; alt = false; selecting = false;
+    }
+    // Tools menu entries.
+    function tool(name) {
+        if (name === "clipboard") { if (!privateInput) openPanel("clipboard"); }
+        else if (name === "emoji") openPanel("emoji");
+        else if (name === "edit") openPanel("edit");
+        else if (name === "trackpad") openPanel("trackpad");
+        else if (name === "terminal") { terminalToggle = !terminalToggle; openPanel(""); }
+        else if (name === "hand") { openPanel(""); handed = wideLayout ? (handed + 1) % 4 : (handed + 1) % 3; }
+        else if (name === "float") { openPanel(""); startFloating(); }
+        else if (name === "resize") openPanel("resize");
+        else if (name === "languages") openPanel("languages");
+        else if (name === "symbols") { switchMode("symbols"); }
+        else if (name === "theme") keyStyleSession = keyStyle === "tonal" ? "borderless" : "tonal";
+        else if (name === "settings") openPanel("settings");
+    }
+    function setting(name) {
+        if (name === "tonal" || name === "borderless") keyStyleSession = name;
+        else if (name === "autocaps") autoCapitalize = !autoCapitalize;
+        else if (name === "docked") dockedSession = dockedPreference === "never" ? "auto" : "never";
+        else if (name === "motion") { /* follows the shell preference */ }
     }
     function acceptSuggestion(value) {
         if (!value || privateInput) return;
@@ -216,121 +340,227 @@ Rectangle {
         suggestions.noteAccepted(value);
         shiftState = 0; control = false; alt = false; selecting = false; lastChar = " "; lastSpaceTime = Date.now();
     }
+    Timer { id: pickFlash; interval: 450; onTriggered: deck.suggestionFocus = -1 }
     onGenerationChanged: reset()
     onPurposeChanged: reset()
-    onVisibleChanged: if (!visible) cancelInput()
+    onPrivateInputChanged: if (privateInput && panel === "clipboard") panel = ""
+    onVisibleChanged: { if (!visible) cancelInput(); else if (clips && panel === "clipboard") clips.refresh(); }
     onWidthChanged: cancelInput()
     onHeightChanged: cancelInput()
-    Component.onCompleted: if (numericPurpose) mode = "digits"
+    onPanelChanged: { focusedKey = null; if (controllerActive) Qt.callLater(focusFirstKey); }
+    property string initialPanel: ""
+    property bool floatAtStart: false
+    property bool terminalAtStart: false
+    Component.onCompleted: {
+        if (numericPurpose) mode = "digits";
+        if (terminalAtStart) terminalToggle = true;
+        // Geometry settles first, so the tools button has its final place when the menu opens.
+        if (initialPanel !== "" || floatAtStart) startup.start();
+    }
+    // The preview focus event resets the deck once, so the requested start state is applied after it.
+    Timer { id: startup; interval: 200; onTriggered: { if (deck.initialPanel !== "") deck.openPanel(deck.initialPanel); if (deck.floatAtStart) deck.startFloating(); } }
     onControllerActiveChanged: { if (controllerActive) { cancelInput(); focusFirstKey(); } else focusedKey = null; }
     Connections {
         target: typeof gamepad !== "undefined" ? gamepad : null
         function onAction(name) {
             if (!deck.controllerActive) return;
-            cancelInput();
-            if (name === "left") deck.controllerMove(-1, 0);
-            else if (name === "right") deck.controllerMove(1, 0);
-            else if (name === "up") deck.controllerMove(0, -1);
-            else if (name === "down") deck.controllerMove(0, 1);
+            deck.cancelInput();
+            if (name === "cursor-on") { deck.cursorHold = true; return; }
+            if (name === "cursor-off") { deck.cursorHold = false; return; }
+            const dir = {left: ["Left", -1, 0], right: ["Right", 1, 0], up: ["Up", 0, -1], down: ["Down", 0, 1]}[name];
+            if (dir) { if (deck.cursorHold) deck.moveCursor(dir[0]); else deck.controllerMove(dir[1], dir[2]); }
             else if (name === "accept") deck.controllerActivate();
             else if (name === "back") deck.controllerBack();
             else if (name === "space") deck.dispatch(" ");
             else if (name === "shift") deck.dispatch("Shift");
-            else if (name === "mode") deck.dispatch("__layout");
+            else if (name === "symbols" || name === "mode") deck.dispatch("__layout");
+            else if (name === "prev-suggestion") deck.controllerPick(-1);
+            else if (name === "next-suggestion") deck.controllerPick(1);
             else if (name === "emoji") deck.dispatch("__emoji");
             else if (name === "hide") deck.dispatch("__hide");
             deck.focusFirstKey();
         }
     }
-    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: deck.outlineColor }
-    ColumnLayout {
-        id: body
+    Rectangle { visible: !deck.floating && !deck.dockedBar; anchors.top: parent.top; width: parent.width; height: 1; color: deck.outlineColor }
+    // Floating card: drag handle moves the card, double tap docks it.
+    Item {
+        id: grip
+        objectName: "floatGrip"
+        visible: deck.floating && !deck.dockedBar
+        width: 140; height: 26; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; z: 6
+        Accessible.role: Accessible.Button
+        Accessible.name: "Move keyboard; double tap to dock"
+        Rectangle { anchors.centerIn: parent; width: 36; height: 4; radius: 2; color: deck.secondaryText; opacity: 0.7 }
+        DragHandler {
+            id: gripDrag
+            target: null
+            property real startX: 0
+            property real startY: 0
+            onActiveChanged: if (active) { startX = deck.floatX; startY = deck.floatY; deck.cancelInput(); }
+            onActiveTranslationChanged: if (active) deck.moveFloat(startX + activeTranslation.x, startY + activeTranslation.y)
+        }
+        TapHandler { onDoubleTapped: deck.floating = false }
+    }
+    Item {
+        id: corner
+        objectName: "floatCorner"
+        visible: deck.floating && !deck.dockedBar
+        width: 40; height: 40; anchors.right: parent.right; anchors.bottom: parent.bottom; z: 6
+        Accessible.role: Accessible.Slider
+        Accessible.name: "Resize keyboard"
+        Grid {
+            anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 8; columns: 3; spacing: 2
+            Repeater { model: 9; Rectangle { required property int index; width: 3; height: 3; radius: 1.5; visible: index % 3 + Math.floor(index / 3) >= 2; color: deck.secondaryText; opacity: 0.7 } }
+        }
+        DragHandler {
+            target: null
+            property real startWidth: 0
+            onActiveChanged: if (active) { startWidth = deck.floatWidth; deck.cancelInput(); }
+            onActiveTranslationChanged: if (active) deck.resizeFloat(startWidth + activeTranslation.x)
+        }
+    }
+    Item {
+        id: frame
+        objectName: "frame"
         width: deck.contentWidth
-        x: deck.handed === 1 ? 6 : deck.handed === 2 ? deck.width - width - 6 : (deck.width - width) / 2
-        anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.topMargin: 8; anchors.bottomMargin: 12
-        spacing: 0
-        RowLayout {
-            Layout.fillWidth: true; Layout.preferredHeight: deck.headerHeight; spacing: 4
-            Text { Layout.leftMargin: 8; text: "keyboard"; font.family: "Material Symbols Rounded"; font.pixelSize: 18; color: deck.primary }
-            Text { text: "Borealis"; color: deck.secondaryText; font.family: deck.fontFamily; font.weight: Font.DemiBold; font.pixelSize: 12 }
-            Text { visible: deck.controllerActive; Layout.leftMargin: 10; Layout.alignment: Qt.AlignVCenter; text: "sports_esports"; font.family: "Material Symbols Rounded"; font.pixelSize: 17; color: deck.primary }
-            Text { visible: body.width > 700; Layout.leftMargin: 12; Layout.fillWidth: true; elide: Text.ElideRight; text: deck.controllerActive ? "Controller: move · A type · B erase · X space · Y shift" : deck.gestureHint || (deck.privateInput ? "Private input" : deck.selecting ? "Move arrows or slide space to select" : "Hold for accents · slide space to move"); color: deck.secondaryText; font.pixelSize: 11 }
-            Item { Layout.fillWidth: true }
-            Key { keyboard: deck; toolbar: true; icon: true; Layout.preferredWidth: 48; Layout.fillHeight: true; label: deck.mode === "edit" ? "keyboard" : "edit"; description: "Editing tools"; value: "__edit"; special: true }
-            Key { keyboard: deck; toolbar: true; icon: true; Layout.preferredWidth: 48; Layout.fillHeight: true; label: deck.splitLayout ? "vertical_split" : deck.handed === 1 ? "align_horizontal_left" : deck.handed === 2 ? "align_horizontal_right" : "view_week"; description: "Cycle full, one-hand, and split layouts"; value: "__hand"; special: true }
-            Key { keyboard: deck; toolbar: true; icon: true; Layout.preferredWidth: 48; Layout.fillHeight: true; label: "keyboard_hide"; description: "Hide keyboard"; value: "__hide"; special: true }
-        }
-        Item { Layout.fillWidth: true; Layout.preferredHeight: deck.modeSpacerHeight; visible: deck.modeSpacerHeight > 0 }
-        SuggestionStrip { keyboard: deck; engine: deck.suggestions; Layout.fillWidth: true; Layout.preferredHeight: visible ? deck.suggestionHeight : 0 }
-        RowLayout {
-            visible: deck.controllerActive && body.width <= 700
-            Layout.fillWidth: true; Layout.preferredHeight: 22; spacing: 6
-            Text { text: "sports_esports"; font.family: "Material Symbols Rounded"; font.pixelSize: 15; color: deck.primary; Layout.alignment: Qt.AlignVCenter }
-            Text { text: "Stick or d-pad moves · A type · B erase · X space · Y shift"; color: deck.secondaryText; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter }
-        }
-        RowLayout {
-            visible: deck.utilityRowVisible
-            Layout.fillWidth: true; Layout.preferredHeight: deck.utilityHeight; spacing: 0
-            Repeater {
-                model: deck.mode === "emoji" ? deck.emojiTabs.map((entry, index) => "__category" + index) : deck.mode === "edit" ? ["Undo","Redo","__select","WordLeft","WordRight"] : ["Ctrl","Alt","Tab","Escape","Left","Right"]
-                Key {
-                    required property string modelData
-                    keyboard: deck; Layout.fillWidth: true; Layout.fillHeight: true
-                    label: modelData.indexOf("__category") === 0 ? deck.emojiTabs[Number(modelData.slice(10))] : deck.keyLabel(modelData); value: modelData; special: true
-                    toggled: modelData === "__select" && deck.selecting || modelData === "__category" + deck.emojiPage || modelData === "Ctrl" && deck.control || modelData === "Alt" && deck.alt
-                    repeating: modelData === "Left" || modelData === "Right"
+        x: deck.floating ? 8 : deck.handed === 1 ? 6 : deck.handed === 2 ? deck.width - width - 6 : (deck.width - width) / 2
+        anchors.top: parent.top; anchors.bottom: parent.bottom; anchors.topMargin: deck.topInset; anchors.bottomMargin: 12
+        readonly property real splitGap: width * 0.26
+        ColumnLayout {
+            id: body
+            anchors.fill: parent
+            spacing: 0
+            visible: !deck.dockedBar && (deck.panel === "" || deck.panel === "menu" && deck.progressValue < 0.99)
+            opacity: deck.trackpadHold ? 0.12 : 1
+            Behavior on opacity { NumberAnimation { duration: deck.reduceMotion ? 0 : 160 } }
+            SuggestionStrip {
+                id: strip
+                keyboard: deck
+                visible: !deck.emojiSearching
+                Layout.fillWidth: true; Layout.preferredHeight: visible ? deck.suggestionHeight : 0
+                Component.onCompleted: deck.menuButton = strip.toolsButton
+            }
+            EmojiSearchBar { keyboard: deck; visible: deck.emojiSearching; Layout.fillWidth: true; Layout.preferredHeight: visible ? deck.suggestionHeight : 0 }
+            Item { Layout.fillWidth: true; Layout.preferredHeight: deck.modeSpacerHeight; visible: deck.modeSpacerHeight > 0 }
+            RowLayout {
+                visible: deck.showNumberRow && !deck.terminalMode && !deck.emojiSearching
+                Layout.fillWidth: true; Layout.preferredHeight: visible ? deck.numberHeight : 0; spacing: 0
+                Repeater {
+                    model: "1234567890".split("")
+                    Key { required property string modelData; keyboard: deck; dense: true; label: modelData; Layout.fillWidth: true; Layout.fillHeight: true }
                 }
             }
-        }
-        RowLayout {
-            visible: deck.showNumberRow
-            Layout.fillWidth: true; Layout.preferredHeight: deck.numberHeight; spacing: 0
-            Repeater {
-                model: "1234567890".split("")
-                Key { required property string modelData; required property int index; keyboard: deck; dense: true; label: modelData; Layout.fillWidth: true; Layout.fillHeight: true; Layout.leftMargin: deck.splitLayout && index === 5 ? 28 : 0 }
-            }
-        }
-        Repeater {
-            model: deck.rows
+            EmojiResults { keyboard: deck; visible: deck.emojiSearching; Layout.fillWidth: true; Layout.preferredHeight: visible ? deck.numberHeight : 0 }
             RowLayout {
-                id: row
-                required property var modelData
-                required property int index
-                Layout.fillWidth: true; Layout.fillHeight: true
-                Layout.leftMargin: deck.mode === "letters" && index === 1 ? body.width * 0.05 : 0
-                Layout.rightMargin: Layout.leftMargin
-                spacing: 0
-                z: 4 - index
+                visible: deck.showNumberRow && deck.terminalMode && !deck.emojiSearching
+                objectName: "terminalRow"
+                Layout.fillWidth: true; Layout.preferredHeight: visible ? deck.numberHeight : 0; spacing: 0
                 Repeater {
-                    model: row.modelData
+                    model: [{v: "Escape"}, {v: "Tab"}, {v: "Ctrl"}, {v: "Alt"}, {v: "Left", i: "chevron_left"}, {v: "Down", i: "expand_more"}, {v: "Up", i: "expand_less"}, {v: "Right", i: "chevron_right"}]
                     Key {
-                        required property string modelData
-                        required property int index
-                        keyboard: deck
+                        required property var modelData
+                        keyboard: deck; special: true; dense: true
+                        icon: !!modelData.i; label: modelData.i || deck.keyLabel(modelData.v); value: modelData.v; description: modelData.v
+                        latch: modelData.v === "Ctrl"
+                        toggled: modelData.v === "Ctrl" && deck.control || modelData.v === "Alt" && deck.alt
+                        repeating: !!modelData.i
                         Layout.fillWidth: true; Layout.fillHeight: true
-                        Layout.preferredWidth: modelData === "Shift" || modelData === "⌫" || modelData === "Symbols" || modelData === "Numbers" ? 1.5 : 1
-                        Layout.leftMargin: deck.splitLayout && index === Math.ceil(row.modelData.length / 2) ? 28 : 0
-                        label: modelData === "Shift" ? (deck.shiftState === 2 ? "keyboard_capslock" : "shift") : modelData === "⌫" ? "backspace" : deck.keyLabel(modelData); value: modelData
-                        icon: modelData === "Shift" || modelData === "⌫"
-                        description: modelData === "⌫" ? "Backspace" : modelData === "Shift" ? "Shift; double tap for caps lock" : label
-                        alternatives: deck.alternatives(modelData)
-                        hint: ""
-                        special: modelData.length > 2 || modelData === "⌫"
-                        toggled: modelData === "Shift" && deck.shiftState > 0 || modelData === "Ctrl" && deck.control || modelData === "Alt" && deck.alt
-                        repeating: modelData === "⌫" || modelData === "Delete"
                     }
                 }
             }
+            Repeater {
+                model: deck.rows
+                RowLayout {
+                    id: row
+                    required property var modelData
+                    required property int index
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.leftMargin: deck.mode === "letters" && index === 1 && !deck.splitLayout ? body.width * 0.05 : 0
+                    Layout.rightMargin: Layout.leftMargin
+                    spacing: 0
+                    z: 4 - index
+                    // Exact pixel widths keep the keys even when the split gap takes room.
+                    function weight(name) { return name === "Shift" || name === "⌫" || name === "Symbols" || name === "Numbers" ? 1.5 : 1; }
+                    readonly property real weightSum: modelData.reduce((sum, name) => sum + weight(name), 0)
+                    readonly property real unit: Math.max(1, (width - (deck.splitLayout && deck.mode === "letters" ? frame.splitGap : 0)) / weightSum)
+                    Repeater {
+                        model: row.modelData
+                        Key {
+                            required property string modelData
+                            required property int index
+                            keyboard: deck
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            Layout.preferredWidth: row.weight(modelData) * row.unit
+                            Layout.leftMargin: deck.splitLayout && deck.mode === "letters" && index === Math.ceil(row.modelData.length / 2) ? frame.splitGap : 0
+                            label: modelData === "Shift" ? (deck.shiftState === 2 ? "keyboard_capslock" : "shift") : modelData === "⌫" ? "backspace" : deck.keyLabel(modelData); value: modelData
+                            icon: modelData === "Shift" || modelData === "⌫"
+                            description: modelData === "⌫" ? "Backspace" : modelData === "Shift" ? "Shift; double tap for caps lock" : label
+                            alternatives: deck.alternatives(modelData)
+                            hint: deck.terminalMode && row.index === 0 && deck.mode === "letters" ? String((index + 1) % 10) : ""
+                            special: modelData.length > 2 || modelData === "⌫" || modelData === "Shift"
+                            toggled: modelData === "Shift" && deck.shiftState > 0
+                            repeating: modelData === "⌫"
+                        }
+                    }
+                }
+            }
+            RowLayout {
+                id: bottom
+                Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
+                readonly property real spaceWeight: deck.splitLayout ? 2.6 : deck.terminalMode ? 3.4 : 4.4
+                readonly property real weightSum: 1.35 + (deck.terminalMode ? 0 : 1) + (deck.terminalMode ? 3 : 1) * 0.8 + spaceWeight + (deck.terminalMode ? 2 : 1) * 0.8 + 1.5
+                readonly property real unit: Math.max(1, (width - (deck.splitLayout ? frame.splitGap : 0)) / weightSum)
+                Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 1.35 * bottom.unit; Layout.fillHeight: true; label: deck.terminalMode ? "!#1" : deck.mode === "letters" ? "?123" : "ABC"; value: "__layout"; special: true; description: "Switch letters and symbols" }
+                Key { visible: !deck.terminalMode; keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: visible ? bottom.unit : 0; Layout.fillHeight: true; label: "mood"; icon: true; value: "__emoji"; special: true; description: "Emoji"; toggled: deck.panel === "emoji" }
+                Repeater {
+                    model: deck.terminalMode ? ["|", "~", "/"] : [deck.email ? "@" : deck.url ? "/" : ","]
+                    Key { required property string modelData; keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 0.8 * bottom.unit; Layout.fillHeight: true; label: modelData; alternatives: deck.alternatives(modelData) }
+                }
+                Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: bottom.spaceWeight * bottom.unit; Layout.fillHeight: true; label: deck.gestureHint || (deck.selecting ? "Slide to select" : deck.control ? "Ctrl + space" : deck.alt ? "Alt + space" : deck.terminalMode ? "space" : "English"); value: " "; spacebar: true; description: "Space; slide to move cursor" }
+                Repeater {
+                    model: deck.terminalMode ? ["-", "_"] : ["."]
+                    Key { required property string modelData; required property int index; keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 0.8 * bottom.unit; Layout.fillHeight: true; Layout.leftMargin: deck.splitLayout && index === 0 ? frame.splitGap : 0; label: modelData; alternatives: deck.alternatives(modelData) }
+                }
+                Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 1.5 * bottom.unit; Layout.fillHeight: true; label: "keyboard_return"; icon: true; value: "Return"; accent: true; special: true; description: "Enter" }
+            }
+            HintBar { visible: deck.controllerActive; keyboard: deck; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: 6; Layout.preferredHeight: visible ? 32 : 0; Layout.preferredWidth: implicitWidth }
         }
-        RowLayout {
-            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 0
-            Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 1.35; Layout.fillHeight: true; label: deck.mode === "letters" ? "?123" : "ABC"; value: "__layout"; special: true; description: "Switch letters and symbols" }
-            Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.fillHeight: true; label: "mood"; icon: true; value: "__emoji"; special: true; description: "Emoji"; toggled: deck.mode === "emoji" }
-            Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 0.8; Layout.fillHeight: true; label: deck.terminalPurpose ? "|" : deck.email ? "@" : deck.url ? "/" : "," }
-            Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 4.4; Layout.fillHeight: true; label: deck.gestureHint || (deck.selecting ? "Slide to select" : deck.control ? "Ctrl + space" : deck.alt ? "Alt + space" : "English"); value: " "; spacebar: true; description: "Space; slide to move cursor" }
-            Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 0.8; Layout.fillHeight: true; label: deck.terminalPurpose ? "~" : "."; alternatives: deck.terminalPurpose ? [] : deck.alternatives(".") }
-            Key { keyboard: deck; Layout.fillWidth: true; Layout.preferredWidth: 1.5; Layout.fillHeight: true; label: "keyboard_return"; icon: true; value: "Return"; accent: true; special: true; description: "Enter" }
+        TrackpadSurface { visible: deck.trackpadHold; anchors.fill: parent; keyboard: deck; selecting: deck.selecting || deck.shiftState > 0; enabled: false; z: 3 }
+        Loader { anchors.fill: parent; active: deck.panel === "edit" && !deck.dockedBar; sourceComponent: EditPanel { keyboard: deck } }
+        Loader { anchors.fill: parent; active: deck.panel === "emoji" && !deck.dockedBar; sourceComponent: EmojiPanel { keyboard: deck } }
+        Loader { anchors.fill: parent; active: deck.panel === "clipboard" && !deck.dockedBar; sourceComponent: ClipboardPanel { keyboard: deck } }
+        Loader { anchors.fill: parent; active: deck.panel === "trackpad" && !deck.dockedBar; sourceComponent: TrackpadPanel { keyboard: deck } }
+        Loader { anchors.fill: parent; active: deck.panel === "resize" && !deck.dockedBar; sourceComponent: ResizePanel { keyboard: deck } }
+        Loader {
+            anchors.fill: parent; active: deck.panel === "languages" && !deck.dockedBar
+            sourceComponent: ChoicePanel { keyboard: deck; title: "Languages"; rows: [{label: "English (US)", value: "__keys", on: true}, {label: "Keyboard settings", value: "__settings", on: false}] }
         }
+        Loader {
+            anchors.fill: parent; active: deck.panel === "settings" && !deck.dockedBar
+            sourceComponent: ChoicePanel {
+                keyboard: deck; title: "Keyboard settings"
+                rows: [
+                    {label: "Tonal keys", value: "__set-tonal", on: deck.keyStyle === "tonal"},
+                    {label: "Borderless keys", value: "__set-borderless", on: deck.keyStyle === "borderless"},
+                    {label: "Auto-capitalise", value: "__set-autocaps", on: deck.autoCapitalize},
+                    {label: "Slim bar with a physical keyboard", value: "__set-docked", on: deck.dockedPreference !== "never"}
+                ]
+            }
+        }
+    }
+    ToolsSheet {
+        id: sheet
+        keyboard: deck
+        progress: deck.progressValue
+        origin: deck.toolsOrigin
+        target: Qt.rect(frame.x, frame.y, frame.width, frame.height)
+        z: 10
+    }
+    DockedBar {
+        visible: deck.dockedBar
+        keyboard: deck; engine: deck.suggestions
+        width: Math.min(640, deck.width - 24); height: 52
+        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
     }
     Item { id: previews; anchors.fill: parent; z: 1000 }
 }
