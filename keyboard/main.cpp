@@ -1,5 +1,7 @@
+#include "ClipboardBridge.h"
 #include "Gamepad.h"
 #include "InputMethod.h"
+#include "PhysicalKeyboard.h"
 #include "PreferenceStore.h"
 #include "SuggestionEngine.h"
 #include <LayerShellQt/Window>
@@ -7,6 +9,7 @@
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QFile>
+#include <QRegion>
 #include <QGuiApplication>
 #include <QInputMethodEvent>
 #include <QJsonDocument>
@@ -33,7 +36,11 @@ int main(int argc, char **argv) {
     parser.addOption({"width", "Preview width in logical pixels.", "pixels", "980"});
     parser.addOption({"height", "Preview height in logical pixels.", "pixels", "780"});
     parser.addOption({"handheld", "Preview in handheld controller mode."});
-    parser.addOption({"layout", "Initial preview layout: letters, numbers, symbols, emoji, edit.", "layout", "letters"});
+    parser.addOption({"layout", "Initial preview layout or panel: letters, numbers, symbols, emoji, edit, menu, clipboard, trackpad.", "layout", "letters"});
+    parser.addOption({"key-style", "Preview key style: tonal or borderless.", "style", ""});
+    parser.addOption({"docked", "Preview the slim docked bar that a physical keyboard brings."});
+    parser.addOption({"floating", "Preview the floating card (needs a width of 720 or more)."});
+    parser.addOption({"clipboard-fixture", "Preview clipboard history from a JSON file instead of the running shell.", "file"});
     parser.addOption({"purpose", "Preview content purpose: text, digits, number, phone, url, email, password, date, time, datetime, terminal.", "purpose", "text"});
     parser.addOption({"placement", "Preview placement: full, left, right, split.", "placement", "full"});
     parser.addOption({"screenshot", "Save a preview image and exit (requires --preview).", "path"});
@@ -47,6 +54,12 @@ int main(int argc, char **argv) {
     Gamepad gamepad;
     PreferenceStore preferences;
     SuggestionEngine suggestions;
+    ClipboardBridge clipboard;
+    PhysicalKeyboard physical;
+    if (parser.isSet("clipboard-fixture")) {
+        QFile fixture(parser.value("clipboard-fixture"));
+        if (fixture.open(QIODevice::ReadOnly)) clipboard.setFixture(fixture.read(2 * 1024 * 1024));
+    }
     auto bus = QDBusConnection::sessionBus();
     if (preview) input.preview();
     if (parser.isSet("manual")) input.setAutoShow(false);
@@ -64,6 +77,12 @@ int main(int argc, char **argv) {
     engine.rootContext()->setContextProperty("gamepad", &gamepad);
     engine.rootContext()->setContextProperty("preferenceStore", &preferences);
     engine.rootContext()->setContextProperty("suggestionEngine", &suggestions);
+    engine.rootContext()->setContextProperty("clipboardBridge", &clipboard);
+    engine.rootContext()->setContextProperty("physicalKeyboardDetector", &physical);
+    engine.rootContext()->setContextProperty("previewKeyStyle", parser.value("key-style"));
+    engine.rootContext()->setContextProperty("previewDocked", parser.isSet("docked"));
+    engine.rootContext()->setContextProperty("previewFloating", parser.isSet("floating"));
+    engine.rootContext()->setContextProperty("previewTerminal", false);
     engine.rootContext()->setContextProperty("previewMode", preview);
     engine.rootContext()->setContextProperty("previewWidth", qBound(320, parser.value("width").toInt(), 1920));
     engine.rootContext()->setContextProperty("previewHeight", qBound(320, parser.value("height").toInt(), 2160));
@@ -90,9 +109,19 @@ int main(int argc, char **argv) {
             if (!selected) { qCritical("Requested output is unavailable."); return 1; }
             layer->setScreen(selected);
         }
-        auto reserve = [layer, window] { layer->setExclusiveZone(window->isVisible() ? window->height() : 0); };
+        // A floating card reserves no space. Docked or floating, only the visible card takes input.
+        auto reserve = [layer, window] {
+            const bool sparse = window->property("sparse").toBool();
+            layer->setExclusiveZone(window->isVisible() && window->property("reserveSpace").toBool() ? window->height() : 0);
+            window->setMask(sparse ? QRegion(window->property("inputRect").toRectF().toAlignedRect()) : QRegion());
+        };
         QObject::connect(window, &QWindow::heightChanged, &app, reserve);
         QObject::connect(window, &QWindow::visibleChanged, &app, reserve);
+        // QML property changes are polled because this file has no signal receiver class.
+        auto *shape = new QTimer(window);
+        shape->setInterval(120);
+        QObject::connect(shape, &QTimer::timeout, window, reserve);
+        shape->start();
         reserve();
         QObject::connect(&input, &InputMethod::changed, window, [&input, window] { window->setVisible(input.visible()); });
         if (parser.isSet("show")) input.SetVisible(true);

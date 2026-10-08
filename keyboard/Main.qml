@@ -8,8 +8,12 @@ Window {
     title: previewMode ? "Borealis Keyboard · typing playground" : "Borealis Keyboard"
     visible: false
     width: previewMode ? previewWidth : (screen ? screen.width : 980)
-    height: previewMode ? previewHeight : keyboard.implicitHeight
-    color: keyboard.backgroundColor
+    height: previewMode ? previewHeight : keyboard.floating ? (screen ? screen.height : 800) : keyboard.height
+    color: previewMode ? keyboard.backgroundColor : "transparent"
+    // The visible card in window coordinates. The compositor surface accepts input only here when floating or docked.
+    property rect inputRect: keyboard.dockedBar ? Qt.rect(keyboard.x + (keyboard.width - Math.min(640, keyboard.width - 24)) / 2, keyboard.y, Math.min(640, keyboard.width - 24), keyboard.height) : keyboard.floating ? Qt.rect(keyboard.x, keyboard.y, keyboard.width, keyboard.height) : Qt.rect(0, 0, width, height)
+    property bool reserveSpace: !keyboard.floating
+    property bool sparse: keyboard.floating || keyboard.dockedBar
     minimumWidth: 320
     minimumHeight: 320
     property bool privatePreview: typeof previewPurpose !== "undefined" && previewPurpose === 8
@@ -108,15 +112,25 @@ Window {
     Keyboard {
         id: keyboard
         objectName: "keyboard"
-        backend: inputMethod; preferences: preferenceStore.values; suggestions: suggestionEngine
+        preferences: preferenceStore.values; suggestions: suggestionEngine
         visible: inputMethod.Visible
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        backend: inputMethod; clips: typeof clipboardBridge !== "undefined" ? clipboardBridge : null
+        physicalKeyboard: typeof physicalKeyboardDetector !== "undefined" ? physicalKeyboardDetector : null
+        hostWidth: window.width
+        dockedPreview: previewMode && typeof previewDocked !== "undefined" && previewDocked
+        width: floating ? floatWidth : window.width
+        x: floating ? floatX : 0
+        y: floating ? floatY : window.height - height
         height: implicitHeight
         availableHeight: previewMode ? window.height : (window.screen ? window.screen.height : 800)
         handheld: previewMode && typeof previewHandheld !== "undefined" && previewHandheld
         privateInput: previewMode ? window.privatePreview : inputMethod.sensitive
         purpose: previewMode && typeof previewPurpose !== "undefined" ? previewPurpose : inputMethod.purpose
         handed: previewMode && typeof previewPlacement !== "undefined" ? previewPlacement : 0
-        mode: initialLayout
+        mode: initialLayout === "emoji" || initialLayout === "edit" || initialLayout === "menu" || initialLayout === "clipboard" || initialLayout === "trackpad" ? "letters" : initialLayout
+        initialPanel: ["emoji", "edit", "menu", "clipboard", "trackpad"].indexOf(initialLayout) >= 0 ? initialLayout : ""
+        keyStyleSession: typeof previewKeyStyle !== "undefined" ? previewKeyStyle : ""
+        floatAtStart: previewMode && typeof previewFloating !== "undefined" && previewFloating
+        terminalAtStart: previewMode && typeof previewTerminal !== "undefined" && previewTerminal
     }
 }
