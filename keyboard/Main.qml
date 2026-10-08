@@ -129,6 +129,7 @@ Window {
         handed: previewMode && typeof previewPlacement !== "undefined" ? previewPlacement : 0
         mode: initialLayout === "emoji" || initialLayout === "edit" || initialLayout === "menu" || initialLayout === "clipboard" || initialLayout === "trackpad" ? "letters" : initialLayout
         initialPanel: ["emoji", "edit", "menu", "clipboard", "trackpad"].indexOf(initialLayout) >= 0 ? initialLayout : ""
+        keyStyleSession: typeof previewKeyStyle !== "undefined" ? previewKeyStyle : ""
         floatAtStart: previewMode && typeof previewFloating !== "undefined" && previewFloating
         terminalAtStart: previewMode && typeof previewTerminal !== "undefined" && previewTerminal
     }

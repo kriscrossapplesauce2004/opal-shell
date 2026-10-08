@@ -190,7 +190,7 @@ Rectangle {
         if (mode === "letters" && digit >= 0) values = [String((digit + 1) % 10)].concat(values.length ? values : [value]);
         return shiftState ? values.map(v => v.toUpperCase()) : values;
     }
-    function registerKey(item) { keyRegistry = keyRegistry.concat([item]); if (controllerActive && !focusedKey) focusFirstKey(); }
+    function registerKey(item) { keyRegistry = keyRegistry.concat([item]); if (controllerActive && !focusedKey) settle.restart(); }
     function unregisterKey(item) {
         const next = keyRegistry.slice();
         const at = next.indexOf(item);
@@ -200,6 +200,8 @@ Rectangle {
     }
     function focusFirstKey() {
         if (focusedKey && focusedKey.revealable) return;
+        // Start on the letter Q when it shows, or else on the first key that shows.
+        for (const item of keyRegistry) if (item.revealable && item.objectName === "key-q") { focusedKey = item; return; }
         for (const item of keyRegistry) if (item.revealable) { focusedKey = item; return; }
     }
     function controllerMove(dx, dy) {
@@ -340,6 +342,8 @@ Rectangle {
         suggestions.noteAccepted(value);
         shiftState = 0; control = false; alt = false; selecting = false; lastChar = " "; lastSpaceTime = Date.now();
     }
+    // Focus starts only after the keys have all registered, so it can pick the letter Q.
+    Timer { id: settle; interval: 60; onTriggered: deck.focusFirstKey() }
     Timer { id: pickFlash; interval: 450; onTriggered: deck.suggestionFocus = -1 }
     onGenerationChanged: reset()
     onPurposeChanged: reset()
@@ -359,7 +363,7 @@ Rectangle {
     }
     // The preview focus event resets the deck once, so the requested start state is applied after it.
     Timer { id: startup; interval: 200; onTriggered: { if (deck.initialPanel !== "") deck.openPanel(deck.initialPanel); if (deck.floatAtStart) deck.startFloating(); } }
-    onControllerActiveChanged: { if (controllerActive) { cancelInput(); focusFirstKey(); } else focusedKey = null; }
+    onControllerActiveChanged: { if (controllerActive) { cancelInput(); settle.restart(); } else focusedKey = null; }
     Connections {
         target: typeof gamepad !== "undefined" ? gamepad : null
         function onAction(name) {

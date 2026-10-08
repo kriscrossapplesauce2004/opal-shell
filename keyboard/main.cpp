@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
     parser.addOption({"height", "Preview height in logical pixels.", "pixels", "780"});
     parser.addOption({"handheld", "Preview in handheld controller mode."});
     parser.addOption({"layout", "Initial preview layout or panel: letters, numbers, symbols, emoji, edit, menu, clipboard, trackpad.", "layout", "letters"});
+    parser.addOption({"key-style", "Preview key style: tonal or borderless.", "style", ""});
     parser.addOption({"docked", "Preview the slim docked bar that a physical keyboard brings."});
     parser.addOption({"floating", "Preview the floating card (needs a width of 720 or more)."});
     parser.addOption({"clipboard-fixture", "Preview clipboard history from a JSON file instead of the running shell.", "file"});
@@ -78,6 +79,7 @@ int main(int argc, char **argv) {
     engine.rootContext()->setContextProperty("suggestionEngine", &suggestions);
     engine.rootContext()->setContextProperty("clipboardBridge", &clipboard);
     engine.rootContext()->setContextProperty("physicalKeyboardDetector", &physical);
+    engine.rootContext()->setContextProperty("previewKeyStyle", parser.value("key-style"));
     engine.rootContext()->setContextProperty("previewDocked", parser.isSet("docked"));
     engine.rootContext()->setContextProperty("previewFloating", parser.isSet("floating"));
     engine.rootContext()->setContextProperty("previewTerminal", false);
