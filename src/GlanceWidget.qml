@@ -18,8 +18,8 @@ Item {
         id: column
         spacing: 6
         // The software renderer cannot draw the shadow effect, so the text stays plain there.
-        layer.enabled: glance.shadow && !glance.onLight && GraphicsInfo.api !== GraphicsInfo.Software
-        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: glance.onLight ? Theme.alpha("#ffffff", .6) : Theme.alpha("#000000", Theme.light ? .25 : .55); shadowBlur: .6; shadowVerticalOffset: glance.onLight ? 0 : 1 }
+        layer.enabled: glance.shadow && GraphicsInfo.api !== GraphicsInfo.Software
+        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: glance.onLight ? "#ffffff" : "#000000"; shadowOpacity: glance.onLight ? .85 : .8; shadowBlur: .3; shadowVerticalOffset: glance.onLight ? 0 : 1 }
         Row {
             spacing: 10
             MText { text: Qt.formatDateTime(Hub.now, "ddd, MMM d"); font.pixelSize: glance.big; font.weight: Font.DemiBold; color: glance.ink; anchors.verticalCenter: parent.verticalCenter }
