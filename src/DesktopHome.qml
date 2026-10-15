@@ -83,7 +83,8 @@ Item {
                         Image {
                             id: themeIcon
                             anchors.fill: parent; visible: !tile.it.thumb && status === Image.Ready; asynchronous: true; sourceSize: Qt.size(104, 104)
-                            source: tile.it.thumb ? "" : Quickshell.iconPath(tile.it.icon || "text-x-generic", tile.it.dir ? "folder" : "text-x-generic")
+                            // An empty path when the theme has no match, so the symbol below shows instead.
+                            source: tile.it.thumb ? "" : Quickshell.iconPath(tile.it.icon || "text-x-generic", true) || Quickshell.iconPath(tile.it.dir ? "folder" : "text-x-generic", true)
                         }
                         Glyph { anchors.centerIn: parent; visible: !tile.it.thumb && themeIcon.status !== Image.Ready; name: tile.it.glyph || "draft"; font.pixelSize: 40; color: Theme.primary }
                     }

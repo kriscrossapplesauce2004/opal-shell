@@ -455,9 +455,10 @@ Scope {
         const saved=prefs.phoneHome;
         if(saved&&Array.isArray(saved.pages)&&saved.pages.length)return saved;
         const ids=favoriteApps.slice(4).map(a=>a.id).concat(recentApps.filter(a=>favoriteApps.indexOf(a)<0).map(a=>a.id)).slice(0,16);
-        return {pages:[{widgets:["glance","stack"],items:ids}]};
+        return {pages:[{widgets:[{kind:"glance",w:4,h:1},{kind:"media",w:4,h:2},{kind:"live",w:4,h:2}],items:ids}]};
     }
-    function setPhoneHome(layout) { set("phoneHome",{pages:layout.pages.filter((p,i)=>i===0||p.widgets.length||p.items.length)}); }
+    // While editing, empty pages stay so the user can fill them. Otherwise empty pages after the first go away.
+    function setPhoneHome(layout,keepEmpty) { set("phoneHome",{pages:keepEmpty ? layout.pages : layout.pages.filter((p,i)=>i===0||p.widgets.length||p.items.length)}); }
     function homeHas(id) { return phoneHome.pages.some(p=>p.items.some(item=>item===id||(item.apps||[]).indexOf(id)>=0)); }
     function addToHome(app) {
         if(!app||homeHas(app.id))return;

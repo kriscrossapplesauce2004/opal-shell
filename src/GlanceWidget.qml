@@ -13,7 +13,8 @@ Item {
     Column {
         id: column
         spacing: 6
-        layer.enabled: glance.shadow
+        // The software renderer cannot draw the shadow effect, so the text stays plain there.
+        layer.enabled: glance.shadow && GraphicsInfo.api !== GraphicsInfo.Software
         layer.effect: MultiEffect { shadowEnabled: true; shadowColor: Theme.alpha("#000000", Theme.light ? .25 : .55); shadowBlur: .6; shadowVerticalOffset: 1 }
         Row {
             spacing: 10
@@ -29,7 +30,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter; role: "bodyS"; color: Theme.subtext
                 text: glance.w ? glance.w.text + (glance.w.high !== null ? " · " + glance.w.high + "° / " + glance.w.low + "°" : "") + (glance.w.place ? " · " + glance.w.place : "") : "Set your city for weather"
             }
-            MouseArea { width: parent.width; height: parent.height; visible: !glance.w; cursorShape: Qt.PointingHandCursor; onClicked: Hub.openSettings("appearance") }
+            TapHandler { enabled: !glance.w; onTapped: Hub.openSettings("appearance") }
         }
         Row {
             visible: glance.live !== null

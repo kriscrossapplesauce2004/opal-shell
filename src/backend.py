@@ -30,7 +30,7 @@ def spawn(args, env=None):
 BAR_STYLES = ('islands','dock','split','edge')
 SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery','devices')
 SHEET_SECTION_DEFAULT = ('sliders','tiles','media','notifications')
-PHONE_WIDGETS = ('glance','stack','media','calendar','battery','focus')
+PHONE_WIDGETS = ('glance','stack','media','calendar','battery','focus','photos','devices','clock','live')
 def valid_phone_home(value):
     """Phone home layout: up to 8 pages of widgets and items; items are app ids or small folders."""
     def app_id(v): return isinstance(v,str) and 0<len(v)<300
@@ -41,7 +41,12 @@ def valid_phone_home(value):
     for page in value['pages']:
         if not isinstance(page,dict) or set(page)!={'widgets','items'}: return False
         widgets,items=page['widgets'],page['items']
-        if not isinstance(widgets,list) or len(widgets)>4 or len(set(widgets))!=len(widgets) or not all(w in PHONE_WIDGETS for w in widgets): return False
+        # A widget is a kind name, or a kind with its size in grid cells.
+        def widget(w):
+            if isinstance(w,str): return w in PHONE_WIDGETS
+            return isinstance(w,dict) and set(w)=={'kind','w','h'} and w['kind'] in PHONE_WIDGETS and type(w['w']) is int and type(w['h']) is int and 1<=w['w']<=8 and 1<=w['h']<=4
+        kinds=[w if isinstance(w,str) else w.get('kind') if isinstance(w,dict) else None for w in widgets] if isinstance(widgets,list) else []
+        if not isinstance(widgets,list) or len(widgets)>6 or len(set(kinds))!=len(kinds) or not all(map(widget,widgets)): return False
         if not isinstance(items,list) or len(items)>48 or not all(map(item,items)): return False
     return True
 

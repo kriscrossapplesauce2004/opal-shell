@@ -17,7 +17,8 @@ Item {
     }
     Component { id: glanceView; Item { GlanceWidget { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; big: Math.max(20, Math.min(32, hw.height * .3)) } } }
     Component { id: mediaView; MediaPlayerCard { small: hw.height < 180 } }
-    Component { id: liveView; ActivityCard { a: hw.live || ({}); onOpened: Activities.open(hw.live, null) } }
+    // A short slot drops the code preview so the title and the buttons always fit.
+    Component { id: liveView; ActivityCard { a: hw.live ? (hw.height < 250 ? Object.assign({}, hw.live, {code: ""}) : hw.live) : ({}); onOpened: Activities.open(hw.live, null) } }
     Component {
         id: photoView
         Item {
