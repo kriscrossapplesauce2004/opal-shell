@@ -199,7 +199,9 @@ Item {
                 }
             }
         }
+        // On a tablet the persistent dock carries the search, so the home does not draw a second one.
         Rectangle {
+            visible: !home.wide || Hub.prefs.tabletDock === false
             Layout.fillWidth: true; Layout.maximumWidth: home.wide ? 560 : 10000; Layout.alignment: Qt.AlignHCenter; Layout.preferredHeight: 56; radius: 28
             color: Theme.alpha(Theme.level(3), .95)
             Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.stateLayer; opacity: searchMouse.pressed ? .1 : 0 }

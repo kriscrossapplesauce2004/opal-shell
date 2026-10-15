@@ -30,6 +30,30 @@ Item {
             id: row
             anchors.centerIn: parent
             spacing: 6
+            // Search opens the drawer with the shared search, the same as the phone search bar.
+            Rectangle {
+                visible: !dock.flat
+                anchors.verticalCenter: parent.verticalCenter
+                width: 220; height: 52; radius: 26; color: Theme.alpha(Theme.level(4), .9)
+                Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.stateLayer; opacity: searchTap.pressed ? .12 : 0 }
+                Row {
+                    x: 18; anchors.verticalCenter: parent.verticalCenter; spacing: 10
+                    Glyph { name: "search"; font.pixelSize: 22; color: Theme.text; anchors.verticalCenter: parent.verticalCenter }
+                    MText { text: "Search"; role: "body"; font.pixelSize: 16; color: Theme.subtext; anchors.verticalCenter: parent.verticalCenter }
+                }
+                Rectangle {
+                    anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
+                    width: 40; height: 40; radius: 20; color: Theme.tertiaryContainer
+                    Glyph { anchors.centerIn: parent; name: "auto_awesome"; font.pixelSize: 20; color: Theme.onTertiaryContainer }
+                    MouseArea { anchors.fill: parent; onClicked: Hub.openAssistant("") }
+                }
+                TapHandler {
+                    id: searchTap
+                    onTapped: { Hub.targetScreen = dock.screenObj; Hub.drawerHandoff = 0; Hub.mobileTab = "apps"; Hub.drawerSearch = true; Hub.page = "launcher"; }
+                }
+                Accessible.role: Accessible.Button; Accessible.name: "Search"
+            }
+            Rectangle { visible: !dock.flat; width: 2; height: 36; radius: 1; color: Theme.outline; anchors.verticalCenter: parent.verticalCenter }
             Repeater {
                 model: dock.pinned
                 DockIcon { required property var modelData; app: modelData }
