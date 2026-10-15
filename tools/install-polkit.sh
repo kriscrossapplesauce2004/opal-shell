@@ -7,7 +7,7 @@ data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 state_home=${XDG_STATE_HOME:-$HOME/.local/state}
 destination=$data_home/opal/polkit
 unit=$config_home/systemd/user/opal-polkit.service
-backup=$state_home/opal/pre-deploy-$(date +%Y%m%d-%H%M%S)-polkit
+backup=$state_home/opal/backups/polkit-$(date +%Y%m%d-%H%M%S)
 
 command -v quickshell >/dev/null
 systemctl --user show-environment >/dev/null

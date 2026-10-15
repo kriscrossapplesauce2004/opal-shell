@@ -27,9 +27,10 @@ pacman, dnf, or apt where those packages exist, installs the shell into
 Hyprland config, it also adds an idempotent, reversible runtime-marker hook to
 `~/.config/hypr/hyprland.lua`; the hook only loads Opal bindings while Opal is
 on. Existing shell and Hyprland config files are backed up under
-`~/.local/state/opal/pre-deploy-*-install`; preferences are preserved. Use
-`./install.sh --restart` to install and reload in one step, `--no-deps` to skip
-package installation, or `--no-hyprland` to leave Hyprland untouched.
+`~/.local/state/opal/backups/` (the newest three shell backups are kept);
+preferences are preserved. Use `./install.sh --restart` to install and reload
+in one step, `--no-deps` to skip package installation, or `--no-hyprland` to
+leave Hyprland untouched.
 
 ## Material 3 Expressive glass refresh
 
