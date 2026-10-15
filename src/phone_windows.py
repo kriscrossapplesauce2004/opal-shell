@@ -27,9 +27,12 @@ def usable_rect(monitor, top=48, bottom=0, keyboard=0):
 
 
 def split_rects(rect, ratio=0.5, gap=8, minimum=0.25):
-    """Return left and right rectangles for a split view. The divider ratio stays within bounds."""
+    """Return the two rectangles of a split view: side by side on a wide area, one above the other on a tall area (a phone). The ratio stays within bounds."""
     x, y, width, height = rect
     ratio = max(minimum, min(1 - minimum, float(ratio)))
+    if height > width:
+        top = int((height - gap) * ratio)
+        return (x, y, width, top), (x, y + top + gap, width, height - gap - top)
     left = int((width - gap) * ratio)
     return (x, y, left, height), (x + left + gap, y, width - gap - left, height)
 

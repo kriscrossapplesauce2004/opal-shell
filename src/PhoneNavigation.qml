@@ -20,7 +20,7 @@ Item {
         x:(parent.width-width)/2;y:(parent.height-height)/2
         NavKey {
             tooltip:"Back";onActivated:nav.back()
-            Glyph {anchors.centerIn:parent;name:"play_arrow";rotation:180;font.pixelSize:26;color:Theme.text}
+            NavTriangle {anchors.centerIn:parent;width:18;height:18}
         }
         NavKey {
             tooltip:"Home · hold for assistant";onActivated:nav.home();onHeld:Hub.openAssistant("")

@@ -52,6 +52,8 @@ class Geometry(unittest.TestCase):
     def test_split_and_clamp(self):
         rect = pw.usable_rect(self.MON, top=48, bottom=48)
         self.assertEqual(rect, (0, 48, 1280, 704))
+        tall = pw.split_rects((0, 48, 1080, 2000), .5, gap=8)
+        self.assertEqual(tall, ((0, 48, 1080, 996), (0, 1052, 1080, 996)))
         a, b = pw.split_rects(rect, .5, gap=8)
         self.assertEqual(a[0] + a[2] + 8, b[0]); self.assertEqual(b[0] + b[2], 1280)
         a, b = pw.split_rects(rect, 0.01)

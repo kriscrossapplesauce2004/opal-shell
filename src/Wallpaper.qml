@@ -14,7 +14,7 @@ Item {
     MText {visible:w.custom&&photo.status===Image.Error;anchors.centerIn:parent;text:"Wallpaper unavailable · choose another image in Appearance";color:Theme.text}
     property string screenName:""
     // Desktop mode only: game mode keeps a clean wallpaper.
-    property bool showHome:true
+    property bool showHome:false
     // Desktop home: icons, the widget canvas and the empty-workspace glance. Widgets follow the desktop widgets preference.
     DesktopHome {anchors.fill:parent;anchors.bottomMargin:72;screenName:w.screenName;visible:w.showHome;widgets:w.showWidgets}
 }

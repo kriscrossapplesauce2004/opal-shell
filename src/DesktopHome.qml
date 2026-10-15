@@ -246,7 +246,8 @@ Item {
                 id: heading
                 spacing: 6
                 layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
-                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; blurMax: 12; shadowBlur: .5; shadowScale: 1.02; shadowHorizontalOffset: 1; shadowVerticalOffset: 2 }
+                // Big text gets a wide, faint, centred shadow; a tight offset one looks like a doubled outline at this size.
+                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: .55; blurMax: 32; shadowBlur: 1; shadowScale: 1; shadowHorizontalOffset: 0; shadowVerticalOffset: 0 }
                 MText { text: "Pick up where you left off"; role: "displayS"; color: "#ffffff" }
                 MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: "#ffffff" }
             }

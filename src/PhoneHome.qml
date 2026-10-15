@@ -147,7 +147,9 @@ Item {
         ListView {
             id: pager
             Layout.fillWidth: true; Layout.fillHeight: true
-            orientation: ListView.Horizontal; snapMode: ListView.SnapOneItem; highlightRangeMode: ListView.StrictlyEnforceRange; highlightMoveDuration: Theme.motion(300)
+            // A page change is quick and settles without drift: short snap, firm deceleration, and no fade on the neighbours.
+            orientation: ListView.Horizontal; snapMode: ListView.SnapOneItem; highlightRangeMode: ListView.StrictlyEnforceRange; highlightMoveDuration: Theme.motion(170); highlightMoveVelocity: -1
+            flickDeceleration: 9000; maximumFlickVelocity: 9000
             boundsBehavior: Flickable.StopAtBounds; clip: true
             interactive: !dragging && home.menuFor === null
             property bool dragging: false
@@ -166,7 +168,7 @@ Item {
                 width: pager.width; height: pager.height
                 // Neighbour pages recede while the finger moves, so a page change feels continuous.
                 readonly property real distance: Math.min(1, Math.abs(x - pager.contentX) / Math.max(1, pager.width))
-                opacity: 1 - distance * .55; scale: 1 - distance * .05
+                opacity: 1 - distance * .25
                 sourceComponent: modelData.minus ? minusPage : homePage
                 property var pageData: modelData
                 property int pageNumber: index - 1

@@ -105,6 +105,17 @@ Item {
                         Glyph {anchors.centerIn:parent;visible:icon.status!==Image.Ready;name:"apps";font.pixelSize:30;color:Theme.primary}
                     }
                     MText {text:c.app ? c.app.name : String(c.entry.className).startsWith("steam_app_") ? "Game" : c.entry.className||"Application";Layout.fillWidth:true;font.pixelSize:13;font.weight:Font.DemiBold}
+                    // Split view: this app with the one in use, one above the other on a phone, side by side on a tablet.
+                    MButton {
+                        visible:s.touch&&Hub.status.hypr&&Hub.windows.length>1
+                        icon:"splitscreen";implicitWidth:44;implicitHeight:44;tooltip:"Split screen with the current app"
+                        onClicked:{
+                            const active=PhoneState.activeWindow(),previous=PhoneState.previousWindow();
+                            const other=active&&active.address!==c.entry.address ? active : previous;
+                            const screen=Hub.targetScreen||PhoneState.phoneScreens()[0]||null;
+                            if(other&&screen&&PhoneState.startSplit(screen,other.address,c.entry.address)){Hub.mobileTab="home";Hub.close();}
+                        }
+                    }
                     MButton {icon:"close";implicitWidth:44;implicitHeight:44;tooltip:"Close "+c.entry.title;onClicked:Hub.closeWindow(c.entry)}
                 }
                 Rectangle {Layout.fillWidth:true;Layout.fillHeight:true;Layout.minimumHeight:64;radius:14;color:Theme.alpha(Theme.base,.5)

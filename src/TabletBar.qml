@@ -28,11 +28,15 @@ Item {
         Row {
             id:keyRow;anchors.centerIn:parent;spacing:0
             Key {tooltip:"Back";onActivated:bar.back()
-                Glyph {anchors.centerIn:parent;name:"play_arrow";rotation:180;font.pixelSize:24;color:Theme.text}}
+                NavTriangle {anchors.centerIn:parent;width:18;height:18}}
             Key {tooltip:"Home · hold for assistant";onActivated:bar.home();onHeld:Hub.openAssistant("")
                 Rectangle {anchors.centerIn:parent;width:18;height:18;radius:9;color:"transparent";border.width:2.5;border.color:Theme.text}}
             Key {tooltip:"Recent apps";onActivated:bar.recents()
                 Rectangle {anchors.centerIn:parent;width:16;height:16;radius:4;color:"transparent";border.width:2.5;border.color:Theme.text}}
+            // Split view: the open app and the one before it side by side; again ends the split.
+            Key {visible:Hub.status.hypr&&(PhoneState.splitActive||Hub.windows.length>1);tooltip:PhoneState.splitActive ? "End split view" : "Split view"
+                onActivated:PhoneState.splitActive ? PhoneState.endSplit() : PhoneState.splitWithPrevious(bar.screenObj)
+                Glyph {anchors.centerIn:parent;name:PhoneState.splitActive ? "close_fullscreen" : "splitscreen_vertical_add";font.pixelSize:22;color:PhoneState.splitActive ? Theme.primary : Theme.text}}
         }
     }
     Island {

@@ -18,7 +18,7 @@ Item {
         spacing: 6
         // The software renderer cannot draw the shadow effect, so the text stays plain there.
         layer.enabled: glance.shadow && GraphicsInfo.api !== GraphicsInfo.Software
-        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; blurMax: 8; shadowBlur: .5; shadowScale: 1.03; shadowHorizontalOffset: 1; shadowVerticalOffset: 1 }
+        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: .55; blurMax: 24; shadowBlur: 1; shadowScale: 1; shadowHorizontalOffset: 0; shadowVerticalOffset: 0 }
         Row {
             spacing: 10
             MText { text: Qt.formatDateTime(Hub.now, "ddd, MMM d"); font.pixelSize: glance.big; font.weight: Font.DemiBold; color: glance.ink; anchors.verticalCenter: parent.verticalCenter }

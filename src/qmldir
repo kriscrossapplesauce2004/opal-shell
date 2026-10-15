@@ -151,3 +151,4 @@ HomeWidget 1.0 HomeWidget.qml
 GlanceWidget 1.0 GlanceWidget.qml
 SnapLayouts 1.0 SnapLayouts.qml
 SnapLayoutsCard 1.0 SnapLayoutsCard.qml
+NavTriangle 1.0 NavTriangle.qml
