@@ -64,6 +64,8 @@ Scope {
     property string category: "All apps"
     property string query: ""
     property string calculation: ""
+    // Name matches from the file index for the current search text.
+    property var fileResults: ({query:"",items:[]})
     readonly property bool dnd: polkitMode ? false : Notifier.dnd
     property bool keepAwake: false
     property bool themeBusy: false
@@ -601,6 +603,7 @@ Scope {
                     else if(e.event === "navigation") ControllerNav.input(e.key);
                     else if(e.event === "gamePerf" || e.event === "gameDetail") GameState.receive(e);
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;
+                    else if(e.event === "fileSearch") h.fileResults={query:e.query||"",items:e.items||[]};
                     else if(e.event === "clipboard") {
                         h.clipboardItems=e.items||[];h.clipboardPaused=!!e.paused;
                         h.clipboardAvailable=!!e.available;h.clipboardDetail=e.detail||"";

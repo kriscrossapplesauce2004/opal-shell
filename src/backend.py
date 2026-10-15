@@ -47,6 +47,7 @@ def valid_phone_home(value):
 
 import system_tools
 import activity_signals
+import search_files
 import theme_export
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
@@ -568,6 +569,8 @@ def commands():
                     sid=os.environ.get('XDG_SESSION_ID','')
                     spawn(['loginctl','terminate-session',sid] if sid else ['loginctl','terminate-user',os.environ.get('USER','')])
             elif action=='calculate': emit({'event':'calculation','query':c.get('text',''),'result':calculate(c.get('text',''))})
+            elif action=='file-search' and isinstance(c.get('text'),str): emit({'event':'fileSearch','query':c['text'],'items':search_files.search(c['text'])})
+            elif action=='open-path' and search_files.openable(c.get('path')): spawn(['xdg-open',os.path.realpath(c['path'])])
             elif action=='clipboard':
                 if shutil.which('wl-copy'): subprocess.run(['wl-copy'],input=str(c.get('text','')).encode('utf-8'),timeout=2)
             elif action=='clipboard-list': clipboard.publish()

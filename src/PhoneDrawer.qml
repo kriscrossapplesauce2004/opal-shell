@@ -13,7 +13,6 @@ Item {
     readonly property real cellW:(width-32-(rail.visible ? 26 : 0))/columns
     // The system keyboard covers the bottom of the sheet, so the sheet leaves room for it.
     readonly property int keyboardInset:Hub.systemOskVisible&&Hub.systemOskReady ? Math.round(height*.38) : 0
-    readonly property var fileHits:filter.length>1 ? (PhoneState.activity.files||[]).filter(f=>f.title.toLowerCase().indexOf(filter.toLowerCase())>=0).slice(0,3) : []
     readonly property var apps:math ? [] : Hub.searchApps(filter,filter ? "All apps" : category)
     readonly property var letters:{
         const seen=[];
@@ -28,13 +27,8 @@ Item {
     }
     Connections {
         target:Hub
-        function onQueryChanged() {
-            if(search.text!==Hub.query)search.text=Hub.query;
-            Hub.calculation="";calc.stop();
-            if(drawer.math)calc.restart();
-        }
+        function onQueryChanged() { if(search.text!==Hub.query)search.text=Hub.query; }
     }
-    Timer {id:calc;interval:120;onTriggered:if(drawer.math)Hub.command({action:"calculate",text:Hub.calcExpression(drawer.filter)})}
 
     Rectangle {
         id:sheet
@@ -60,12 +54,12 @@ Item {
                     TextField {
                         id:search
                         Layout.fillWidth:true;Layout.fillHeight:true
-                        placeholderText:"Search apps";text:Hub.query
+                        placeholderText:"Search apps, files, settings";text:Hub.query
                         color:Theme.text;placeholderTextColor:Theme.subtext
                         font.family:Theme.font;font.pixelSize:16;selectByMouse:true
                         onTextEdited:Hub.query=text
                         onActiveFocusChanged:if(activeFocus)drawer.keyboardOpen=true
-                        onAccepted:{if(drawer.math){if(Hub.calculation!=="")Hub.command({action:"clipboard",text:Hub.calculation});}else if(drawer.apps.length)Hub.launch(drawer.apps[0]);}
+                        onAccepted:{if(drawer.filter!=="")phoneSearch.accept(false);}
                         Keys.onEscapePressed:{if(Hub.query!=="")Hub.query="";else drawer.closeRequested();}
                         background:Item {}
                     }
@@ -100,29 +94,15 @@ Item {
                     }
                 }
             }
-            // Recent files that match the search, one tap to open.
-            Flow {
-                visible:drawer.fileHits.length>0;Layout.fillWidth:true;Layout.preferredHeight:childrenRect.height;spacing:6
-                Repeater {
-                    model:drawer.fileHits
-                    Chip {required property var modelData;text:modelData.title;icon:modelData.icon;implicitHeight:40;glass:false;onClicked:Quickshell.execDetached(["xdg-open",modelData.path])}
-                }
-            }
-            // Arithmetic answers appear in place of results.
-            Rectangle {
-                visible:drawer.math;Layout.fillWidth:true;Layout.preferredHeight:110;radius:28;color:Theme.primaryContainer
-                ColumnLayout {
-                    anchors.fill:parent;anchors.margins:20;spacing:2
-                    MText {text:Hub.calcExpression(drawer.filter)+" =";font.pixelSize:13;color:Theme.alpha(Theme.onContainer,.75)}
-                    RowLayout {
-                        Layout.fillWidth:true
-                        MText {Layout.fillWidth:true;text:Hub.calculation||"…";font.pixelSize:36;font.weight:Font.Medium;color:Theme.onContainer}
-                        MButton {text:"Copy";icon:"content_copy";compact:true;filled:true;accent:Theme.onContainer;fillInk:Theme.primaryContainer;enabled:Hub.calculation!=="";onClicked:Hub.command({action:"clipboard",text:Hub.calculation})}
-                    }
-                }
+            // While typing, the shared search in touch posture replaces the grid.
+            Flickable {
+                id:searchScroll
+                visible:drawer.filter!=="";Layout.fillWidth:true;Layout.fillHeight:true;clip:true
+                contentHeight:phoneSearch.implicitHeight;boundsBehavior:Flickable.StopAtBounds
+                OpalSearch {id:phoneSearch;width:searchScroll.width;ownField:false;touch:true;inset:0}
             }
             Item {
-                visible:!drawer.math;Layout.fillWidth:true;Layout.fillHeight:true
+                visible:drawer.filter==="";Layout.fillWidth:true;Layout.fillHeight:true
                 GridView {
                     id:grid
                     anchors.fill:parent;anchors.rightMargin:rail.visible ? 26 : 0

@@ -16,13 +16,13 @@ FocusScope {
     property string scope:"all"
     property string confirmPower:""
     onConfirmPowerChanged:if(confirmPower!=="")Qt.callLater(()=>powerCancel.forceActiveFocus());else searchField.forceActiveFocus()
-    property int selection:0
+    // Result access for tests and controllers. The shared search owns the list and the selection.
+    property alias selection:startSearch.selection
+    readonly property var results:startSearch.flat.filter(r=>r.kind!=="web")
+    readonly property var selected:startSearch.selected
     property alias searchField:searchField
     readonly property string query:Hub.query.trim()
     readonly property bool searching:query!==""
-    readonly property bool calculator:query.startsWith("=")
-    readonly property bool web:query.startsWith("?")
-    readonly property bool claude:query.startsWith("!")
     readonly property int columns:width<520 ? 4 : width>=850 ? 8 : 6
     readonly property var actions:[
         {id:"settings",name:"Settings",detail:"All your device preferences in one place",icon:"settings",keywords:"configure phone taskbar accessibility"},
@@ -38,11 +38,8 @@ FocusScope {
         {id:"focus",name:"Start focus timer",detail:"25 minutes without distractions",icon:"timer",keywords:"pomodoro concentrate"},
         {id:"welcome",name:"Opal tour",detail:"Pick your bar, icons and theme",icon:"auto_awesome",keywords:"setup onboarding welcome tour"}
     ]
-    readonly property var results:searching&&!calculator&&!web&&!claude ? Search.search(query,scope,Hub.appSearchIndex,Hub.windows,actions,Hub.favoriteApps.map(a=>a.id),Hub.prefs.recent||[]) : []
-    readonly property var selected:results[selection]||null
     readonly property var recent:Hub.recentApps.slice(0,4)
-    onResultsChanged:{selection=0;resultList.positionViewAtBeginning();}
-    function move(delta) {selection=Math.max(0,Math.min(results.length-1,selection+delta));resultList.positionViewAtIndex(selection,ListView.Contain);}
+    function move(delta) {startSearch.move(delta);}
     function goBack() {
         if(confirmPower!==""){confirmPower="";return;}
         if(searching){Hub.query="";scope="all";searchField.forceActiveFocus();}
@@ -61,24 +58,15 @@ FocusScope {
             else Hub.page=id;
         }
     }
-    function accept(fresh) {
-        if(calculator){if(Hub.calculation!=="")Hub.command({action:"clipboard",text:Hub.calculation});}
-        else if(claude){if(query.slice(1).trim())Hub.openAssistant(query.slice(1).trim());}
-        else if(web){if(query.slice(1).trim()){Hub.command({action:"web",text:query.slice(1).trim()});Hub.close();}}
-        else invoke(selected,fresh);
-    }
+    function accept(fresh) {if(searching)startSearch.accept(fresh);}
     function focusApp(index) {
         const item=pinnedRepeater.itemAt(Math.max(0,Math.min(Hub.favoriteApps.length-1,index)));
         if(item){item.forceActiveFocus();home.contentY=Math.max(0,item.y-80);}
     }
     Connections {target:Hub;function onStartSearchRequestChanged(){searchField.forceActiveFocus();searchField.selectAll();}function onQueryChanged(){
         if(searchField.text!==Hub.query)searchField.text=Hub.query;
-        Hub.calculation="";
-        calculationTimer.stop();
-        if(menu.calculator)calculationTimer.restart();
     }}
-    Timer {id:calculationTimer;interval:140;onTriggered:if(menu.calculator)Hub.command({action:"calculate",text:Hub.calcExpression(menu.query)})}
-    Component.onCompleted:{searchField.forceActiveFocus();if(calculator)calculationTimer.restart();}
+    Component.onCompleted:searchField.forceActiveFocus()
     Keys.onEscapePressed:event=>{goBack();event.accepted=true;}
     Keys.onPressed:event=>{
         if(confirmPower!=="")return;
@@ -139,22 +127,16 @@ FocusScope {
                 background:Item {}
                 color:Theme.text;placeholderTextColor:Theme.subtext
                 font.family:Theme.font;font.pixelSize:15;selectByMouse:true
-                placeholderText:"Search apps, windows and actions";text:Hub.query
+                placeholderText:"Search apps, files, settings or ask Claude";text:Hub.query
                 onTextEdited:Hub.query=text
                 onAccepted:menu.accept(false)
                 Keys.onReturnPressed:event=>menu.accept(!!(event.modifiers&Qt.ControlModifier))
                 Keys.onDownPressed:{if(menu.searching)menu.move(1);else if(menu.allApps){appGrid.forceActiveFocus();appGrid.currentIndex=0;}else menu.focusApp(0);}
                 Keys.onUpPressed:menu.move(-1)
+                Keys.onTabPressed:startSearch.ask()
                 Keys.onEscapePressed:menu.goBack()
             }
             MButton {visible:menu.searching;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;anchors.rightMargin:5;icon:"close";compact:true;implicitWidth:36;tooltip:"Clear search";onClicked:{Hub.query="";searchField.forceActiveFocus();}}
-        }
-        RowLayout {
-            visible:menu.searching&&!menu.calculator&&!menu.web&&!menu.claude;Layout.fillWidth:true;spacing:6
-            Repeater {model:[{id:"all",name:"All"},{id:"app",name:"Apps"},{id:"window",name:"Windows"},{id:"action",name:"Actions"}]
-                Chip {required property var modelData;text:modelData.name;selected:menu.scope===modelData.id;glass:false;onClicked:{menu.scope=modelData.id;searchField.forceActiveFocus();}}
-            }
-            Item {Layout.fillWidth:true}
         }
         Item {
             Layout.fillWidth:true;Layout.fillHeight:true
@@ -207,12 +189,6 @@ FocusScope {
                         }
                     }
                     MText {visible:menu.recent.length===0;Layout.fillWidth:true;text:"Apps you open will appear here.";color:Theme.subtext;font.pixelSize:12}
-                    // Search tools: each chip starts a search with its prefix, so the syntax is discoverable.
-                    Flow {Layout.fillWidth:true;Layout.topMargin:4;spacing:6
-                        Repeater {model:[{text:"Calculate",prefix:"= ",icon:"calculate"},{text:"Actions",prefix:"> ",icon:"bolt"},{text:"Windows",prefix:"@ ",icon:"desktop"},{text:"Web",prefix:"? ",icon:"web"},{text:"Ask Claude",prefix:"! ",icon:"auto_awesome"}]
-                            Chip {required property var modelData;text:modelData.text;icon:modelData.icon;trailingIcon:"";tooltip:"Start with "+modelData.prefix.trim();onClicked:{Hub.query=modelData.prefix;searchField.forceActiveFocus();}}
-                        }
-                    }
                 }
             }
             ColumnLayout {
@@ -240,99 +216,13 @@ FocusScope {
                     }
                 }
             }
-            ListView {
-                id:resultList;anchors.fill:parent;visible:menu.searching&&!menu.calculator&&!menu.web&&!menu.claude
-                model:menu.results;clip:true;spacing:5;boundsBehavior:Flickable.StopAtBounds
+            Flickable {
+                id:searchScroll;anchors.fill:parent;visible:menu.searching;clip:true
+                contentHeight:startSearch.implicitHeight;boundsBehavior:Flickable.StopAtBounds
                 ScrollBar.vertical:ScrollBar {}
-                delegate:Rectangle {
-                    id:resultRow
-                    required property var modelData;required property int index
-                    width:resultList.width;height:68;radius:18
-                    color:menu.selection===index ? Theme.primaryContainer : resultMouse.containsMouse ? Theme.alpha(Theme.glassRaised,.6) : "transparent"
-                    Behavior on color {ColorAnimation {duration:Theme.motion(120)}}
-                    // Selection bar: a short accent at the leading edge marks the Enter target.
-                    Rectangle {visible:menu.selection===resultRow.index;x:4;anchors.verticalCenter:parent.verticalCenter;width:4;height:parent.height*.44;radius:2;color:Theme.primary}
-                    RowLayout {anchors.fill:parent;anchors.margins:12;spacing:12
-                        Item {Layout.preferredWidth:34;Layout.preferredHeight:34
-                            Image {id:resultIcon;anchors.fill:parent;visible:resultRow.modelData.kind==="app";source:visible ? Quickshell.iconPath(resultRow.modelData.icon,true) : "";asynchronous:true;sourceSize:Qt.size(34,34)}
-                            Glyph {anchors.centerIn:parent;visible:resultRow.modelData.kind!=="app"||resultIcon.status!==Image.Ready;name:resultRow.modelData.kind==="window" ? "desktop" : resultRow.modelData.kind==="app" ? "apps" : resultRow.modelData.icon;color:Theme.primary}
-                        }
-                        ColumnLayout {Layout.fillWidth:true;spacing:3
-                            MText {Layout.fillWidth:true;text:resultRow.modelData.title;font.weight:Font.DemiBold;color:menu.selection===resultRow.index ? Theme.onContainer : Theme.text}
-                            MText {Layout.fillWidth:true;text:resultRow.modelData.detail;font.pixelSize:11;color:menu.selection===resultRow.index ? Theme.onContainer : Theme.subtext}
-                        }
-                        Rectangle {Layout.preferredWidth:kindLabel.implicitWidth+16;Layout.preferredHeight:22;radius:11;color:Theme.alpha(menu.selection===resultRow.index ? Theme.onContainer : Theme.subtext,.12)
-                            MText {id:kindLabel;anchors.centerIn:parent;text:resultRow.modelData.kind==="app" ? "App" : resultRow.modelData.kind==="window" ? "Window" : "Action";font.pixelSize:10;font.weight:Font.Medium;color:menu.selection===resultRow.index ? Theme.onContainer : Theme.subtext}
-                        }
-                    }
-                    MouseArea {id:resultMouse;anchors.fill:parent;hoverEnabled:true;acceptedButtons:Qt.LeftButton|Qt.RightButton;onClicked:event=>{
-                        menu.selection=resultRow.index;
-                        if(event.button===Qt.RightButton&&resultRow.modelData.kind==="app")resultContext.popupFrom(resultRow,event.x,event.y);
-                        else if(event.button===Qt.LeftButton)menu.invoke(resultRow.modelData,false);
-                    }}
-                    OpalMenu {id:resultContext;entries:visible&&resultRow.modelData.kind==="app" ? Hub.appMenu(resultRow.modelData.data) : []}
-                    Accessible.role:Accessible.Button;Accessible.name:modelData.title+", "+modelData.kind;Accessible.onPressAction:menu.invoke(modelData,false)
-                }
-                Column {visible:menu.results.length===0;anchors.centerIn:parent;width:parent.width-24;spacing:12
-                    MText {width:parent.width;text:"No local matches";font.pixelSize:22;horizontalAlignment:Text.AlignHCenter}
-                    MText {width:parent.width;text:"Try an app name, window title or action.\nNothing is sent online while you type.";wrapMode:Text.Wrap;horizontalAlignment:Text.AlignHCenter;color:Theme.subtext}
-                    MButton {anchors.horizontalCenter:parent.horizontalCenter;text:"Search the web instead";icon:"web";tonal:true;onClicked:{Hub.command({action:"web",text:menu.query});Hub.close();}}
-                }
+                // The shared search draws results only; the field above stays Start's own.
+                OpalSearch {id:startSearch;width:searchScroll.width;ownField:false;inset:0}
             }
-            // Claude: Enter sends the question; the answer streams in below.
-            ColumnLayout {
-                visible:menu.searching&&menu.claude;anchors.fill:parent;spacing:12
-                RowLayout {Layout.fillWidth:true;spacing:10
-                    Rectangle {Layout.preferredWidth:36;Layout.preferredHeight:36;radius:Theme.shapeSm;color:Theme.tertiaryContainer
-                        Glyph {anchors.centerIn:parent;name:"auto_awesome";font.pixelSize:20;color:Theme.onTertiaryContainer}}
-                    MText {text:"Ask Claude";role:"title";Layout.fillWidth:true}
-                    MButton {visible:Hub.claudeBusy;text:"Stop";icon:"stop";compact:true;tonal:true;onClicked:Hub.stopClaude()}
-                    MButton {visible:!Hub.claudeBusy;text:"Ask";icon:"send";compact:true;filled:true;enabled:menu.query.slice(1).trim()!=="";onClicked:menu.accept(false)}
-                }
-                Flow {
-                    visible:Hub.claudeTools.length>0;Layout.fillWidth:true;spacing:6
-                    Repeater {model:Hub.claudeTools
-                        Rectangle {required property string modelData;height:26;width:toolText.implicitWidth+20;radius:13;color:Theme.level(3)
-                            MText {id:toolText;anchors.centerIn:parent;text:modelData;role:"labelS";color:Theme.subtext}}}
-                }
-                Rectangle {
-                    Layout.fillWidth:true;Layout.fillHeight:true;radius:Theme.shapeLg;color:Theme.level(3)
-                    Flickable {
-                        id:answerScroll;anchors.fill:parent;anchors.margins:16;clip:true;contentHeight:answerText.implicitHeight;boundsBehavior:Flickable.StopAtBounds
-                        onContentHeightChanged:if(Hub.claudeBusy)contentY=Math.max(0,contentHeight-height)
-                        ScrollBar.vertical:ScrollBar {}
-                        TextEdit {
-                            id:answerText;width:parent.width;readOnly:true;selectByMouse:true;wrapMode:TextEdit.Wrap
-                            textFormat:TextEdit.MarkdownText
-                            text:Hub.claudeAnswer!=="" ? Hub.claudeAnswer : Hub.claudeBusy ? "Thinking…" : "Type a question after ! and press Enter to continue in the Claude assistant. It can also change Opal for you, like \"switch to dark mode\"."
-                            color:Hub.claudeError ? Theme.error : Hub.claudeAnswer!=="" ? Theme.text : Theme.subtext
-                            font.family:Theme.font;font.pixelSize:14
-                        }
-                    }
-                }
-                RowLayout {Layout.fillWidth:true
-                    MText {text:"Uses your Claude Code sign-in.";role:"labelS";color:Theme.subtext;Layout.fillWidth:true}
-                    MButton {visible:Hub.claudeAnswer!==""&&!Hub.claudeBusy;text:"Copy";icon:"copy";compact:true;onClicked:Hub.command({action:"clipboard",text:Hub.claudeAnswer})}
-                }
-            }
-            ColumnLayout {
-                visible:menu.searching&&(menu.calculator||menu.web);anchors.fill:parent;spacing:16
-                Rectangle {Layout.fillWidth:true;Layout.preferredHeight:190;radius:24;color:Theme.primaryContainer
-                    ColumnLayout {anchors.fill:parent;anchors.margins:24;spacing:12
-                        MText {text:menu.calculator ? "CALCULATOR" : "SEARCH THE WEB";font.pixelSize:11;font.letterSpacing:2;color:Theme.onContainer}
-                        MText {Layout.fillWidth:true;Layout.fillHeight:true;wrapMode:Text.Wrap;maximumLineCount:3;text:menu.calculator ? Hub.calculation||"Enter an expression…" : menu.query.slice(1).trim();font.pixelSize:30;color:Theme.onContainer}
-                        MButton {text:menu.calculator ? "Copy result" : "Search in browser";icon:menu.calculator ? "copy" : "web";filled:true;enabled:menu.calculator ? Hub.calculation!=="" : menu.query.slice(1).trim()!=="";onClicked:menu.accept(false)}
-                    }
-                }
-                MText {Layout.fillWidth:true;wrapMode:Text.Wrap;text:menu.calculator ? "Local calculation · + − * / % ** ( )" : "Only this explicit search opens your browser.";color:Theme.subtext;font.pixelSize:12}
-                Item {Layout.fillHeight:true}
-            }
-        }
-        RowLayout {
-            visible:menu.searching&&!menu.calculator&&!menu.web&&!menu.claude&&!!menu.selected;Layout.fillWidth:true
-            MText {Layout.fillWidth:true;text:"↑ ↓ choose · Enter open";font.pixelSize:11;color:Theme.subtext}
-            MButton {visible:menu.selected&&menu.selected.kind==="app";text:menu.selected&&menu.selected.kind==="app"&&Hub.pinned(menu.selected.data) ? "Unpin" : "Pin";icon:"pin";compact:true;tonal:true;onClicked:if(menu.selected)Hub.pin(menu.selected.data)}
-            MButton {text:"Open";icon:"next";compact:true;filled:true;onClicked:menu.accept(false)}
         }
     }
     }
