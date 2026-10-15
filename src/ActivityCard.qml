@@ -13,7 +13,8 @@ Item {
     readonly property real progress: a.progress === undefined ? -1 : a.progress
     readonly property var controls: (a.controls || []).filter(c => !!(c.label || c.icon))
     signal opened()
-    implicitWidth: 380
+    // No natural width: the card takes the width its parent gives it and never widens a layout.
+    implicitWidth: 0
     implicitHeight: isMedia ? player.implicitHeight : body.implicitHeight
 
     MediaPlayerCard { id: player; visible: card.isMedia; anchors.fill: parent; small: card.compactPlayer }

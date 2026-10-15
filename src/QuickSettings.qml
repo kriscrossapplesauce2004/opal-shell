@@ -100,11 +100,13 @@ Item {
                 // Live activity on top: the one the pill opened, else the first that is not media. The others wait as chips.
                 ColumnLayout {
                     id:liveSection
-                    readonly property var shown:Activities.byId[Activities.focusId]||Activities.list.find(a=>a.kind!=="media")||null
-                    readonly property var others:Activities.list.filter(a=>!shown||a.id!==shown.id)
+                    // Media has its own Now playing section, so it never shows here as well.
+                    readonly property var pool:Activities.list.filter(a=>a.kind!=="media")
+                    readonly property var shown:pool.find(a=>a.id===Activities.focusId)||pool[0]||null
+                    readonly property var others:pool.filter(a=>!shown||a.id!==shown.id)
                     visible:!q.editing&&(shown!==null||others.length>0||Activities.freshChips.length>0)
                     Layout.fillWidth:true;spacing:8
-                    ActivityCard {visible:liveSection.shown!==null;Layout.fillWidth:true;Layout.preferredHeight:implicitHeight;a:liveSection.shown||({});compactPlayer:true
+                    ActivityCard {visible:liveSection.shown!==null;Layout.fillWidth:true;Layout.preferredWidth:1;Layout.preferredHeight:implicitHeight;a:liveSection.shown||({});compactPlayer:true
                         onOpened:Activities.open(liveSection.shown,Hub.targetScreen)}
                     Flow {
                         visible:liveSection.others.length>0||Activities.freshChips.length>0;Layout.fillWidth:true;spacing:8
@@ -194,7 +196,8 @@ Item {
     }}
     // Phone and desktop share the same tile grid.
     Component {id:tilesSection;QuickTileDeck {editing:q.editing;onPageRequested:(id,source)=>q.openDetail(id,source)}}
-    Component {id:mediaSection;Item {implicitHeight:Hub.status.track!=="" ? media.implicitHeight : 0;MediaCard {id:media;width:parent.width;visible:Hub.status.track!=="";compact:true;expandable:true}}}
+    // Now playing: the same player as the pills and the audio panel.
+    Component {id:mediaSection;Item {implicitHeight:media.players.length ? media.implicitHeight : 0;MediaPlayerCard {id:media;width:parent.width;visible:players.length>0;small:true}}}
     Component {id:inboxSection;ColumnLayout {spacing:8
         RowLayout {Layout.fillWidth:true;Layout.leftMargin:6
             MText {text:"Notifications";role:"titleS";Layout.fillWidth:true}

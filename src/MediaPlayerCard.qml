@@ -27,7 +27,8 @@ Item {
         const i = Math.max(0, players.indexOf(player));
         chosen = players[(i + delta + players.length) % players.length].dbusName;
     }
-    implicitWidth: 380
+    // No natural width: the player takes the width its parent gives it and never widens a layout.
+    implicitWidth: 0
     implicitHeight: small ? 156 : 196
     // Position is not a notifying property. Ask the player to refresh it once a second while it plays.
     Timer { interval: 1000; repeat: true; running: pc.playing && pc.visible; onTriggered: if (pc.player) pc.player.positionChanged() }
