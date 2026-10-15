@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Services.Mpris
@@ -55,6 +56,8 @@ Item {
             return out;
         }
         property string selected: ""
+        // How many icon columns hold icons now; the glance starts after them.
+        readonly property int usedColumns: slots.length ? Math.floor(Math.max.apply(null, slots.map(o => o.slot)) / perColumn) + 1 : 0
         function slotAt(x, y) { return Math.max(0, Math.floor(x / slotW)) * perColumn + Math.max(0, Math.min(perColumn - 1, Math.floor(y / slotH))); }
         function moveTo(name, slot) {
             const map = Object.assign({}, Hub.prefs.desktopSlots || {});
@@ -93,18 +96,20 @@ Item {
                         }
                         Glyph { anchors.centerIn: parent; visible: !tile.it.thumb && themeIcon.status !== Image.Ready; name: tile.it.glyph || "draft"; font.pixelSize: 40; color: Theme.primary }
                     }
-                    // The label sits on a soft backing so it stays readable on any wallpaper.
+                    // White text with a soft dark glow reads on any wallpaper. Only the chosen icon gets a backing.
                     Item {
                         width: parent.width; height: label.contentHeight + 6
                         Rectangle {
-                            anchors.centerIn: parent; width: label.contentWidth + 12; height: parent.height; radius: 8
-                            color: tile.chosen ? Theme.primary : Theme.alpha(Theme.base, Theme.light ? .7 : .62)
+                            visible: tile.chosen
+                            anchors.centerIn: parent; width: label.contentWidth + 12; height: parent.height; radius: 8; color: Theme.primary
                         }
                         MText {
                             id: label
                             anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; text: tile.it.name; role: "label"
                             maximumLineCount: tile.chosen ? 3 : 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
-                            color: tile.chosen ? Theme.onPrimary : Theme.text
+                            color: tile.chosen ? Theme.onPrimary : "#ffffff"
+                            layer.enabled: !tile.chosen && GraphicsInfo.api !== GraphicsInfo.Software
+                            layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: .85; shadowBlur: .45; shadowVerticalOffset: 1; shadowHorizontalOffset: 0 }
                         }
                     }
                 }
@@ -121,6 +126,7 @@ Item {
                 }
                 OpalMenu {
                     id: fileMenu
+                    inWindow: true
                     title: tile.it.name; icon: tile.it.dir ? "folder" : tile.it.glyph || "draft"
                     entries: [
                         {text: "Open", icon: "open_in_new", run: () => Hub.command({action: "desktop-open", path: tile.it.path})},
@@ -216,21 +222,28 @@ Item {
                 const app = Hub.appForClass(d.session.app);
                 out.push({icon: "smartphone", app: app ? app.icon : "", title: d.session.title || (app ? app.name : d.session.app), detail: "Open on " + d.name, run: () => { if (app) Hub.launch(app); }});
             });
-            return out.slice(0, 4);
+            return out.slice(0, Math.max(1, fit));
         }
+        readonly property real start: icons.visible ? icons.x + icons.usedColumns * icons.slotW + 48 : 48
+        readonly property real room: home.width - start - (home.widgets ? 460 : 48)
+        readonly property int fit: Math.min(4, Math.floor((room + 14) / 228))
         visible: opacity > 0
         opacity: home.emptyWorkspace && !home.editing && cards.length > 0 ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durLong); easing.type: Easing.OutCubic } }
-        x: Math.max(icons.x + 2 * icons.slotW + 40, (parent.width - width) / 2 - 220)
-        y: parent.height * .28
+        x: Math.max(start, start + (room - width) / 2)
+        y: parent.height * .3
         width: row.implicitWidth; height: col.implicitHeight
-        // A soft scrim keeps the heading readable on bright wallpapers.
-        Rectangle { anchors.fill: col; anchors.margins: -28; radius: 44; color: Theme.alpha(Theme.base, Theme.light ? .62 : .5) }
         Column {
             id: col
             spacing: 16
-            MText { text: "Pick up where you left off"; role: "displayS" }
-            MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: Theme.subtext }
+            // White text with a soft glow, like the icon labels, so the heading reads on any wallpaper.
+            Column {
+                spacing: 6
+                layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
+                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: .7; shadowBlur: .7; shadowVerticalOffset: 2 }
+                MText { text: "Pick up where you left off"; role: "displayS"; color: "#ffffff" }
+                MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: Theme.alpha("#ffffff", .85) }
+            }
             Row {
                 id: row
                 spacing: 14; topPadding: 4

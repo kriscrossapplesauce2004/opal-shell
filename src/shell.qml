@@ -90,7 +90,7 @@ ShellRoot {
                     Component {id:phoneHome;MobileHome {embedded:true}}
                     Component {id:gameHome;ConsoleHome {embedded:true}}
                 }
-                OpalMenu {id:desktopMenu;title:"Desktop";icon:"desktop_windows";entries:[
+                OpalMenu {id:desktopMenu;inWindow:true;title:"Desktop";icon:"desktop_windows";entries:[
                     {text:"New folder",icon:"create_new_folder",quick:true,run:()=>Hub.command({action:"desktop-new-folder"})},
                     {text:"New file",icon:"note_add",quick:true,run:()=>Hub.command({action:"desktop-new-file"})},
                     {text:"Terminal",icon:"terminal",quick:true,run:()=>Hub.command({action:"desktop-terminal"})},

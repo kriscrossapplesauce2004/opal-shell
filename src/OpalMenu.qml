@@ -7,7 +7,9 @@ Popup {
     property var entries:[]
     property string title:""
     property string icon:""
-    popupType:Popup.Window
+    // In-window menus draw inside a full-screen surface, like the desktop. Separate popup windows do not place well on the wallpaper layer.
+    property bool inWindow:false
+    popupType:inWindow ? Popup.Item : Popup.Window
     implicitWidth:300
     implicitHeight:body.implicitHeight
     padding:0
@@ -15,6 +17,8 @@ Popup {
     dim:false
     // Popup.Window ignores Popup.open coordinates in a layer-shell panel, so the geometry is set before it opens.
     function popupFrom(item, clickX, clickY) {
+        // An in-window menu takes window coordinates, so it moves to the window's root item first.
+        if(menu.inWindow&&item.Window.contentItem&&menu.parent!==item.Window.contentItem)menu.parent=item.Window.contentItem;
         const point=item.mapToItem(null,clickX,clickY);
         const panelWidth=item.window ? item.window.width : 0;
         const panelHeight=item.window ? item.window.height : 0;
@@ -24,7 +28,9 @@ Popup {
         const maxX=Math.max(margin,panelWidth-menuWidth-margin);
         const maxY=Math.max(margin,panelHeight-menuHeight-margin);
         menu.x=Math.round(panelWidth ? Math.max(margin,Math.min(point.x,maxX)) : point.x);
-        menu.y=Math.round(panelHeight ? Math.max(margin,Math.min(point.y-menuHeight-margin,maxY)) : point.y);
+        // A window popup opens above the pointer; an in-window menu opens at the pointer, like a desktop menu.
+        const wantedY=menu.inWindow ? point.y : point.y-menuHeight-margin;
+        menu.y=Math.round(panelHeight ? Math.max(margin,Math.min(wantedY,maxY)) : point.y);
         menu.open();
     }
     // Menu-compatible entry point: coordinates are local to the parent item; no coordinates means its centre.
