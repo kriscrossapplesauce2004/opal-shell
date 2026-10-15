@@ -212,6 +212,15 @@ autostart_flag="${XDG_STATE_HOME:-$HOME/.local/state}/opal/autostart"
 systemd_user() {
     command -v systemctl >/dev/null 2>&1 && systemctl --user "$@"
 }
+# Reload the Hyprland config, except in safe mode: there a reload replaces the user's config with the recovery config.
+hypr_reload() {
+    command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || return 0
+    if [[ -e "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr/$HYPRLAND_INSTANCE_SIGNATURE/recoverycfg.lua" ]]; then
+        echo 'Hyprland is in safe mode: the Hyprland config was not reloaded. Log out and in to load it.'
+        return 0
+    fi
+    hyprctl reload config-only || true
+}
 # Quickshell logs live in /run and are lost at reboot. Keep the last ten shell logs before each stop, for bugs that only show after long uptime.
 save_log() {
     local dir="${XDG_STATE_HOME:-$HOME/.local/state}/opal/logs"
@@ -238,7 +247,7 @@ case "${1:-on}" in
         fi
         quickshell -d -n -p "$config"
         touch "$marker"
-        command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true
+        hypr_reload
         echo 'Opal is on. Return to DMS with: opal off'
         ;;
     reload)
@@ -258,7 +267,7 @@ case "${1:-on}" in
         if ! systemd_user is-enabled --quiet opal-polkit.service; then
             systemd_user start hyprpolkitagent.service || true
         fi
-        command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true
+        hypr_reload
         ;;
     login)
         # Called by the Hyprland start hook; does nothing unless autostart is on.

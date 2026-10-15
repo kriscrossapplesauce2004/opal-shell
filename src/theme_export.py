@@ -705,7 +705,10 @@ def export_hyprland(ctx, c, light, options):
     return True
 
 def revert_hyprland(ctx):
-    if ctx.state.get('hyprland', {}).get('applied') and ctx.which('hyprctl'): ctx.run(['hyprctl', 'reload'])
+    # Never reload in Hyprland safe mode: the recovery config would replace the user's config.
+    sig = os.environ.get('HYPRLAND_INSTANCE_SIGNATURE', '')
+    safe = bool(sig) and os.path.exists(os.path.join(os.environ.get('XDG_RUNTIME_DIR', '/run/user/%d' % os.getuid()), 'hypr', sig, 'recoverycfg.lua'))
+    if ctx.state.get('hyprland', {}).get('applied') and ctx.which('hyprctl') and not safe: ctx.run(['hyprctl', 'reload'])
     ctx.state.pop('hyprland', None)
 
 # ---------- Flatpak ----------

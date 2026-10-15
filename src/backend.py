@@ -442,7 +442,7 @@ def commands():
             elif action=='display-layouts':
                 from display_layouts import publish
                 runtime=os.environ.get('XDG_RUNTIME_DIR')
-                if runtime and publish(runtime,c.get('mode'),c.get('displays')) and os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and shutil.which('hyprctl'):
+                if runtime and publish(runtime,c.get('mode'),c.get('displays')) and os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and shutil.which('hyprctl') and not hyprland_safe_mode():
                     subprocess.run(['hyprctl','reload','config-only'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
             elif action=='wallpaper-list':
                 threading.Thread(target=publish_wallpapers,args=(c,),daemon=True).start()
@@ -716,9 +716,16 @@ def status():
 floating_lock=threading.Lock()
 floating_seen=set()
 floating_saved_at=[0.0]
+def hyprland_safe_mode():
+    # After a crash Hyprland runs a recovery config; a reload then drops the user's own config.
+    sig=os.environ.get('HYPRLAND_INSTANCE_SIGNATURE','')
+    return bool(sig) and pathlib.Path(os.environ.get('XDG_RUNTIME_DIR','/run/user/%d'%os.getuid()),'hypr',sig,'recoverycfg.lua').exists()
 def floating_reload():
-    if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and shutil.which('hyprctl'):
-        subprocess.run(['hyprctl','reload','config-only'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
+    if not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') or not shutil.which('hyprctl'): return
+    if hyprland_safe_mode():
+        emit({'event':'message','text':'Hyprland is in safe mode. Log out and in to finish switching window modes.'})
+        return
+    subprocess.run(['hyprctl','reload','config-only'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
 def floating_run(ops):
     for op in ops:
         try:
