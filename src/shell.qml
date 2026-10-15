@@ -44,6 +44,12 @@ ShellRoot {
         function media(action:string):string {if(["play-pause","next","previous"].indexOf(action)<0)return "Unknown action";Hub.media(action);return "ok";}
         function volume(value:int):string {Hub.volume(value);return "Volume "+Math.max(0,Math.min(100,value));}
         function toast(text:string):void {Hub.message(text);}
+        // Floating mode: minimize the focused window, open the snap layouts, and snap to halves or the whole screen.
+        function minimize():void {Hub.command({action:"window-minimize"});}
+        function snaplayouts():void {snapLayouts.show();}
+        function snapLeft():void {Hub.command({action:"window-snap",cell:[0,0,.5,1]});}
+        function snapRight():void {Hub.command({action:"window-snap",cell:[.5,0,.5,1]});}
+        function snapMaximize():void {Hub.command({action:"window-snap",cell:[0,0,1,1]});}
         function windows():string {return JSON.stringify(Hub.windows.map(w=>({title:w.title||"",app:w.className||"",workspace:w.workspace||0})));}
         function navigate(key:string):void {Hub.navigate(key);}
         function search(text:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openSection("apps");Hub.query=text;if(text.startsWith("="))Hub.command({action:"calculate",text:text.slice(1).trim()});}
@@ -232,6 +238,7 @@ ShellRoot {
     SystemServices {}
     AudioDrawer {}
     ActivityCardWindow {}
+    SnapLayouts {id:snapLayouts}
     ShadeWindow {}
     AssistantWindow {}
     PowerProfileWindow {}

@@ -406,7 +406,11 @@ Scope {
     function volume(value) { value=Math.max(0,Math.min(100,Math.round(value)));command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=value; status=s;showVolumeOsd(); }
     function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }
     property var pendingFocus:null
+    // Floating mode keeps minimized windows on a special workspace.
+    function minimized(w) { return !!w&&w.workspaceName==="special:opal-minimized"; }
     function focusWindow(w) {
+        // A minimized window comes back to its own workspace first.
+        if(minimized(w)){close();command({action:"window-restore",address:w.address});return;}
         // Release layer-shell keyboard exclusivity before transferring app focus.
         pendingFocus=w;close();focusTransfer.restart();
     }

@@ -59,6 +59,8 @@ FocusScope {
             get:()=>Hub.prefs.desktopWidgets!==false,set:v=>Hub.set("desktopWidgets",v)},
         {id:"autohide",title:"Auto-hide shelf",path:"Settings › Shelf",icon:"dock_to_bottom",keywords:"taskbar hide bar dock panel",open:"taskbar",
             get:()=>!!Hub.prefs.taskbarAutoHide,set:v=>Hub.set("taskbarAutoHide",v)},
+        {id:"floating",title:"Floating windows",path:"Settings › Wallpaper & style",icon:"select_window",keywords:"float stacking titlebars snap layouts minimize windows tiling",open:"appearance",
+            get:()=>!!Hub.prefs.floatingMode,set:v=>Hub.set("floatingMode",v)},
         {id:"phonebuttons",title:"Navigation buttons",path:"Settings › Phone & navigation",icon:"more_horiz",keywords:"three button gestures nav bar",open:"phone",
             get:()=>!!Hub.prefs.phoneButtons,set:v=>Hub.set("phoneButtons",v)},
         {id:"s-network",title:"Network & internet",path:"Settings",icon:"wifi",keywords:"wi-fi networks saved",open:"network"},

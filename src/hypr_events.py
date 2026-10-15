@@ -165,7 +165,7 @@ def listen(emit):
                           'scale': m.get('scale', 1) or 1, 'transform': m.get('transform', 0)} for m in monitors],
             'windows': [
                 {'title': w['title'], 'className': w['class'],
-                 'address': w['address'], 'workspace': w['workspace']['id'],
+                 'address': w['address'], 'workspace': w['workspace']['id'], 'workspaceName': w['workspace'].get('name', ''),
                  'monitor': names.get(w.get('monitor'), ''),
                  'at': w.get('at', [0, 0]), 'size': w.get('size', [0, 0]),
                  'floating': bool(w.get('floating')), 'fullscreen': w.get('fullscreen', 0), 'pid': w.get('pid', 0)}

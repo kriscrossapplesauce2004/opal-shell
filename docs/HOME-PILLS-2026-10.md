@@ -85,3 +85,16 @@ Decided in the grilling session on 2026-10-14. This is a ground-up redesign. We 
 - Keep the live Quick Settings tile style exactly: dense `ShadeTile`, with a glass body where only the icon square lights up, round icon-only tiles, and `ExpressiveSlider`. Do not draw flat filled tiles.
 - Keep the Shelf's right side as separate pills: activity pill, then status icons, then a tinted clock pill. When the activity card is open, its pill gets a tertiary ring.
 - Each kind's icon circle carries its accent (tertiary agent, error rec, primary focus, secondary device). Cards stay calm.
+
+## Build status (2026-10-15)
+Everything below is built, tested and deployed live.
+- **Pills:** new kinds (agents, system ops, devices, privacy), rich cards, the Shelf card, the shade card, and the audio panel with the new player. Live Activity API through IPC/CLI (`opal activity`), DBus (`dev.opal.Activities`) and MCP. Claude Code hooks: `opal activity claude-hooks install` (not installed yet, because it edits ~/.claude/settings.json).
+- **Search:** OpalSearch is shared by the Shelf panel, Start and the phone drawer.
+- **Homes:** the desktop (icons, widget canvas, pick-up glance, new right-click menu), the phone (stable pages, Live page, Pixel editing, sized widgets, picker) and the tablet (dock search).
+- **Floating mode (opt-in):**
+  - The float rule and native snap.
+  - Titlebars through hyprbars when the plugin exists (vibeshell's build for 0.56.2 is used).
+  - Snap layouts (Super+Z or the titlebar button), Super+Alt+arrows, and minimize (Super+H or the titlebar button).
+  - Geometry memory for each app.
+  - Turning it off tiles every window the mode floated.
+  - Not done: snapping by dragging a window to the screen edge, because Hyprland does not report when a drag ends.

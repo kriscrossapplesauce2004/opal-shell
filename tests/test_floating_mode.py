@@ -62,6 +62,13 @@ class FloatingModeTests(unittest.TestCase):
         self.assertFalse(fm.valid_cell([0, 0, 1.5, 1]))
         self.assertFalse(fm.valid_cell([.6, 0, .6, 1]))
 
+    def test_titlebar_colors(self):
+        lua = fm.titlebar_colors({'dynamicPalette': {'dark': {'surface_container': '#271d1d', 'on_surface': '#f0dedd', 'error': 'not a colour'}}})
+        self.assertIn('bar = "rgba(271d1df2)"', lua)
+        self.assertIn('text = "rgb(f0dedd)"', lua)
+        self.assertIn('close = "rgb(ffb4ab)"', lua)
+        self.assertIn('bar = "rgba(f3e9e8f2)"', fm.titlebar_colors({'light': True}))
+
     def test_state_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp, 'f.json')

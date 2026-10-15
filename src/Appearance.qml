@@ -87,6 +87,9 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
             MButton {text:Hub.prefs.weatherFahrenheit ? "°F" : "°C";tonal:true;implicitWidth:64;tooltip:"Temperature unit";onClicked:Hub.set("weatherFahrenheit",!Hub.prefs.weatherFahrenheit)}
         }
         MText {Layout.fillWidth:true;visible:!!HomeData.weather;text:HomeData.weather ? "Now in "+HomeData.weather.place+": "+HomeData.weather.temp+HomeData.weather.unit+", "+HomeData.weather.text.toLowerCase() : "";color:Theme.subtext;font.pixelSize:11}
+        MText {text:"WINDOWS";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
+        // Floating windows are opt-in. Turning them off tiles every window again.
+        MButton {Layout.fillWidth:true;icon:"select_window";text:Hub.prefs.floatingMode ? "Floating windows on · titlebars, snap layouts, minimize" : "Tiling windows · turn on floating windows";tonal:true;onClicked:Hub.set("floatingMode",!Hub.prefs.floatingMode)}
         MText {text:"TASKBAR & NAVIGATION";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MButton {Layout.fillWidth:true;icon:"expand";text:Hub.prefs.taskbarAutoHide ? "Auto-hide on · zero reserved space" : "Floating shelf · always visible";tonal:true;onClicked:Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide)}
         MButton {Layout.fillWidth:true;icon:"phone";text:Hub.prefs.phoneButtons ? "Phone: three-button navigation" : "Phone: gesture strip & shortcuts";tonal:true;onClicked:Hub.set("phoneButtons",!Hub.prefs.phoneButtons)}

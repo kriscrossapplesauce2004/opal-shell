@@ -47,7 +47,7 @@ hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = true, igno
 hl.layer_rule({ match = { namespace = "^opal-assistant$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 -- Newer card surfaces animate themselves and blur only their painted cards.
-hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity|snap)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 -- Gesture, edge and split layers are input surfaces: no blur and no compositor animation.
 hl.layer_rule({ match = { namespace = "^opal-(gesture|edge|split)$" }, blur = false, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-(audio|shade|activity)-dismiss$" }, blur = false, no_anim = true })
@@ -88,3 +88,49 @@ bind("XF86MonBrightnessUp", "brightnessctl set +5%")
 bind("XF86MonBrightnessDown", "brightnessctl set 5%-")
 -- Display settings saved from Opal.
 pcall(dofile, os.getenv("HOME") .. "/.config/hypr/opal-monitors.lua")
+
+-- Floating window mode (opt-in). It reads the preference like opal_mode(); turning it off removes the rule, and the shell tiles the windows again.
+local function opal_floating()
+    local f = io.open(os.getenv("HOME") .. "/.local/state/opal/preferences.json", "r")
+    if not f then return false end
+    local body = f:read("*a"); f:close()
+    return body:match('"floatingMode"%s*:%s*true') ~= nil
+end
+local function file_exists(path)
+    local f = io.open(path, "r")
+    if f then f:close(); return true end
+    return false
+end
+local state_dir = os.getenv("HOME") .. "/.local/state/opal"
+local titlebar_plugin = nil
+for _, path in ipairs({ os.getenv("HOME") .. "/.local/share/opal/plugins/hyprbars.so", os.getenv("HOME") .. "/.local/share/vibeshell/plugins/hyprbars.so" }) do
+    if file_exists(path) then titlebar_plugin = path; break end
+end
+if opal_floating() then
+    hl.window_rule({ name = "opal-float-all", match = { class = ".*" }, float = true })
+    pcall(hl.config, { general = { snap = { enabled = true, window_gap = 12, monitor_gap = 12, respect_gaps = true } } })
+    bind("SUPER + H", qs .. "minimize")
+    bind("SUPER + ALT + left", qs .. "snapLeft")
+    bind("SUPER + ALT + right", qs .. "snapRight")
+    bind("SUPER + ALT + up", qs .. "snapMaximize")
+    -- Titlebars: hyprbars in Opal colours, when the plugin is built for this Hyprland.
+    if titlebar_plugin and pcall(hl.plugin.load, titlebar_plugin) and hl.plugin and hl.plugin.hyprbars then
+        local ok, c = pcall(dofile, state_dir .. "/hypr-titlebars.lua")
+        if not ok or type(c) ~= "table" then c = { bar = "rgba(271d1df2)", text = "rgb(f0dedd)", close = "rgb(ffb4ab)", button = "rgb(4a3f3e)", ink = "rgb(1b1112)", font = "Google Sans Flex" } end
+        pcall(hl.config, { plugin = { hyprbars = {
+            enabled = true, bar_height = 36, bar_color = c.bar, ["col.text"] = c.text, bar_title_enabled = true,
+            bar_text_font = c.font, bar_text_size = 11, bar_text_weight = "semibold", bar_text_align = "left", bar_padding = 14,
+            bar_button_padding = 10, bar_part_of_window = true, bar_precedence_over_border = true, bar_blur = false,
+            icon_on_hover = true, inactive_button_color = c.button,
+            on_double_click = qs .. "snapMaximize",
+        } } })
+        -- Buttons are laid out right to left: close, snap layouts, minimize.
+        pcall(hl.plugin.hyprbars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
+        pcall(hl.plugin.hyprbars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "▢", action = qs .. "snaplayouts" })
+        pcall(hl.plugin.hyprbars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
+    end
+else
+    -- A plugin stays loaded across reloads, so its bars must be switched off when the mode is off.
+    if hl.plugin and hl.plugin.hyprbars then pcall(hl.config, { plugin = { hyprbars = { enabled = false } } }) end
+end
+bind("SUPER + Z", qs .. "snaplayouts")

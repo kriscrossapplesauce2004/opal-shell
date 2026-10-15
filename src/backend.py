@@ -730,6 +730,9 @@ def floating_apply(on):
         try: clients=hypr_actions.clients()
         except (ValueError,OSError,subprocess.SubprocessError): clients=[]
         if on:
+            try:
+                floating_mode.STATE.parent.joinpath('hypr-titlebars.lua').write_text(floating_mode.titlebar_colors(prefs))
+            except OSError: pass
             ops,before=floating_mode.plan_enable(clients,state.get('memory',{}))
             state['before']=before
             floating_mode.save(state)

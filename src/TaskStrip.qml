@@ -63,6 +63,10 @@ Item {
                     readonly property bool dragged:s.draggingKey===modelData.key
                     readonly property bool urgent:modelData.windows.some(w=>Hub.urgent(w))
                     readonly property bool focused:modelData.windows.some(w=>Hub.active(w))
+                    // Every window of the app is minimized: the button dims until one comes back.
+                    readonly property bool allMinimized:modelData.windows.length>0&&modelData.windows.every(w=>Hub.minimized(w))
+                    opacity:allMinimized ? .55 : 1
+                    Behavior on opacity {NumberAnimation {duration:Theme.motion(Theme.durShort)}}
                     readonly property bool labeled:s.labels&&modelData.windows.length>0&&(s.islandStyle||s.width>500)
                     function openMenu(x,y) {
                         const wins=modelData.windows;const entries=modelData.app ? Hub.appMenu(modelData.app) : wins.length===1 ? Hub.windowMenu(wins[0]) : [{text:"Close all",icon:"close",quick:true,danger:true,run:()=>wins.forEach(w=>Hub.closeWindow(w))}].concat(wins.map(w=>({text:w.title,icon:"desktop",run:()=>Hub.focusWindow(w)})));

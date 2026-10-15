@@ -128,3 +128,19 @@ LAYOUTS = [
 
 def valid_cell(cell):
     return isinstance(cell, list) and len(cell) == 4 and all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in cell) and cell[2] > 0 and cell[3] > 0 and cell[0] + cell[2] <= 1.001 and cell[1] + cell[3] <= 1.001
+
+
+def titlebar_colors(prefs):
+    """Lua source for the titlebar colours, from the saved Opal palette. It falls back to calm dark roles."""
+    light = prefs.get('light') is True
+    roles = ((prefs.get('dynamicPalette') or {}).get('light' if light else 'dark') or {}) if prefs.get('dynamicColors') is not False else {}
+    def hexa(key, fallback, alpha=''):
+        value = str(roles.get(key) or fallback).lstrip('#')
+        if not re.fullmatch(r'[0-9a-fA-F]{6}', value): value = fallback.lstrip('#')
+        return ('rgba(' + value + alpha + ')') if alpha else ('rgb(' + value + ')')
+    bar = hexa('surface_container', '#f3e9e8' if light else '#271d1d', 'f2')
+    text = hexa('on_surface', '#231919' if light else '#f0dedd')
+    close = hexa('error', '#ba1a1a' if light else '#ffb4ab')
+    button = hexa('surface_container_highest', '#e2d8d7' if light else '#3d3231')
+    ink = hexa('on_error', '#ffffff' if light else '#690005')
+    return ('return { bar = "%s", text = "%s", close = "%s", button = "%s", ink = "%s", font = "Google Sans Flex" }\n' % (bar, text, close, button, ink))
