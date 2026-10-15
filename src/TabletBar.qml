@@ -33,10 +33,37 @@ Item {
                 Rectangle {anchors.centerIn:parent;width:18;height:18;radius:9;color:"transparent";border.width:2.5;border.color:Theme.text}}
             Key {tooltip:"Recent apps";onActivated:bar.recents()
                 Rectangle {anchors.centerIn:parent;width:16;height:16;radius:4;color:"transparent";border.width:2.5;border.color:Theme.text}}
-            // Split view: the open app and the one before it side by side; again ends the split.
-            Key {visible:Hub.status.hypr&&(PhoneState.splitActive||Hub.windows.length>1);tooltip:PhoneState.splitActive ? "End split view" : "Split view"
-                onActivated:PhoneState.splitActive ? PhoneState.endSplit() : PhoneState.splitWithPrevious(bar.screenObj)
-                Glyph {anchors.centerIn:parent;name:PhoneState.splitActive ? "close_fullscreen" : "splitscreen_vertical_add";font.pixelSize:22;color:PhoneState.splitActive ? Theme.primary : Theme.text}}
+        }
+    }
+    // Workspaces: one chip per workspace and a plus for a new one. Tap switches; windows stay where they are.
+    Island {
+        id:spaces
+        visible:Hub.status.hypr
+        x:left.visible ? left.x+left.width+8 : 12;anchors.verticalCenter:parent.verticalCenter
+        width:visible ? spaceRow.implicitWidth+16 : 0;height:56
+        Row {
+            id:spaceRow;anchors.centerIn:parent;spacing:4
+            Repeater {
+                model:(Hub.status.workspaces||[]).slice().sort((a,b)=>a-b)
+                Rectangle {
+                    required property var modelData
+                    readonly property bool current:Number(modelData)===Number(Hub.status.workspace)
+                    readonly property bool busy:Hub.windows.some(w=>Number(w.workspace)===Number(modelData))
+                    width:current ? 44 : 32;height:32;radius:16;anchors.verticalCenter:parent.verticalCenter
+                    color:current ? Theme.primary : busy ? Theme.alpha(Theme.text,.14) : "transparent"
+                    border.width:current||busy ? 0 : 1;border.color:Theme.outline
+                    Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durShort);easing.type:Easing.OutCubic}}
+                    MText {anchors.centerIn:parent;text:String(modelData);role:"label";font.weight:Font.Bold;color:parent.current ? Theme.onPrimary : Theme.text}
+                    MouseArea {anchors.fill:parent;anchors.margins:-4;onClicked:Hub.workspace(Number(modelData))}
+                    Accessible.role:Accessible.Button;Accessible.name:"Workspace "+modelData
+                }
+            }
+            Rectangle {
+                width:32;height:32;radius:16;color:"transparent";border.width:1;border.color:Theme.outline;anchors.verticalCenter:parent.verticalCenter
+                Glyph {anchors.centerIn:parent;name:"add";font.pixelSize:18;color:Theme.subtext}
+                MouseArea {anchors.fill:parent;anchors.margins:-4;onClicked:Hub.command({action:"workspace-empty"})}
+                Accessible.role:Accessible.Button;Accessible.name:"New workspace"
+            }
         }
     }
     Island {
@@ -51,7 +78,7 @@ Item {
     }
     // The middle island takes all the space between the other two.
     Island {
-        anchors {left:bar.keys ? left.right : parent.left;right:right.left;leftMargin:bar.keys ? 8 : 12;rightMargin:8;verticalCenter:parent.verticalCenter}
+        anchors {left:spaces.visible ? spaces.right : bar.keys ? left.right : parent.left;right:right.left;leftMargin:spaces.visible||bar.keys ? 8 : 12;rightMargin:8;verticalCenter:parent.verticalCenter}
         height:56
         Row {
             id:appRow

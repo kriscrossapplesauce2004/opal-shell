@@ -8,9 +8,11 @@ Scope {
     property bool open: false
     property real reveal: 0
     property var screen: null
-    function show() { screen = Hub.chooseScreen(); open = true; grow.to = 1; grow.restart(); }
+    // The window to place, taken when the card opens. Once the card has keyboard focus, Hyprland reports no active window.
+    property string address: ""
+    function show() { address = Hub.status.activeAddress || ""; screen = Hub.chooseScreen(); open = true; grow.to = 1; grow.restart(); }
     function hide() { open = false; grow.to = 0; grow.restart(); }
-    function pick(cell) { Hub.command({action: "window-snap", cell: cell}); hide(); }
+    function pick(cell) { Hub.command({action: "window-snap", cell: cell, address: address}); hide(); }
     NumberAnimation { id: grow; target: snap; property: "reveal"; duration: Theme.motion(grow.to > 0 ? 300 : 160); easing.type: Easing.BezierSpline; easing.bezierCurve: grow.to > 0 ? Theme.emphasizedDecelerate : Theme.emphasizedAccelerate }
     PanelWindow {
         id: win

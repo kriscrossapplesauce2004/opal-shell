@@ -144,13 +144,16 @@ Scope {
     function keyboardInset(screen) { return Hub.systemOskVisible && screen ? Math.round(screen.height * .38) : 0; }
     function applySplit() {
         if (!splitActive || !splitScreen) return;
-        Hub.command({action: "phone-split", output: splitScreen.name, left: splitLeft, right: splitRight, ratio: splitRatio, top: barHeight, bottom: navFor(splitScreen), keyboard: keyboardInset(splitScreen), workspace: Number(Hub.status.workspace) || 0});
+        // Workspace 0 tells the backend not to move either window; split only pairs windows that share a workspace.
+        Hub.command({action: "phone-split", output: splitScreen.name, left: splitLeft, right: splitRight, ratio: splitRatio, top: barHeight, bottom: navFor(splitScreen), keyboard: keyboardInset(splitScreen), workspace: 0});
     }
     // The tablet dock is inside the navigation bar now, so there is no extra dock height.
     function dockHeight(screen) { return 0; }
     function navFor(screen) { return isTablet(screen) && Hub.prefs.tabletDock !== false ? 68 : navHeight; }
     function startSplit(screen, left, right) {
-        if (!left || !right || left === right || !Hub.status.hypr) return false;
+        if (!left || !right || left === right || !Hub.status.hypr || isTablet(screen)) return false;
+        const a = Hub.windows.find(w => w.address === left), b = Hub.windows.find(w => w.address === right);
+        if (!a || !b || a.workspace !== b.workspace) return false;
         splitScreen = screen; splitLeft = left; splitRight = right; splitActive = true;
         applySplit();
         splitCheck.restart();
@@ -158,6 +161,9 @@ Scope {
     }
     function splitWithPrevious(screen) {
         const a = activeWindow(), b = previousWindow();
+        // A tablet tiles, and split view never moves windows between workspaces.
+        if (isTablet(screen)) return false;
+        if (a && b && a.workspace !== b.workspace) return false;
         return a && b ? startSplit(screen, a.address, b.address) : false;
     }
     function setRatio(value, commit) {
@@ -193,16 +199,21 @@ Scope {
     function fit() {
         // While a split is shown the fitter waits; maximizing would break the split.
         if (!Hub.status.hypr || Hub.prefs.phoneFitApps === false || splitActive) return;
-        const names = phoneScreens().map(sc => sc.name);
+        const names = fitNames;
         if (names.length) Hub.command({action: "phone-fit", outputs: names, modes: Hub.prefs.phoneAppModes || ({})});
     }
+    // Only phone-sized outputs fit apps one at a time. Tablets keep desktop tiling.
+    readonly property var fitNames: phoneScreens().filter(sc => !isTablet(sc)).map(sc => sc.name)
+    readonly property var tabletNames: phoneScreens().filter(sc => isTablet(sc)).map(sc => sc.name)
+    onTabletNamesChanged: tileTimer.restart()
+    // A tablet output re-tiles once when it appears and after a reload, so windows from an earlier phone fit do not stay floating.
+    Timer { id: tileTimer; interval: 600; running: true; onTriggered: if (Hub.status.hypr && s.tabletNames.length) Hub.command({action: "tablet-tile", outputs: s.tabletNames}) }
     Timer { id: fitTimer; interval: 350; onTriggered: s.fit() }
     // When an output stops being a phone, windows that phone mode floated or maximized get their own state back.
-    property var lastPhoneNames: []
-    readonly property var phoneNames: phoneScreens().map(sc => sc.name)
-    onPhoneNamesChanged: {
-        const left = lastPhoneNames.filter(n => phoneNames.indexOf(n) < 0);
-        lastPhoneNames = phoneNames.slice();
+    property var lastFitNames: []
+    onFitNamesChanged: {
+        const left = lastFitNames.filter(n => fitNames.indexOf(n) < 0);
+        lastFitNames = fitNames.slice();
         if (left.length && Hub.status.hypr) { if (splitActive) endSplit(); Hub.command({action: "phone-release", outputs: []}); }
     }
     Connections { target: Hub; function onCompositorWindowsChanged() { fitTimer.restart(); } }

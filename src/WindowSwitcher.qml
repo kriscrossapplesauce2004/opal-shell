@@ -107,7 +107,8 @@ Item {
                     MText {text:c.app ? c.app.name : String(c.entry.className).startsWith("steam_app_") ? "Game" : c.entry.className||"Application";Layout.fillWidth:true;font.pixelSize:13;font.weight:Font.DemiBold}
                     // Split view: this app with the one in use, one above the other on a phone, side by side on a tablet.
                     MButton {
-                        visible:s.touch&&Hub.status.hypr&&Hub.windows.length>1
+                        // Phones only, and only with an app on the same workspace: split view never moves windows between workspaces.
+                        visible:s.touch&&Hub.status.hypr&&!PhoneState.isTablet(Hub.targetScreen||PhoneState.phoneScreens()[0]||null)&&Hub.windows.some(w=>w.address!==c.entry.address&&w.workspace===c.entry.workspace)
                         icon:"splitscreen";implicitWidth:44;implicitHeight:44;tooltip:"Split screen with the current app"
                         onClicked:{
                             const active=PhoneState.activeWindow(),previous=PhoneState.previousWindow();

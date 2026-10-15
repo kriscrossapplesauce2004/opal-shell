@@ -114,7 +114,12 @@ if opal_floating() then
     bind("SUPER + ALT + right", qs .. "snapRight")
     bind("SUPER + ALT + up", qs .. "snapMaximize")
     -- Titlebars: hyprbars in Opal colours, when the plugin is built for this Hyprland.
-    if titlebar_plugin and pcall(hl.plugin.load, titlebar_plugin) and hl.plugin and hl.plugin.hyprbars then
+    -- The plugin stays loaded across config reloads and keeps its buttons, so the buttons are added only on the first load.
+    local already = false
+    for _, p in ipairs(hl.get_loaded_plugins and hl.get_loaded_plugins() or {}) do
+        if tostring(p.name or ""):lower():find("hyprbars") then already = true end
+    end
+    if titlebar_plugin and (already or pcall(hl.plugin.load, titlebar_plugin)) and hl.plugin and hl.plugin.hyprbars then
         local ok, c = pcall(dofile, state_dir .. "/hypr-titlebars.lua")
         if not ok or type(c) ~= "table" then c = { bar = "rgba(271d1df2)", text = "rgb(f0dedd)", close = "rgb(ffb4ab)", button = "rgb(4a3f3e)", ink = "rgb(1b1112)", font = "Google Sans Flex" } end
         pcall(hl.config, { plugin = { hyprbars = {
@@ -125,9 +130,11 @@ if opal_floating() then
             on_double_click = qs .. "snapMaximize",
         } } })
         -- Buttons are laid out right to left: close, snap layouts, minimize.
+        if not already then
         pcall(hl.plugin.hyprbars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
         pcall(hl.plugin.hyprbars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "▢", action = qs .. "snaplayouts" })
         pcall(hl.plugin.hyprbars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
+        end
     end
 else
     -- A plugin stays loaded across reloads, so its bars must be switched off when the mode is off.

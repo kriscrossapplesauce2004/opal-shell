@@ -584,6 +584,7 @@ def commands():
             elif action=='desktop-open' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(home_data.launch_command(os.path.realpath(c['path'])))
             elif action=='desktop-trash' and home_data.inside(c.get('path'),home_data.desktop_dir()): run('gio','trash',os.path.realpath(c['path'])); home_state['desktop']=None
             elif action=='desktop-reveal' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(['gdbus','call','--session','--dest','org.freedesktop.FileManager1','--object-path','/org/freedesktop/FileManager1','--method','org.freedesktop.FileManager1.ShowItems','["'+pathlib.Path(os.path.realpath(c['path'])).as_uri()+'"]',''])
+            elif action=='tablet-tile' and isinstance(c.get('outputs'),list): threading.Thread(target=tablet_tile,args=([o for o in c['outputs'] if isinstance(o,str)][:8],),daemon=True).start()
             elif action=='window-minimize': threading.Thread(target=window_minimize,args=(c.get('address'),),daemon=True).start()
             elif action=='window-restore': threading.Thread(target=window_restore,args=(c.get('address'),),daemon=True).start()
             elif action=='window-snap' and floating_mode.valid_cell(c.get('cell')): threading.Thread(target=window_snap,args=(c.get('address'),c['cell']),daemon=True).start()
@@ -723,6 +724,7 @@ def floating_run(ops):
         try:
             if op['op']=='float': hypr_actions.set_floating(op['address'],op['value'])
             elif op['op']=='geometry': hypr_actions.geometry(op['address'],*op['rect'])
+            elif op['op']=='unmaximize': hypr_actions.fullscreen(op['address'],0)
         except (ValueError,OSError,subprocess.SubprocessError): pass
 def floating_apply(on):
     with floating_lock:
@@ -750,8 +752,20 @@ def floating_apply(on):
             floating_mode.save(state)
         floating_seen.clear()
         floating_seen.update(c.get('address') for c in clients)
+def tablet_tile(outputs):
+    # Tablets use desktop tiling: windows that phone mode floated or maximized there go back into the tiling.
+    if prefs.get('floatingMode') or not outputs: return
+    try:
+        clients=hypr_actions.clients(); monitors=hypr_actions.monitors()
+        rules=floating_mode.user_float_rules(floating_mode.HYPR_CONFIG.read_text())
+    except (ValueError,OSError,subprocess.SubprocessError): return
+    floating_run(floating_mode.plan_tile_outputs(clients,monitors,outputs,rules))
+def floating_titlebar():
+    # Titlebars come from the hyprbars plugin when it is loaded.
+    try: return floating_mode.TITLEBAR if 'hyprbars' in subprocess.run(['hyprctl','plugin','list'],capture_output=True,text=True,timeout=3).stdout else 0
+    except (OSError,subprocess.SubprocessError): return 0
 def floating_watch(data):
-    # While the mode is on: a new window opens where its app was last time, and places are remembered.
+    # While the mode is on: a new window opens where its app was last time, inside the screen, and places are remembered.
     windows=data.get('windows')
     if not prefs.get('floatingMode') or windows is None: return
     clients=[{'address':w.get('address'),'class':w.get('className',''),'title':w.get('title',''),'floating':w.get('floating'),'fullscreen':w.get('fullscreen',0),
@@ -760,9 +774,18 @@ def floating_watch(data):
     memory=state.get('memory',{})
     fresh=[c for c in clients if c['address'] not in floating_seen]
     floating_seen.update(c['address'] for c in clients)
-    for c in fresh:
-        rect=memory.get(c['class'])
-        if rect and c['floating'] and floating_mode.regular(c): floating_run([{'op':'geometry','address':c['address'],'rect':rect}])
+    fresh=[c for c in fresh if c['floating'] and floating_mode.regular(c)]
+    if fresh:
+        try: monitors={m.get('name'):m for m in hypr_actions.monitors()}
+        except (ValueError,OSError,subprocess.SubprocessError): monitors={}
+        bar=floating_titlebar()
+        for c in fresh:
+            w=next((x for x in windows if x.get('address')==c['address']),{})
+            monitor=monitors.get(w.get('monitor'))
+            if not monitor: continue
+            rect=memory.get(c['class']) or [*c['at'],*c['size']]
+            placed=floating_mode.fit_rect(rect,monitor,titlebar=bar)
+            if placed!=[int(v) for v in rect] or c['class'] in memory: floating_run([{'op':'geometry','address':c['address'],'rect':placed}])
     if time.time()-floating_saved_at[0]>15:
         floating_saved_at[0]=time.time()
         state['memory']=floating_mode.remember(memory,clients)
@@ -793,7 +816,7 @@ def window_snap(address,cell):
         if not monitor: return
         if client.get('fullscreen'): hypr_actions.fullscreen(address,0)
         if not client.get('floating'): hypr_actions.set_floating(address,True)
-        hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell))
+        hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell,titlebar=floating_titlebar() if prefs.get('floatingMode') else 0))
     except (ValueError,OSError,subprocess.SubprocessError): pass
 
 # Home sources: each one is published only when it changes.

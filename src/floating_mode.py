@@ -8,6 +8,8 @@ STATE = pathlib.Path(os.environ.get('XDG_STATE_HOME') or pathlib.Path.home() / '
 HYPR_CONFIG = pathlib.Path(os.environ.get('XDG_CONFIG_HOME') or pathlib.Path.home() / '.config') / 'hypr' / 'hyprland.lua'
 MINIMIZED = 'special:opal-minimized'
 GAP = 8
+TITLEBAR = 36
+SHELF = 72
 MAX_MEMORY = 200
 
 
@@ -83,6 +85,17 @@ def plan_disable(clients, before, rules):
     return ops
 
 
+def plan_tile_outputs(clients, monitors, outputs, rules):
+    """Tile the floating and maximized windows on the named outputs, except windows that the user's rules float. Tablets use desktop tiling."""
+    ids = {m.get('id') for m in monitors if m.get('name') in set(outputs or [])}
+    ops = []
+    for c in filter(regular, clients):
+        if c.get('monitor') not in ids or floats_by_rule(c, rules): continue
+        if c.get('fullscreen') == 1: ops.append({'op': 'unmaximize', 'address': c['address']})
+        if c.get('floating'): ops.append({'op': 'float', 'address': c['address'], 'value': False})
+    return ops
+
+
 def remember(memory, clients):
     """Keep the last floating size and place of each app class. The newest entries win when the list is full."""
     out = dict(memory or {})
@@ -96,23 +109,39 @@ def remember(memory, clients):
     return out
 
 
-def usable_area(monitor):
-    """The part of a monitor that windows may use, in layout pixels: the size divided by the scale, less reserved bars."""
+def usable_area(monitor, shelf=0):
+    """The part of a monitor that windows may use, in layout pixels: the size divided by the scale, less reserved bars.
+    When nothing reserves the bottom edge, the floating Shelf still covers it, so shelf pixels stay free there."""
     scale = monitor.get('scale') or 1
     transform = monitor.get('transform', 0) or 0
     width, height = monitor.get('width', 1920) / scale, monitor.get('height', 1080) / scale
     if transform % 2: width, height = height, width
     left, top, right, bottom = (monitor.get('reserved') or [0, 0, 0, 0])[:4]
+    bottom = max(bottom, shelf)
     return monitor.get('x', 0) + left, monitor.get('y', 0) + top, width - left - right, height - top - bottom
 
 
-def snap_rect(monitor, cell, gap=GAP):
-    """Place a window in a fraction of the monitor: cell is [x, y, width, height] from 0 to 1. Gaps stay between neighbours."""
+def snap_rect(monitor, cell, gap=GAP, titlebar=0, shelf=SHELF):
+    """Place a window in a fraction of the monitor: cell is [x, y, width, height] from 0 to 1. Gaps stay between neighbours.
+    The rectangle is the window body: a titlebar above it takes titlebar pixels of the cell, so the whole window fills the cell exactly."""
     fx, fy, fw, fh = [max(0.0, min(1.0, float(v))) for v in cell]
-    ax, ay, aw, ah = usable_area(monitor)
-    x0 = ax + gap + fx * (aw - gap) ; y0 = ay + gap + fy * (ah - gap)
+    ax, ay, aw, ah = usable_area(monitor, shelf)
+    x0 = ax + gap + fx * (aw - gap); y0 = ay + gap + fy * (ah - gap)
     w = fw * (aw - gap) - gap; h = fh * (ah - gap) - gap
-    return [int(round(x0)), int(round(y0)), max(120, int(round(w))), max(80, int(round(h)))]
+    return [int(round(x0)), int(round(y0 + titlebar)), max(120, int(round(w))), max(80, int(round(h - titlebar)))]
+
+
+def fit_rect(rect, monitor, titlebar=0, shelf=SHELF, gap=GAP):
+    """Keep a floating window on screen. A window larger than the area opens at two thirds of it, centred; any window is moved fully inside."""
+    ax, ay, aw, ah = usable_area(monitor, shelf)
+    ay += titlebar; ah -= titlebar
+    x, y, w, h = [int(v) for v in rect]
+    if w > aw - 2 * gap or h > ah - 2 * gap:
+        w, h = int(aw * .66), int(ah * .72)
+        x, y = int(ax + (aw - w) / 2), int(ay + (ah - h) / 2)
+    x = int(max(ax + gap, min(x, ax + aw - gap - w)))
+    y = int(max(ay + gap, min(y, ay + ah - gap - h)))
+    return [x, y, w, h]
 
 
 # Snap layouts offered by the picker: each is a list of cells.

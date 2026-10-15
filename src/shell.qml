@@ -45,11 +45,11 @@ ShellRoot {
         function volume(value:int):string {Hub.volume(value);return "Volume "+Math.max(0,Math.min(100,value));}
         function toast(text:string):void {Hub.message(text);}
         // Floating mode: minimize the focused window, open the snap layouts, and snap to halves or the whole screen.
-        function minimize():void {Hub.command({action:"window-minimize"});}
+        function minimize():void {Hub.command({action:"window-minimize",address:Hub.status.activeAddress||""});}
         function snaplayouts():void {snapLayouts.show();}
-        function snapLeft():void {Hub.command({action:"window-snap",cell:[0,0,.5,1]});}
-        function snapRight():void {Hub.command({action:"window-snap",cell:[.5,0,.5,1]});}
-        function snapMaximize():void {Hub.command({action:"window-snap",cell:[0,0,1,1]});}
+        function snapLeft():void {Hub.command({action:"window-snap",cell:[0,0,.5,1],address:Hub.status.activeAddress||""});}
+        function snapRight():void {Hub.command({action:"window-snap",cell:[.5,0,.5,1],address:Hub.status.activeAddress||""});}
+        function snapMaximize():void {Hub.command({action:"window-snap",cell:[0,0,1,1],address:Hub.status.activeAddress||""});}
         function windows():string {return JSON.stringify(Hub.windows.map(w=>({title:w.title||"",app:w.className||"",workspace:w.workspace||0})));}
         function navigate(key:string):void {Hub.navigate(key);}
         function search(text:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openSection("apps");Hub.query=text;if(text.startsWith("="))Hub.command({action:"calculate",text:text.slice(1).trim()});}
@@ -107,7 +107,7 @@ ShellRoot {
                     {text:"Settings",icon:"settings",run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}}
                 ]}
                 // Below the home, so desktop icons and widgets get their own right clicks first.
-                MouseArea {anchors.fill:parent;z:-1;acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}
+                MouseArea {anchors.fill:parent;z:-1;enabled:morph.shown==="desktop";acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}
             }
             PanelWindow {
                 id:statusbar

@@ -51,6 +51,9 @@ class FloatingModeTests(unittest.TestCase):
     def test_snap_math(self):
         mon = {'x': 0, 'y': 0, 'width': 3840, 'height': 2160, 'scale': 2, 'reserved': [0, 0, 0, 72]}
         self.assertEqual(fm.usable_area(mon), (0, 0, 1920.0, 1008.0))
+        self.assertEqual(fm.usable_area(dict(mon, reserved=[0, 0, 0, 0]), shelf=72), (0, 0, 1920.0, 1008.0))
+        bar = fm.snap_rect(mon, [0, 0, 1, 1], titlebar=36)
+        self.assertEqual((bar[1], bar[3]), (44, 956))
         left = fm.snap_rect(mon, [0, 0, .5, 1])
         right = fm.snap_rect(mon, [.5, 0, .5, 1])
         self.assertEqual(left, [8, 8, 948, 992])
@@ -62,12 +65,28 @@ class FloatingModeTests(unittest.TestCase):
         self.assertFalse(fm.valid_cell([0, 0, 1.5, 1]))
         self.assertFalse(fm.valid_cell([.6, 0, .6, 1]))
 
+    def test_tablet_outputs_tile_again(self):
+        mons = [{'id': 0, 'name': 'HDMI-A-1'}, {'id': 1, 'name': 'eDP-1'}]
+        clients = [dict(win('0x1', 'kitty', floating=True), monitor=0), dict(win('0x2', 'firefox', fullscreen=1), monitor=0),
+                   dict(win('0x3', 'org.gnome.Calculator', floating=True), monitor=0), dict(win('0x4', 'code', floating=True), monitor=1)]
+        ops = fm.plan_tile_outputs(clients, mons, ['HDMI-A-1'], fm.user_float_rules(USER_CONFIG))
+        self.assertEqual(ops, [{'op': 'float', 'address': '0x1', 'value': False}, {'op': 'unmaximize', 'address': '0x2'}])
+
     def test_titlebar_colors(self):
         lua = fm.titlebar_colors({'dynamicPalette': {'dark': {'surface_container': '#271d1d', 'on_surface': '#f0dedd', 'error': 'not a colour'}}})
         self.assertIn('bar = "rgba(271d1df2)"', lua)
         self.assertIn('text = "rgb(f0dedd)"', lua)
         self.assertIn('close = "rgb(ffb4ab)"', lua)
         self.assertIn('bar = "rgba(f3e9e8f2)"', fm.titlebar_colors({'light': True}))
+
+    def test_fit_rect_keeps_windows_on_screen(self):
+        mon = {'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'scale': 1, 'reserved': [0, 0, 0, 0]}
+        big = fm.fit_rect([0, 0, 2400, 1400], mon, titlebar=36)
+        self.assertEqual(big, [326, 172, 1267, 699])
+        off = fm.fit_rect([1700, 900, 600, 400], mon, titlebar=36)
+        self.assertEqual(off, [1312, 600, 600, 400])
+        fine = fm.fit_rect([200, 200, 800, 600], mon, titlebar=36)
+        self.assertEqual(fine, [200, 200, 800, 600])
 
     def test_state_round_trip(self):
         with tempfile.TemporaryDirectory() as tmp:
