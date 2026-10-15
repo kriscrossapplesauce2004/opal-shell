@@ -259,7 +259,7 @@ ShellRoot {
         delegate:PanelWindow {
             required property var modelData
             screen:modelData
-            visible:overlay.visible&&screen!==overlay.screen
+            visible:overlay.wanted&&screen!==overlay.screen
             anchors {top:true;bottom:true;left:true;right:true}
             exclusionMode:ExclusionMode.Ignore
             WlrLayershell.layer:WlrLayer.Overlay
@@ -272,27 +272,40 @@ ShellRoot {
     PanelWindow {
         id:overlay
         screen:Hub.targetScreen || Quickshell.screens[0]
-        visible:Hub.page!==""&&Hub.page!=="controls"&&Hub.page!=="notifications"&&Hub.page!=="assistant"
+        readonly property bool wanted:Hub.page!==""&&Hub.page!=="controls"&&Hub.page!=="notifications"&&Hub.page!=="assistant"
+        // The last page stays latched while the panel plays its exit, so the content does not change during the animation.
+        property string lastPage:""
+        // Visibility follows the panel's arrival value, so the window never unmaps for a frame between close and the exit animation.
+        readonly property bool leaving:!wanted&&panel.arrival>0
+        readonly property string pg:wanted ? Hub.page : lastPage
+        // Reads arrival directly: a binding through leaving can see a stale value for one tick and unmap the window.
+        visible:wanted||panel.arrival>0
+        onWantedChanged:{
+            if(wanted){lastPage=Hub.page;panelDeparture.stop();panelArrival.restart();}
+            else {panelArrival.stop();panelDeparture.restart();}
+        }
+        Connections {target:Hub;function onPageChanged(){if(overlay.wanted)overlay.lastPage=Hub.page;}}
         readonly property string layoutMode:Hub.layoutFor(width,height,screen ? screen.name : "")
         anchors {top:true;bottom:true;left:true;right:true}
         exclusionMode:ExclusionMode.Ignore
         WlrLayershell.layer:WlrLayer.Overlay
-        readonly property bool phoneLauncher:layoutMode==="phone"&&Hub.page==="launcher"
-        readonly property bool desktopStart:layoutMode==="desktop"&&Hub.page==="launcher"&&Hub.launcherSection==="apps"
-        readonly property bool searchPanel:Hub.page==="search"&&layoutMode!=="phone"
+        readonly property bool phoneLauncher:layoutMode==="phone"&&overlay.pg==="launcher"
+        readonly property bool desktopStart:layoutMode==="desktop"&&overlay.pg==="launcher"&&Hub.launcherSection==="apps"
+        readonly property bool searchPanel:overlay.pg==="search"&&layoutMode!=="phone"
         WlrLayershell.namespace:"opal-overlay"
-        WlrLayershell.keyboardFocus:visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus:visible&&!leaving ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         // Transparent backdrop keeps the desktop sharp; only the panel blurs.
         // The scrim stays below the compositor blur threshold (alpha 0.1), so the screen behind a panel is never blurred.
-        color:phoneLauncher||desktopStart||searchPanel ? "transparent" : Theme.alpha("#000000",.07)
+        color:phoneLauncher||desktopStart||searchPanel ? "transparent" : Theme.alpha("#000000",.07*panel.arrival)
         mask:Region {
-            Region {x:0;y:0;width:overlay.width;height:overlay.height}
+            // A leaving panel takes no input, so clicks reach what is under it.
+            Region {x:0;y:0;width:overlay.leaving ? 0 : overlay.width;height:overlay.leaving ? 0 : overlay.height}
             Region {intersection:Intersection.Subtract;x:0;y:overlay.height-64;width:overlay.width;height:overlay.desktopStart||overlay.searchPanel ? 64 : 0}
         }
         MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons;onPressed:Hub.close()}
         Surface {
             id:panel
-            property real arrival:1
+            property real arrival:0
             opacity:arrival
             // Reveal from the bottom edge. Animate local content only: the
             // panel's final x/y geometry is never interpolated from (0, 0).
@@ -300,17 +313,18 @@ ShellRoot {
                 Scale {origin.x:overlay.desktopStart||overlay.searchPanel ? 0 : panel.width/2;origin.y:panel.height;xScale:overlay.searchPanel ? .94+.06*panel.arrival : 1;yScale:panel.launcher||overlay.searchPanel ? .9+.1*panel.arrival : 1},
                 Translate {y:(1-panel.arrival)*(panel.launcher||overlay.searchPanel ? 18 : 8)}
             ]
-            Connections {target:overlay;function onVisibleChanged(){if(overlay.visible)panelArrival.restart();}}
-            NumberAnimation {id:panelArrival;target:panel;property:"arrival";from:0;to:1;duration:Theme.motion(400);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}
+            // Arrival and departure start from the current value, so a reopen during an exit reverses smoothly.
+            NumberAnimation {id:panelArrival;target:panel;property:"arrival";to:1;duration:Theme.motion(400);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}
+            NumberAnimation {id:panelDeparture;target:panel;property:"arrival";to:0;duration:Theme.motion(220);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedAccelerate}
             readonly property bool phone:overlay.layoutMode==="phone"
             readonly property bool game:overlay.layoutMode==="console"
-            readonly property bool launcher:Hub.page==="launcher"
-            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : Hub.page==="settings" ? 880 : launcher ? 960 : Hub.page==="windows" ? 1100 : Hub.page==="convergence"||Hub.page==="wallpaper" ? 800 : Hub.page==="appearance"||Hub.page==="welcome" ? 660 : 490)
+            readonly property bool launcher:overlay.pg==="launcher"
+            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : overlay.pg==="settings" ? 880 : launcher ? 960 : overlay.pg==="windows" ? 1100 : overlay.pg==="convergence"||overlay.pg==="wallpaper" ? 800 : overlay.pg==="appearance"||overlay.pg==="welcome" ? 660 : 490)
             readonly property real contentFit:overlayContent.item&&overlayContent.item.fitHeight!==undefined ? overlayContent.item.fitHeight : 0
-            height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : Hub.page==="settings" ? 720 : Hub.page==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
+            height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : overlay.pg==="settings" ? 720 : overlay.pg==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
             Behavior on height {enabled:overlay.visible;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            x:phone||game&&launcher ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||Hub.page==="settings"||Hub.page==="appearance"||Hub.page==="welcome"||Hub.page==="convergence"||Hub.page==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
-            y:phone||game&&launcher ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||Hub.page==="settings"||Hub.page==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
+            x:phone||game&&launcher ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||overlay.pg==="settings"||overlay.pg==="appearance"||overlay.pg==="welcome"||overlay.pg==="convergence"||overlay.pg==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
+            y:phone||game&&launcher ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||overlay.pg==="settings"||overlay.pg==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
             radius:phone||game&&launcher ? 0 : overlay.desktopStart ? 28 : overlay.searchPanel ? 32 : 36
             translucency:phone&&launcher ? Math.min(.35,Hub.prefs.glass) : Hub.prefs.glass
             border.width:phone&&launcher ? 0 : 1
@@ -320,7 +334,7 @@ ShellRoot {
                 anchors.fill:parent;anchors.topMargin:panel.phone ? 48 : 0;anchors.bottomMargin:panel.phone ? (Hub.prefs.phoneButtons ? 64 : 48) : 0;active:overlay.visible
                 onLoaded:contentArrival.restart()
                 NumberAnimation {id:contentArrival;target:overlayContent;property:"opacity";from:0;to:1;duration:Theme.motion(180)}
-                sourceComponent:Hub.page==="search" ? (panel.phone ? mobileComponent : searchComponent) : Hub.page==="settings" ? settingsComponent : Hub.page==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : Hub.page==="clipboard" ? clipboardComponent : Hub.page==="appearance" ? appearanceComponent : Hub.page==="convergence" ? convergenceComponent : Hub.page==="wallpaper" ? wallpaperComponent : Hub.page==="windows" ? windowsComponent : Hub.page==="welcome" ? welcomeComponent : controlsComponent
+                sourceComponent:overlay.pg==="search" ? (panel.phone ? mobileComponent : searchComponent) : overlay.pg==="settings" ? settingsComponent : overlay.pg==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : overlay.pg==="clipboard" ? clipboardComponent : overlay.pg==="appearance" ? appearanceComponent : overlay.pg==="convergence" ? convergenceComponent : overlay.pg==="wallpaper" ? wallpaperComponent : overlay.pg==="windows" ? windowsComponent : overlay.pg==="welcome" ? welcomeComponent : controlsComponent
             }
             PhoneStatus {visible:panel.phone;anchors.top:parent.top;width:parent.width;height:48;output:overlay.screen}
             PhoneNavigation {visible:panel.phone;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight;output:overlay.screen}

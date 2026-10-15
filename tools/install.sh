@@ -6,8 +6,9 @@ usage() {
 Usage: ./install.sh [--restart] [--no-deps] [--no-hyprland] [--no-keyboard]
 
 Install Opal into ~/.config/quickshell/opal and install the `opal` command
-into ~/.local/bin. Existing shell files are moved to a timestamped backup;
-preferences under ~/.local/state/opal are never touched.
+into ~/.local/bin. Existing shell files are moved to a timestamped backup
+(the newest three are kept); preferences under ~/.local/state/opal are never
+touched.
 
 Options:
   --restart      reload the running Opal shell after installation
@@ -38,7 +39,8 @@ config_dir="${OPAL_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/opal
 bin_dir="${OPAL_BIN_DIR:-${XDG_BIN_HOME:-$HOME/.local/bin}}"
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/opal"
 timestamp=$(date +%Y%m%d-%H%M%S)
-backup_dir="$state_dir/pre-deploy-$timestamp-install"
+backup_root="$state_dir/backups"
+backup_dir="$backup_root/install-$timestamp"
 config_parent=$(dirname -- "$config_dir")
 hypr_config="${OPAL_HYPRLAND_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprland.lua}"
 
@@ -119,8 +121,9 @@ install_hyprland_hook() {
         return 0
     fi
 
-    mkdir -p "$backup_dir"
-    cp -a -- "$hypr_config" "$backup_dir/$(basename -- "$hypr_config").before-opal"
+    # Outside the pruned install backups: this is the only pre-Opal copy.
+    mkdir -p "$backup_root"
+    cp -a -- "$hypr_config" "$backup_root/$(basename -- "$hypr_config").before-opal"
     hook_path="$config_dir/hyprland.lua"
     hook_escaped=${hook_path//\\/\\\\}
     hook_escaped=${hook_escaped//\"/\\\"}
@@ -139,6 +142,23 @@ install_hyprland_hook() {
     } >> "$temp"
     mv -- "$temp" "$hypr_config"
     echo "Added reversible Opal hook to $hypr_config"
+}
+
+# Adds a Hyprland start hook that runs "opal login"; it starts Opal only when "opal autostart on" was set.
+install_autostart_hook() {
+    [[ -f "$hypr_config" ]] || return 0
+    grep -Fq 'OPAL_AUTOSTART_BEGIN' "$hypr_config" && return 0
+    temp=$(mktemp "${hypr_config}.opal.XXXXXX")
+    cp -- "$hypr_config" "$temp"
+    {
+        printf '\n-- OPAL_AUTOSTART_BEGIN\n'
+        printf 'hl.on("hyprland.start", function()\n'
+        printf '    hl.exec_cmd("%s/opal login")\n' "$bin_dir"
+        printf 'end)\n'
+        printf '%s\n' '-- OPAL_AUTOSTART_END'
+    } >> "$temp"
+    mv -- "$temp" "$hypr_config"
+    echo "Added Opal autostart hook to $hypr_config (enable with: opal autostart on)"
 }
 
 if [[ "$install_deps" -eq 1 ]]; then
@@ -173,6 +193,12 @@ if ! mv -- "$tmp_dir" "$config_dir"; then
     exit 1
 fi
 
+# Keep the three newest install backups; older shells are in git history.
+if [[ -d "$backup_root" ]]; then
+    find "$backup_root" -mindepth 1 -maxdepth 1 -type d -name 'install-*' |
+        sort -r | tail -n +4 | xargs -r rm -rf --
+fi
+
 wrapper_tmp=$(mktemp "$bin_dir/.opal.XXXXXX")
 cat > "$wrapper_tmp" <<'EOF'
 #!/usr/bin/env bash
@@ -180,9 +206,18 @@ set -euo pipefail
 
 config="${OPAL_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/opal}"
 marker="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/opal-active"
+# Persistent flag: when it exists, "opal login" starts Opal at Hyprland start.
+autostart_flag="${XDG_STATE_HOME:-$HOME/.local/state}/opal/autostart"
 
 systemd_user() {
     command -v systemctl >/dev/null 2>&1 && systemctl --user "$@"
+}
+# Quickshell logs live in /run and are lost at reboot. Keep the last ten shell logs before each stop, for bugs that only show after long uptime.
+save_log() {
+    local dir="${XDG_STATE_HOME:-$HOME/.local/state}/opal/logs"
+    mkdir -p "$dir"
+    quickshell log -p "$config" > "$dir/opal-$(date +%Y%m%d-%H%M%S).log" 2>/dev/null || true
+    ls -1t "$dir"/opal-*.log 2>/dev/null | tail -n +11 | xargs -r rm -f --
 }
 
 case "${1:-on}" in
@@ -193,13 +228,15 @@ case "${1:-on}" in
         else
             systemd_user stop hyprpolkitagent.service || true
         fi
-        quickshell -d -n -p "$config"
+        # Stop DMS before Opal starts so two shells never show at the same time.
         systemd_user mask --runtime --now dms.service || true
+        quickshell -d -n -p "$config"
         touch "$marker"
         command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true
         echo 'Opal is on. Return to DMS with: opal off'
         ;;
     reload)
+        save_log
         quickshell kill -p "$config" || true
         # Quickshell releases a detached instance asynchronously. Starting in
         # the same instant can be rejected as an already-running config.
@@ -208,6 +245,7 @@ case "${1:-on}" in
         ;;
     off)
         rm -f -- "$marker"
+        save_log
         quickshell kill -p "$config" || true
         systemd_user unmask --runtime dms.service || true
         systemd_user start dms.service || true
@@ -215,6 +253,18 @@ case "${1:-on}" in
             systemd_user start hyprpolkitagent.service || true
         fi
         command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true
+        ;;
+    login)
+        # Called by the Hyprland start hook; does nothing unless autostart is on.
+        [[ -e "$autostart_flag" ]] && exec "$0" on
+        exit 0
+        ;;
+    autostart)
+        case "${2:-status}" in
+            on) mkdir -p "$(dirname -- "$autostart_flag")"; touch "$autostart_flag"; echo 'Opal starts at login.' ;;
+            off) rm -f -- "$autostart_flag"; echo 'Opal no longer starts at login; DMS starts instead.' ;;
+            *) [[ -e "$autostart_flag" ]] && echo on || echo off ;;
+        esac
         ;;
     console|gaming)
         exec quickshell ipc -p "$config" call opal gaming
@@ -232,7 +282,7 @@ case "${1:-on}" in
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac
@@ -278,6 +328,7 @@ fi
 
 if [[ "$install_hyprland" -eq 1 ]]; then
     install_hyprland_hook
+    install_autostart_hook
 fi
 
 if [[ "$restart" -eq 1 ]]; then

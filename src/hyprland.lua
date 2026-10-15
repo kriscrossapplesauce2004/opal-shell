@@ -57,6 +57,9 @@ local function bind(key, command)
 end
 local qs = "quickshell ipc -p " .. os.getenv("HOME") .. "/.config/quickshell/opal call opal "
 bind("SUPER + space", qs .. "launcher")
+-- A lone Super tap toggles Start. Release binds are skipped when another key was pressed with Super.
+hl.unbind("SUPER + Super_L")
+hl.bind("SUPER + Super_L", hl.dsp.exec_cmd(qs .. "launcher"), { release = true })
 bind("ALT + space", qs .. "launcher")
 bind("SUPER + comma", qs .. "controls")
 bind("SUPER + N", qs .. "notifications")

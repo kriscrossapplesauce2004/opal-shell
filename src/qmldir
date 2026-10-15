@@ -136,3 +136,10 @@ MorphChip 1.0 MorphChip.qml
 AssistantSteps 1.0 AssistantSteps.qml
 TabletBar 1.0 TabletBar.qml
 ChoiceGroup 1.0 ChoiceGroup.qml
+singleton ActivityStyle 1.0 ActivityStyle.qml
+ActivityChip 1.0 ActivityChip.qml
+ActivityCard 1.0 ActivityCard.qml
+MediaPlayerCard 1.0 MediaPlayerCard.qml
+ProgressRing 1.0 ProgressRing.qml
+LinearProgress 1.0 LinearProgress.qml
+Squiggle 1.0 Squiggle.qml

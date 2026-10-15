@@ -76,3 +76,6 @@ The mobile shade and quick settings, and the game-mode Quick Access, need the sa
 
 ### I. Desktop with the Rooms paradigm (exploration)
 Apply Rooms, chips and morphing to desktop mode: workspaces as rooms in the shelf, Earlier chips, and a glance. Render prototypes first and choose with the user before building.
+
+### I. Home, pills, search, floating (2026-10-14)
+Ground-up redesign; full spec in `docs/HOME-PILLS-2026-10.md`. Render round first.
