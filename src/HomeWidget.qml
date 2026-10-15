@@ -7,6 +7,8 @@ Item {
     property string kind: "glance"
     // In edit mode an empty live widget keeps a placeholder so the user can see and move it.
     property bool editing: false
+    // The wallpaper behind the widget is light. Text that sits on the wallpaper turns dark.
+    property bool onLight: false
     readonly property var live: Activities.list.find(a => a.kind !== "media") || null
     readonly property bool empty: kind === "live" && live === null || kind === "photos" && !HomeData.photo
     Loader {
@@ -15,7 +17,7 @@ Item {
         sourceComponent: hw.empty ? placeholder : hw.kind === "glance" ? glanceView : hw.kind === "media" ? mediaView : hw.kind === "photos" ? photoView
             : hw.kind === "devices" ? devicesView : hw.kind === "clock" ? clockView : hw.kind === "live" ? liveView : glanceView
     }
-    Component { id: glanceView; Item { GlanceWidget { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; big: Math.max(20, Math.min(32, hw.height * .3)) } } }
+    Component { id: glanceView; Item { GlanceWidget { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; big: Math.max(20, Math.min(32, hw.height * .3)); onLight: hw.onLight } } }
     Component { id: mediaView; MediaPlayerCard { small: hw.height < 180 } }
     // A short slot drops the code preview so the title and the buttons always fit.
     Component { id: liveView; ActivityCard { a: hw.live ? (hw.height < 250 ? Object.assign({}, hw.live, {code: ""}) : hw.live) : ({}); onOpened: Activities.open(hw.live, null) } }

@@ -25,6 +25,7 @@ ShellRoot {
             {name: "home-tablet", view: phoneView, w: 1280, h: 800},
             {name: "home-desktop-empty", view: desktopView, w: 1600, h: 900, empty: true},
             {name: "home-desktop-edit", view: desktopView, w: 1600, h: 900, edit: true},
+            {name: "home-desktop-bright", view: desktopView, w: 1600, h: 900, empty: true, bright: true},
             {name: "home-phone-light", view: phoneView, light: true}
         ]
         property var current: cases[0]
@@ -40,9 +41,13 @@ ShellRoot {
         Component {
             id: desktopView
             Item {
+                id: dv
                 property alias home: dh
-                Image { anchors.fill: parent; source: "file:///home/melissa/Pictures/Wallpapers/default.png"; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(1920, 1080) }
-                Opal.DesktopHome { id: dh; anchors.fill: parent; anchors.bottomMargin: 72; screenName: "TEST-1" }
+                readonly property string wall: win.current.bright ? "file:///home/melissa/Pictures/dr5-keyart-YzI66DkClTeJ5jBQ.png" : "file:///home/melissa/Pictures/Wallpapers/default.png"
+                Image { anchors.fill: parent; source: dv.wall; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(1920, 1080) }
+                Rectangle { anchors.fill: parent; color: "#000000"; opacity: .11 }
+                Opal.WallpaperTone { id: tone; source: dv.wall; dim: .11; areaWidth: dv.width; areaHeight: dv.height }
+                Opal.DesktopHome { id: dh; anchors.fill: parent; anchors.bottomMargin: 72; screenName: "TEST-1"; tone: tone }
             }
         }
         function run() {
