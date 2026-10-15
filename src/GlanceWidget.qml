@@ -6,10 +6,9 @@ Item {
     id: glance
     property real big: 26
     property bool shadow: true
-    // Over light wallpaper the text is dark with a light glow.
-    property bool onLight: false
-    readonly property color ink: onLight ? "#1d1b1e" : Theme.text
-    readonly property color softInk: onLight ? Theme.alpha("#1d1b1e", .78) : Theme.subtext
+    // Text on the wallpaper is white with a small dense shadow, like Plasma desktop labels.
+    readonly property color ink: shadow ? "#ffffff" : Theme.text
+    readonly property color softInk: shadow ? Theme.alpha("#ffffff", .9) : Theme.subtext
     readonly property var w: HomeData.weather
     readonly property var live: Activities.list.find(a => a.kind !== "media") || null
     implicitWidth: column.implicitWidth
@@ -19,7 +18,7 @@ Item {
         spacing: 6
         // The software renderer cannot draw the shadow effect, so the text stays plain there.
         layer.enabled: glance.shadow && GraphicsInfo.api !== GraphicsInfo.Software
-        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: glance.onLight ? "#ffffff" : "#000000"; shadowOpacity: glance.onLight ? .85 : .8; shadowBlur: .3; shadowVerticalOffset: glance.onLight ? 0 : 1 }
+        layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; blurMax: 8; shadowBlur: .5; shadowScale: 1.03; shadowHorizontalOffset: 1; shadowVerticalOffset: 1 }
         Row {
             spacing: 10
             MText { text: Qt.formatDateTime(Hub.now, "ddd, MMM d"); font.pixelSize: glance.big; font.weight: Font.DemiBold; color: glance.ink; anchors.verticalCenter: parent.verticalCenter }

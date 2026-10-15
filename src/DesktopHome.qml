@@ -10,9 +10,7 @@ Item {
     property string screenName: ""
     // The desktop widgets preference. Icons and the glance stay when it is off.
     property bool widgets: true
-    // Wallpaper brightness sampler from the Wallpaper. Null means "assume dark".
-    property var tone: null
-    function lightAt(x, y, w, h) { return !!tone && tone.lightAt(x, y, w, h); }
+
     readonly property bool editing: HomeData.editingScreen !== "" && HomeData.editingScreen === screenName
     readonly property real cell: 80
     readonly property int columns: Math.max(8, Math.floor(width / cell))
@@ -85,7 +83,12 @@ Item {
                 width: icons.slotW; height: icons.slotH
                 Behavior on x { enabled: !drag.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
                 Behavior on y { enabled: !drag.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
-                Rectangle { anchors.fill: parent; anchors.margins: 4; radius: 18; color: tile.chosen ? Theme.alpha(Theme.primary, .22) : mouse.containsMouse ? Theme.alpha(Theme.text, .08) : "transparent" }
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: 4; radius: 14
+                    color: tile.chosen ? Theme.alpha(Theme.primary, .38) : mouse.containsMouse ? Theme.alpha("#ffffff", .18) : "transparent"
+                    border.width: tile.chosen ? 1 : 0; border.color: Theme.alpha(Theme.primary, .7)
+                    Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durShort) } }
+                }
                 Column {
                     anchors.horizontalCenter: parent.horizontalCenter; y: 10; spacing: 6; width: parent.width - 12
                     Item {
@@ -99,24 +102,19 @@ Item {
                         }
                         Glyph { anchors.centerIn: parent; visible: !tile.it.thumb && themeIcon.status !== Image.Ready; name: tile.it.glyph || "draft"; font.pixelSize: 40; color: Theme.primary }
                     }
-                    // The label is dark over light wallpaper and white over dark wallpaper, with a glow of the other colour. Only the chosen icon gets a backing.
+                    // Plasma-style label: always white, with a small dense drop shadow that hugs the letters.
                     Item {
                         id: labelBox
-                        readonly property bool onLight: home.lightAt(icons.x + tile.x, icons.y + tile.y + 62, tile.width, 40)
                         width: parent.width; height: label.contentHeight + 6
-                        Rectangle {
-                            visible: tile.chosen
-                            anchors.centerIn: parent; width: label.contentWidth + 12; height: parent.height; radius: 8; color: Theme.primary
-                        }
+
                         MText {
                             id: label
                             anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; text: tile.it.name; role: "label"
                             maximumLineCount: tile.chosen ? 3 : 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
                             font.weight: Font.DemiBold
-                            color: tile.chosen ? Theme.onPrimary : labelBox.onLight ? "#17151a" : "#ffffff"
-                            // A tight halo of the opposite colour: light behind dark text, dark behind white text.
-                            layer.enabled: !tile.chosen && GraphicsInfo.api !== GraphicsInfo.Software
-                            layer.effect: MultiEffect { shadowEnabled: true; shadowColor: labelBox.onLight ? "#ffffff" : "#000000"; shadowOpacity: labelBox.onLight ? .9 : 1; shadowBlur: .28; shadowScale: 1.02; shadowVerticalOffset: labelBox.onLight ? 0 : 1; shadowHorizontalOffset: 0 }
+                            color: "#ffffff"
+                            layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
+                            layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; blurMax: 8; shadowBlur: .5; shadowScale: 1.04; shadowHorizontalOffset: 1; shadowVerticalOffset: 1 }
                         }
                     }
                 }
@@ -162,7 +160,7 @@ Item {
             Behavior on y { enabled: !move.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
             Behavior on width { enabled: !resize.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
             Behavior on height { enabled: !resize.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
-            HomeWidget { anchors.fill: parent; kind: slot.modelData.kind; editing: home.editing; onLight: home.lightAt(slot.x, slot.y, slot.width, slot.height) }
+            HomeWidget { anchors.fill: parent; kind: slot.modelData.kind; editing: home.editing }
             Rectangle {
                 visible: home.editing; anchors.fill: parent; anchors.margins: -4; radius: 30; color: "transparent"
                 border.width: 2; border.color: Theme.alpha(Theme.primary, move.active || resize.active ? .9 : .5)
@@ -246,12 +244,11 @@ Item {
             // White text with a soft glow, like the icon labels, so the heading reads on any wallpaper.
             Column {
                 id: heading
-                readonly property bool onLight: home.lightAt(glance.x, glance.y, Math.max(width, 500), 90)
                 spacing: 6
                 layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
-                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: heading.onLight ? "#ffffff" : "#000000"; shadowOpacity: heading.onLight ? .8 : .85; shadowBlur: .35; shadowVerticalOffset: heading.onLight ? 0 : 2 }
-                MText { text: "Pick up where you left off"; role: "displayS"; color: heading.onLight ? "#1d1b1e" : "#ffffff" }
-                MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: Theme.alpha(heading.onLight ? "#1d1b1e" : "#ffffff", .85) }
+                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; blurMax: 12; shadowBlur: .5; shadowScale: 1.02; shadowHorizontalOffset: 1; shadowVerticalOffset: 2 }
+                MText { text: "Pick up where you left off"; role: "displayS"; color: "#ffffff" }
+                MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: "#ffffff" }
             }
             Row {
                 id: row

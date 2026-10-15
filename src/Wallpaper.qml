@@ -16,7 +16,5 @@ Item {
     // Desktop mode only: game mode keeps a clean wallpaper.
     property bool showHome:true
     // Desktop home: icons, the widget canvas and the empty-workspace glance. Widgets follow the desktop widgets preference.
-    // Brightness of the wallpaper, so desktop text can turn dark over light areas.
-    WallpaperTone {id:tone;source:w.custom ? (w.imagePath.startsWith("/") ? "file://"+w.imagePath : w.imagePath) : "";fit:w.fit;dim:w.dim;areaWidth:w.width;areaHeight:w.height}
-    DesktopHome {anchors.fill:parent;anchors.bottomMargin:72;screenName:w.screenName;visible:w.showHome;widgets:w.showWidgets;tone:tone}
+    DesktopHome {anchors.fill:parent;anchors.bottomMargin:72;screenName:w.screenName;visible:w.showHome;widgets:w.showWidgets}
 }

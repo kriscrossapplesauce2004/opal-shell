@@ -46,8 +46,7 @@ ShellRoot {
                 readonly property string wall: win.current.bright ? "file:///home/melissa/Pictures/dr5-keyart-YzI66DkClTeJ5jBQ.png" : "file:///home/melissa/Pictures/Wallpapers/default.png"
                 Image { anchors.fill: parent; source: dv.wall; fillMode: Image.PreserveAspectCrop; sourceSize: Qt.size(1920, 1080) }
                 Rectangle { anchors.fill: parent; color: "#000000"; opacity: .11 }
-                Opal.WallpaperTone { id: tone; source: dv.wall; dim: .11; areaWidth: dv.width; areaHeight: dv.height }
-                Opal.DesktopHome { id: dh; anchors.fill: parent; anchors.bottomMargin: 72; screenName: "TEST-1"; tone: tone }
+                Opal.DesktopHome { id: dh; anchors.fill: parent; anchors.bottomMargin: 72; screenName: "TEST-1" }
             }
         }
         function run() {
