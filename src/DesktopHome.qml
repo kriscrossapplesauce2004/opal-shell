@@ -112,9 +112,11 @@ Item {
                             id: label
                             anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; text: tile.it.name; role: "label"
                             maximumLineCount: tile.chosen ? 3 : 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
-                            color: tile.chosen ? Theme.onPrimary : labelBox.onLight ? "#1d1b1e" : "#ffffff"
-                            layer.enabled: !tile.chosen && GraphicsInfo.api !== GraphicsInfo.Software
-                            layer.effect: MultiEffect { shadowEnabled: true; shadowColor: labelBox.onLight ? "#ffffff" : "#000000"; shadowOpacity: labelBox.onLight ? .75 : .85; shadowBlur: .45; shadowVerticalOffset: labelBox.onLight ? 0 : 1; shadowHorizontalOffset: 0 }
+                            font.weight: Font.DemiBold
+                            color: tile.chosen ? Theme.onPrimary : labelBox.onLight ? "#17151a" : "#ffffff"
+                            // Dark text on a light area needs no glow; white text gets a tight dark halo.
+                            layer.enabled: !tile.chosen && !labelBox.onLight && GraphicsInfo.api !== GraphicsInfo.Software
+                            layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; shadowBlur: .28; shadowScale: 1.02; shadowVerticalOffset: 1; shadowHorizontalOffset: 0 }
                         }
                     }
                 }
@@ -246,8 +248,8 @@ Item {
                 id: heading
                 readonly property bool onLight: home.lightAt(glance.x, glance.y, Math.max(width, 500), 90)
                 spacing: 6
-                layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
-                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: heading.onLight ? "#ffffff" : "#000000"; shadowOpacity: heading.onLight ? .6 : .7; shadowBlur: .7; shadowVerticalOffset: heading.onLight ? 0 : 2 }
+                layer.enabled: !heading.onLight && GraphicsInfo.api !== GraphicsInfo.Software
+                layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: .85; shadowBlur: .4; shadowVerticalOffset: 2 }
                 MText { text: "Pick up where you left off"; role: "displayS"; color: heading.onLight ? "#1d1b1e" : "#ffffff" }
                 MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: Theme.alpha(heading.onLight ? "#1d1b1e" : "#ffffff", .85) }
             }

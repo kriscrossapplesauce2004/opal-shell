@@ -18,7 +18,7 @@ Item {
         id: column
         spacing: 6
         // The software renderer cannot draw the shadow effect, so the text stays plain there.
-        layer.enabled: glance.shadow && GraphicsInfo.api !== GraphicsInfo.Software
+        layer.enabled: glance.shadow && !glance.onLight && GraphicsInfo.api !== GraphicsInfo.Software
         layer.effect: MultiEffect { shadowEnabled: true; shadowColor: glance.onLight ? Theme.alpha("#ffffff", .6) : Theme.alpha("#000000", Theme.light ? .25 : .55); shadowBlur: .6; shadowVerticalOffset: glance.onLight ? 0 : 1 }
         Row {
             spacing: 10

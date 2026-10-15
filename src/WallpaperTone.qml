@@ -13,7 +13,8 @@ Canvas {
     property var grid: []
     readonly property int cols: 64
     readonly property int rows: Math.max(1, Math.round(cols * areaHeight / Math.max(1, areaWidth)))
-    visible: false
+    // Qt skips painting a hidden canvas, so it stays visible and the wallpaper covers it.
+    z: -1
     width: cols; height: rows
     renderStrategy: Canvas.Immediate
     onSourceChanged: { grid = []; if (source) loadImage(source); }
@@ -51,5 +52,5 @@ Canvas {
         return n ? sum / n : -1;
     }
     // True when dark text reads better than white text on that rectangle.
-    function lightAt(x, y, w, h) { return lumAt(x, y, w, h) > .58; }
+    function lightAt(x, y, w, h) { return lumAt(x, y, w, h) > .62; }
 }
