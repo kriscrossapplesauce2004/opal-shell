@@ -79,15 +79,16 @@ function rank(query, rows, boost) {
 var SECTIONS = [["app", "Apps"], ["window", "Windows"], ["setting", "Settings"], ["action", "Actions"], ["file", "Files"], ["media", "Media"], ["game", "Games"], ["device", "On your devices"]];
 
 // Build sections from per-source result lists. The best result of all leads, then each source keeps at most "per" rows.
-function sections(lists, per) {
-    var limit = per || 4, all = [];
+function sections(lists, per, total) {
+    var limit = per || 4, budget = total || 12, all = [];
     SECTIONS.forEach(function (s) { (lists[s[0]] || []).forEach(function (r) { all.push(Object.assign({}, r, {kind: r.kind || s[0]})); }); });
     all.sort(function (a, b) { return b.score - a.score; });
     var best = all.length && all[0].score >= 500 ? all[0] : null;
     var out = [];
     SECTIONS.forEach(function (s) {
         var items = (lists[s[0]] || []).map(function (r) { return Object.assign({}, r, {kind: r.kind || s[0]}); })
-            .filter(function (r) { return !best || r.key !== best.key; }).slice(0, limit);
+            .filter(function (r) { return !best || r.key !== best.key; }).slice(0, Math.min(limit, budget));
+        budget -= items.length;
         if (items.length) out.push({id: s[0], title: s[1], items: items});
     });
     return {best: best, sections: out};

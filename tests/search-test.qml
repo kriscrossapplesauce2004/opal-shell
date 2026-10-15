@@ -16,7 +16,8 @@ ShellRoot {
             {name: "search-convert", q: "5 km to mi"},
             {name: "search-claude", q: "how do i make window gaps smaller", answer: "Open **Settings › Wallpaper & style › Window gaps** and lower *Inner* and *Outer*. Opal writes the new values to its Hyprland include, so it applies at once."},
             {name: "search-files", q: "roadmap", files: [{path: "/home/u/opal/docs/ROADMAP-2026-10.md", name: "ROADMAP-2026-10.md", folder: "~/opal/docs", dir: false}]},
-            {name: "search-touch", q: "set", touch: true, w: 412, h: 760}
+            {name: "search-touch", q: "set", touch: true, w: 412, h: 760},
+            {name: "search-overflow", q: "s", h: 460}
         ]
         Rectangle { id: panel; x: 20; y: 20; width: win.width - 40; height: win.height - 40; radius: 32; color: Opal.Theme.level(1); clip: true
             Loader { id: loader; anchors.fill: parent }

@@ -74,7 +74,7 @@ ShellRoot {
                         sourceComponent:morph.shown==="phone" ? phoneBackdrop : desktopBackdrop
                     }
                     Component {id:phoneBackdrop;PhoneBackdrop {}}
-                    Component {id:desktopBackdrop;Wallpaper {showWidgets:morph.shown==="desktop"&&Hub.prefs.desktopWidgets!==false}}
+                    Component {id:desktopBackdrop;Wallpaper {showWidgets:morph.shown==="desktop"&&Hub.prefs.desktopWidgets!==false;showHome:morph.shown==="desktop";screenName:output.modelData.name}}
                     // Non-exclusive homes live behind applications. Only the explicit overlay takes keys.
                     Loader {
                         anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? 48 : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? (PhoneState.isTablet(output.modelData)&&Hub.prefs.tabletDock!==false ? 68 : Hub.prefs.phoneButtons ? 64 : 48) : 84}
@@ -87,13 +87,15 @@ ShellRoot {
                 OpalMenu {id:desktopMenu;title:"Desktop";icon:"desktop_windows";entries:[
                     {text:"Apps",icon:"apps",quick:true,run:()=>{Hub.launcherSection="apps";output.show("launcher");}},
                     {text:"Wallpaper",icon:"wallpaper",quick:true,run:()=>output.show("wallpaper")},
+                    {text:"Edit desktop",icon:"edit",quick:true,run:()=>{Hub.set("desktopWidgets",true);HomeData.editingScreen=output.modelData.name;}},
                     {text:"Settings",icon:"settings",quick:true,run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}},
                     {text:"Dark theme",icon:"dark_mode",checked:!Theme.light,run:()=>Hub.set("light",!Theme.light)},
                     {text:"Desktop widgets",icon:"widgets",checked:Hub.prefs.desktopWidgets!==false,run:()=>Hub.set("desktopWidgets",Hub.prefs.desktopWidgets===false)},
                     {text:"Style and colours",icon:"palette",run:()=>output.show("appearance")},
                     {text:"Displays & convergence",icon:"convergence",run:()=>output.show("convergence")}
                 ]}
-                MouseArea {anchors.fill:parent;acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}
+                // Below the home, so desktop icons and widgets get their own right clicks first.
+                MouseArea {anchors.fill:parent;z:-1;acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}
             }
             PanelWindow {
                 id:statusbar

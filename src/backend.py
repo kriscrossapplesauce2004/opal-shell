@@ -48,6 +48,7 @@ def valid_phone_home(value):
 import system_tools
 import activity_signals
 import search_files
+import home_data, weather
 import theme_export
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
@@ -421,6 +422,7 @@ def commands():
                 valid = valid or key=='quickTiles' and isinstance(value,list) and len(value)<=len(QUICK_TILE_IDS) and all(v in QUICK_TILE_IDS for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneRows' and type(value)==int and 4<=value<=7
                 valid = valid or valid_preference(key, value)
+                valid = valid or home_data.valid_preference(key, value)
                 valid = valid or phone_commands.valid_preference(key, value)
                 valid = valid or key=='taskbarOrder' and isinstance(value,list) and len(value)<=128 and all(isinstance(v,str) and 0<len(v)<300 for v in value) and len(set(value))==len(value)
                 valid = valid or key=='phoneDisplay' and isinstance(value,str) and 0<len(value)<=128 and all(ch.isalnum() or ch in '_.:-' for ch in value)
@@ -571,6 +573,10 @@ def commands():
             elif action=='calculate': emit({'event':'calculation','query':c.get('text',''),'result':calculate(c.get('text',''))})
             elif action=='file-search' and isinstance(c.get('text'),str): emit({'event':'fileSearch','query':c['text'],'items':search_files.search(c['text'])})
             elif action=='open-path' and search_files.openable(c.get('path')): spawn(['xdg-open',os.path.realpath(c['path'])])
+            elif action=='desktop-open' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(home_data.launch_command(os.path.realpath(c['path'])))
+            elif action=='desktop-trash' and home_data.inside(c.get('path'),home_data.desktop_dir()): run('gio','trash',os.path.realpath(c['path'])); home_state['desktop']=None
+            elif action=='desktop-reveal' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(['gdbus','call','--session','--dest','org.freedesktop.FileManager1','--object-path','/org/freedesktop/FileManager1','--method','org.freedesktop.FileManager1.ShowItems','["'+pathlib.Path(os.path.realpath(c['path'])).as_uri()+'"]',''])
+            elif action=='home-refresh': home_state.update({'desktop':None,'weatherKey':None,'photo':0,'updates':0})
             elif action=='clipboard':
                 if shutil.which('wl-copy'): subprocess.run(['wl-copy'],input=str(c.get('text','')).encode('utf-8'),timeout=2)
             elif action=='clipboard-list': clipboard.publish()
@@ -685,6 +691,30 @@ def status():
     s['pacman']=activity_signals.pacman_state()
     s['camera']=activity_signals.camera_users()
     return s
+
+# Home sources: each one is published only when it changes.
+home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0}
+def home_watch():
+    time.sleep(2)
+    while True:
+        try:
+            sig=home_data.signature()
+            if sig!=home_state['desktop']:
+                home_state['desktop']=sig
+                emit({'event':'desktopFiles','folder':str(home_data.desktop_dir()),'items':home_data.list_desktop()})
+            city=str(prefs.get('weatherCity') or '').strip(); f=prefs.get('weatherFahrenheit') is True
+            key=(city,f); now=time.time()
+            if key!=home_state['weatherKey'] or now-home_state['weatherAt']>=weather.REFRESH:
+                home_state['weatherKey']=key; home_state['weatherAt']=now
+                emit({'event':'weather','data':weather.update(city,f,force=False) if city else None})
+            if now-home_state['photo']>=6*3600:
+                home_state['photo']=now
+                emit({'event':'photoMemory','data':home_data.memory(home_data.pictures())})
+            if now-home_state['updates']>=3*3600:
+                home_state['updates']=now
+                threading.Thread(target=lambda: emit({'event':'updates','count':home_data.pending_updates()}),daemon=True).start()
+        except Exception: pass
+        time.sleep(3)
 
 def library_art():
     """Index existing local Steam artwork. Never download assets."""
@@ -1076,6 +1106,7 @@ def main():
     threading.Thread(target=health_watch,daemon=True).start()
     threading.Thread(target=publish_games,daemon=True).start()
     threading.Thread(target=link_apply,daemon=True).start()
+    threading.Thread(target=home_watch,daemon=True).start()
     from hypr_events import listen as listen_hyprland
     def compositor_emit(data):
         emit(data)

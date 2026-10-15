@@ -70,6 +70,23 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
             }
         }
         MButton {Layout.fillWidth:true;icon:"home";text:Hub.prefs.desktopWidgets!==false ? "Desktop widgets on" : "Desktop widgets off";tonal:true;onClicked:Hub.set("desktopWidgets",Hub.prefs.desktopWidgets===false)}
+        MText {text:"WEATHER";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
+        // Weather comes from Open-Meteo for this city. Leave it empty to turn weather off.
+        RowLayout {Layout.fillWidth:true;spacing:8
+            Rectangle {
+                Layout.fillWidth:true;Layout.preferredHeight:48;radius:24;color:Theme.level(3)
+                Glyph {x:16;anchors.verticalCenter:parent.verticalCenter;name:"location_on";font.pixelSize:20;color:Theme.subtext}
+                TextInput {
+                    id:cityField
+                    anchors.fill:parent;anchors.leftMargin:46;anchors.rightMargin:16;verticalAlignment:TextInput.AlignVCenter
+                    text:Hub.prefs.weatherCity||"";color:Theme.text;font.family:Theme.font;font.pixelSize:15;maximumLength:80;clip:true
+                    onEditingFinished:if(text.trim()!==(Hub.prefs.weatherCity||""))Hub.set("weatherCity",text.trim())
+                    MText {anchors.verticalCenter:parent.verticalCenter;visible:!cityField.text&&!cityField.activeFocus;text:"City for weather, like Lisbon";color:Theme.subtext}
+                }
+            }
+            MButton {text:Hub.prefs.weatherFahrenheit ? "°F" : "°C";tonal:true;implicitWidth:64;tooltip:"Temperature unit";onClicked:Hub.set("weatherFahrenheit",!Hub.prefs.weatherFahrenheit)}
+        }
+        MText {Layout.fillWidth:true;visible:!!HomeData.weather;text:HomeData.weather ? "Now in "+HomeData.weather.place+": "+HomeData.weather.temp+HomeData.weather.unit+", "+HomeData.weather.text.toLowerCase() : "";color:Theme.subtext;font.pixelSize:11}
         MText {text:"TASKBAR & NAVIGATION";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MButton {Layout.fillWidth:true;icon:"expand";text:Hub.prefs.taskbarAutoHide ? "Auto-hide on · zero reserved space" : "Floating shelf · always visible";tonal:true;onClicked:Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide)}
         MButton {Layout.fillWidth:true;icon:"phone";text:Hub.prefs.phoneButtons ? "Phone: three-button navigation" : "Phone: gesture strip & shortcuts";tonal:true;onClicked:Hub.set("phoneButtons",!Hub.prefs.phoneButtons)}

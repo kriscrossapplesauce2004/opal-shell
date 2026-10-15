@@ -604,6 +604,7 @@ Scope {
                     else if(e.event === "gamePerf" || e.event === "gameDetail") GameState.receive(e);
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;
                     else if(e.event === "fileSearch") h.fileResults={query:e.query||"",items:e.items||[]};
+                    else if(e.event === "desktopFiles"||e.event === "weather"||e.event === "photoMemory"||e.event === "updates") HomeData.ingest(e);
                     else if(e.event === "clipboard") {
                         h.clipboardItems=e.items||[];h.clipboardPaused=!!e.paused;
                         h.clipboardAvailable=!!e.available;h.clipboardDetail=e.detail||"";

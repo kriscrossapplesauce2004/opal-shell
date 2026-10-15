@@ -24,7 +24,7 @@ FocusScope {
     property string sentQuery: ""
     // Space around the content. Hosts with their own padding set 0.
     property real inset: 16
-    readonly property real fitHeight: layout.implicitHeight + inset * 2
+    readonly property real fitHeight: layout.implicitHeight + inset * 2 + (ownField ? fieldBox.height + 12 : 0)
     implicitHeight: fitHeight
 
     readonly property var actions: [
@@ -96,7 +96,7 @@ FocusScope {
     readonly property var built: Model.sections({
         app: core.filter(r => r.kind === "app"), window: core.filter(r => r.kind === "window"), action: core.filter(r => r.kind === "action"),
         setting: settingHits.filter(r => !topSetting || r.id !== topSetting.id), file: fileHits, game: gameHits, device: deviceHits
-    }, touch ? 3 : 4)
+    }, query.length <= 2 ? 2 : touch ? 3 : 4, query.length <= 2 ? 7 : touch ? 9 : 12)
     readonly property var best: claude || conversion ? null : built.best
     readonly property var groups: built.sections
     readonly property var flat: (best ? [best] : []).concat(groups.reduce((all, g) => all.concat(g.items), [])).concat(searching && !math ? [{kind: "web", title: query, key: "web"}] : [])
@@ -109,6 +109,13 @@ FocusScope {
         return out.slice(0, 5);
     }
 
+    // Keep the chosen row inside the visible part of the list.
+    function reveal(item) {
+        if (!scroller.interactive) return;
+        const p = item.mapToItem(layout, 0, 0);
+        if (p.y < scroller.contentY) scroller.contentY = Math.max(0, p.y - 8);
+        else if (p.y + item.height > scroller.contentY + scroller.height) scroller.contentY = p.y + item.height - scroller.height + 8;
+    }
     function move(delta) { selection = Math.max(0, Math.min(flat.length - 1, selection + delta)); }
     function ask() { if (!searching) return; askedFor = query; sendClaude(); }
     function sendClaude() { if (sentQuery === query) return; sentQuery = query; Hub.askClaude(query); }
@@ -163,13 +170,10 @@ FocusScope {
     Component.onCompleted: { PhoneState.refreshActivity(); if (ownField) field.forceActiveFocus(); }
     Keys.onEscapePressed: event => { if (s.searching) Hub.query = ""; else Hub.close(); event.accepted = true; }
 
-    ColumnLayout {
-        id: layout
-        anchors { left: parent.left; right: parent.right; top: parent.top; margins: s.inset }
-        spacing: 12
-        Rectangle {
-            visible: s.ownField
-            Layout.fillWidth: true; Layout.preferredHeight: s.touch ? 60 : 56; radius: height / 2
+    Rectangle {
+        id: fieldBox
+        visible: s.ownField
+        x: s.inset; y: s.inset; width: s.width - s.inset * 2; height: s.ownField ? (s.touch ? 60 : 56) : 0; radius: height / 2
             color: Theme.level(3)
             RowLayout {
                 anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 8; spacing: 12
@@ -201,6 +205,16 @@ FocusScope {
             }
         }
 
+    Flickable {
+        id: scroller
+        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; top: fieldBox.bottom; topMargin: s.ownField ? 12 : 0 }
+        clip: true; contentHeight: layout.implicitHeight + s.inset * (s.ownField ? 1 : 2); boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+        ScrollBar.vertical: ScrollBar { policy: scroller.interactive ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff }
+    ColumnLayout {
+        id: layout
+        x: s.inset; y: s.ownField ? 0 : s.inset; width: scroller.width - s.inset * 2
+        spacing: 12
         // Idle: five frequent apps and the suggestion pills. Nothing else.
         RowLayout {
             visible: !s.searching && s.frequent.length > 0
@@ -331,6 +345,7 @@ FocusScope {
             text: "↑↓ choose   ·   Enter open   ·   Tab ask Claude   ·   Esc clear"; role: "labelS"; color: Theme.subtext
         }
     }
+    }
 
     component ResultIcon: Item {
         property var item: null
@@ -349,6 +364,7 @@ FocusScope {
         property bool web: false
         readonly property int order: s.flat.indexOf(item)
         readonly property bool current: order >= 0 && order === s.selection
+        onCurrentChanged: if (current) s.reveal(row)
         Layout.fillWidth: true; Layout.preferredHeight: s.touch ? 60 : 50; radius: 16
         color: current ? Theme.secondaryContainer : rowMouse.containsMouse ? Theme.alpha(Theme.stateLayer, .06) : "transparent"
         Behavior on color { ColorAnimation { duration: Theme.motion(100) } }

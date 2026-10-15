@@ -60,6 +60,8 @@ const out = m.sections({app: [{key: 'a1', title: 'Darktable', score: 1000}, {key
 assert.equal(out.best.key, 'a1');
 assert.equal(JSON.stringify(out.sections.map(s => s.id)), JSON.stringify(['app', 'setting', 'file']));
 assert.equal(out.sections[0].items.length, 1);
+const capped = m.sections({app: [1,2,3,4].map(i => ({key: 'a' + i, title: 'A', score: 100})), file: [1,2,3].map(i => ({key: 'f' + i, title: 'F', score: 100}))}, 4, 5);
+assert.equal(capped.sections.reduce((n, s) => n + s.items.length, 0), 5);
 const none = m.sections({app: [{key: 'x', title: 'X', score: 100}]});
 assert.equal(none.best, null);
 ''')
