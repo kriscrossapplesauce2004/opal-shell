@@ -85,14 +85,20 @@ ShellRoot {
                     Component {id:gameHome;ConsoleHome {embedded:true}}
                 }
                 OpalMenu {id:desktopMenu;title:"Desktop";icon:"desktop_windows";entries:[
-                    {text:"Apps",icon:"apps",quick:true,run:()=>{Hub.launcherSection="apps";output.show("launcher");}},
+                    {text:"New folder",icon:"create_new_folder",quick:true,run:()=>Hub.command({action:"desktop-new-folder"})},
+                    {text:"New file",icon:"note_add",quick:true,run:()=>Hub.command({action:"desktop-new-file"})},
+                    {text:"Terminal",icon:"terminal",quick:true,run:()=>Hub.command({action:"desktop-terminal"})},
                     {text:"Wallpaper",icon:"wallpaper",quick:true,run:()=>output.show("wallpaper")},
-                    {text:"Edit desktop",icon:"edit",quick:true,run:()=>{Hub.set("desktopWidgets",true);HomeData.editingScreen=output.modelData.name;}},
-                    {text:"Settings",icon:"settings",quick:true,run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}},
-                    {text:"Dark theme",icon:"dark_mode",checked:!Theme.light,run:()=>Hub.set("light",!Theme.light)},
+                    {text:"Open Desktop in Files",icon:"folder_open",run:()=>Hub.command({action:"desktop-open-folder"})},
+                    {text:"Sort by "+({name:"name",type:"type",date:"date"})[Hub.prefs.desktopSort||"name"],detail:"Click to sort by "+({name:"type",type:"date",date:"name"})[Hub.prefs.desktopSort||"name"],icon:"sort",
+                        run:()=>{Hub.set("desktopSort",({name:"type",type:"date",date:"name"})[Hub.prefs.desktopSort||"name"]);Hub.set("desktopSlots",{});}},
+                    {text:"Clean up icons",detail:"Put every icon back in order",icon:"grid_view",run:()=>Hub.set("desktopSlots",{})},
+                    {text:"Edit widgets",icon:"edit",run:()=>{Hub.set("desktopWidgets",true);HomeData.editingScreen=output.modelData.name;}},
+                    {text:"Desktop icons",icon:"apps",checked:Hub.prefs.desktopIcons!==false,run:()=>Hub.set("desktopIcons",Hub.prefs.desktopIcons===false)},
                     {text:"Desktop widgets",icon:"widgets",checked:Hub.prefs.desktopWidgets!==false,run:()=>Hub.set("desktopWidgets",Hub.prefs.desktopWidgets===false)},
-                    {text:"Style and colours",icon:"palette",run:()=>output.show("appearance")},
-                    {text:"Displays & convergence",icon:"convergence",run:()=>output.show("convergence")}
+                    {text:"Dark theme",icon:"dark_mode",checked:!Theme.light,run:()=>Hub.set("light",!Theme.light)},
+                    {text:"Display settings",icon:"monitor",run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings("displays");}},
+                    {text:"Settings",icon:"settings",run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}}
                 ]}
                 // Below the home, so desktop icons and widgets get their own right clicks first.
                 MouseArea {anchors.fill:parent;z:-1;acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}

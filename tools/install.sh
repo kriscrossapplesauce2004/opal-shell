@@ -230,6 +230,12 @@ case "${1:-on}" in
         fi
         # Stop DMS before Opal starts so two shells never show at the same time.
         systemd_user mask --runtime --now dms.service || true
+        # Use the desktop icon theme, so folders and file types get real icons and not only app icons.
+        if [[ -z "${QS_ICON_THEME:-}" ]]; then
+            QS_ICON_THEME=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'") || true
+            [[ -n "$QS_ICON_THEME" ]] || QS_ICON_THEME=$(sed -n 's/^icon_theme=//p' "${XDG_CONFIG_HOME:-$HOME/.config}/qt6ct/qt6ct.conf" 2>/dev/null | head -1)
+            [[ -n "$QS_ICON_THEME" ]] && export QS_ICON_THEME
+        fi
         quickshell -d -n -p "$config"
         touch "$marker"
         command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] && hyprctl reload config-only || true

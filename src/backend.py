@@ -54,6 +54,7 @@ import system_tools
 import activity_signals
 import search_files
 import home_data, weather
+import floating_mode
 import theme_export
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
@@ -434,8 +435,10 @@ def commands():
                 valid = valid or key=='assistantMode' and value in ('ask','auto')
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
                 valid = valid or key in CONVERGE_KEYS and type(value)==bool
+                valid = valid or key=='floatingMode' and type(value)==bool
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
+                    if key=='floatingMode': threading.Thread(target=floating_apply,args=(value,),daemon=True).start()
             elif action=='display-layouts':
                 from display_layouts import publish
                 runtime=os.environ.get('XDG_RUNTIME_DIR')
@@ -581,6 +584,17 @@ def commands():
             elif action=='desktop-open' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(home_data.launch_command(os.path.realpath(c['path'])))
             elif action=='desktop-trash' and home_data.inside(c.get('path'),home_data.desktop_dir()): run('gio','trash',os.path.realpath(c['path'])); home_state['desktop']=None
             elif action=='desktop-reveal' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(['gdbus','call','--session','--dest','org.freedesktop.FileManager1','--object-path','/org/freedesktop/FileManager1','--method','org.freedesktop.FileManager1.ShowItems','["'+pathlib.Path(os.path.realpath(c['path'])).as_uri()+'"]',''])
+            elif action=='window-minimize': threading.Thread(target=window_minimize,args=(c.get('address'),),daemon=True).start()
+            elif action=='window-restore': threading.Thread(target=window_restore,args=(c.get('address'),),daemon=True).start()
+            elif action=='window-snap' and floating_mode.valid_cell(c.get('cell')): threading.Thread(target=window_snap,args=(c.get('address'),c['cell']),daemon=True).start()
+            elif action in ('desktop-new-folder','desktop-new-file'):
+                made=home_data.create(home_data.desktop_dir(),'folder' if action=='desktop-new-folder' else 'file'); home_state['desktop']=None
+                if not made: emit({'event':'message','text':'Could not make it on the desktop'})
+            elif action=='desktop-terminal':
+                command=home_data.terminal_command(home_data.desktop_dir())
+                if command: spawn(command)
+                else: emit({'event':'message','text':'No terminal app found'})
+            elif action=='desktop-open-folder': spawn(['xdg-open',str(home_data.desktop_dir())])
             elif action=='home-refresh': home_state.update({'desktop':None,'weatherKey':None,'photo':0,'updates':0})
             elif action=='clipboard':
                 if shutil.which('wl-copy'): subprocess.run(['wl-copy'],input=str(c.get('text','')).encode('utf-8'),timeout=2)
@@ -696,6 +710,88 @@ def status():
     s['pacman']=activity_signals.pacman_state()
     s['camera']=activity_signals.camera_users()
     return s
+
+# Floating window mode. Every Hyprland call goes through HyprActions; the plan comes from floating_mode.
+floating_lock=threading.Lock()
+floating_seen=set()
+floating_saved_at=[0.0]
+def floating_reload():
+    if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') and shutil.which('hyprctl'):
+        subprocess.run(['hyprctl','reload','config-only'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
+def floating_run(ops):
+    for op in ops:
+        try:
+            if op['op']=='float': hypr_actions.set_floating(op['address'],op['value'])
+            elif op['op']=='geometry': hypr_actions.geometry(op['address'],*op['rect'])
+        except (ValueError,OSError,subprocess.SubprocessError): pass
+def floating_apply(on):
+    with floating_lock:
+        state=floating_mode.load()
+        try: clients=hypr_actions.clients()
+        except (ValueError,OSError,subprocess.SubprocessError): clients=[]
+        if on:
+            ops,before=floating_mode.plan_enable(clients,state.get('memory',{}))
+            state['before']=before
+            floating_mode.save(state)
+            # The reload loads the rule that floats new windows and the titlebars.
+            floating_reload()
+            floating_run(ops)
+        else:
+            state['memory']=floating_mode.remember(state.get('memory',{}),clients)
+            try: rules=floating_mode.user_float_rules(floating_mode.HYPR_CONFIG.read_text())
+            except OSError: rules=[]
+            ops=floating_mode.plan_disable(clients,state.get('before',[]),rules)
+            floating_reload()
+            floating_run(ops)
+            state['before']=[]
+            floating_mode.save(state)
+        floating_seen.clear()
+        floating_seen.update(c.get('address') for c in clients)
+def floating_watch(data):
+    # While the mode is on: a new window opens where its app was last time, and places are remembered.
+    windows=data.get('windows')
+    if not prefs.get('floatingMode') or windows is None: return
+    clients=[{'address':w.get('address'),'class':w.get('className',''),'title':w.get('title',''),'floating':w.get('floating'),'fullscreen':w.get('fullscreen',0),
+              'workspace':{'id':w.get('workspace',0)},'at':w.get('at',[0,0]),'size':w.get('size',[0,0])} for w in windows]
+    state=floating_mode.load()
+    memory=state.get('memory',{})
+    fresh=[c for c in clients if c['address'] not in floating_seen]
+    floating_seen.update(c['address'] for c in clients)
+    for c in fresh:
+        rect=memory.get(c['class'])
+        if rect and c['floating'] and floating_mode.regular(c): floating_run([{'op':'geometry','address':c['address'],'rect':rect}])
+    if time.time()-floating_saved_at[0]>15:
+        floating_saved_at[0]=time.time()
+        state['memory']=floating_mode.remember(memory,clients)
+        floating_mode.save(state)
+def floating_active(address):
+    if isinstance(address,str) and address: return address
+    try: return json.loads(subprocess.run(['hyprctl','-j','activewindow'],capture_output=True,text=True,timeout=3).stdout or '{}').get('address','')
+    except (OSError,ValueError,subprocess.SubprocessError): return ''
+def window_minimize(address):
+    address=floating_active(address)
+    try:
+        client=next((c for c in hypr_actions.clients() if c.get('address')==address),None)
+        if not client or int(client['workspace']['id'])<=0: return
+        state=floating_mode.load(); state.setdefault('minimized',{})[address]=int(client['workspace']['id']); floating_mode.save(state)
+        hypr_actions.minimize(address)
+    except (ValueError,OSError,KeyError,subprocess.SubprocessError): pass
+def window_restore(address):
+    try:
+        state=floating_mode.load(); number=state.get('minimized',{}).pop(address,None); floating_mode.save(state)
+        hypr_actions.restore(address,number if type(number) is int and number>0 else 1)
+    except (ValueError,OSError,subprocess.SubprocessError): pass
+def window_snap(address,cell):
+    address=floating_active(address)
+    try:
+        client=next((c for c in hypr_actions.clients() if c.get('address')==address),None)
+        if not client: return
+        monitor=next((m for m in hypr_actions.monitors() if m.get('id')==client.get('monitor')),None)
+        if not monitor: return
+        if client.get('fullscreen'): hypr_actions.fullscreen(address,0)
+        if not client.get('floating'): hypr_actions.set_floating(address,True)
+        hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell))
+    except (ValueError,OSError,subprocess.SubprocessError): pass
 
 # Home sources: each one is published only when it changes.
 home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0}
@@ -1115,7 +1211,10 @@ def main():
     from hypr_events import listen as listen_hyprland
     def compositor_emit(data):
         emit(data)
-        if data.get('event')=='compositor': link_compositor(data.get('data') or {})
+        if data.get('event')=='compositor':
+            link_compositor(data.get('data') or {})
+            try: floating_watch(data.get('data') or {})
+            except (ValueError,OSError,KeyError,TypeError): pass
     threading.Thread(target=listen_hyprland, args=(compositor_emit,), daemon=True).start()
     last_published=None
     while True:

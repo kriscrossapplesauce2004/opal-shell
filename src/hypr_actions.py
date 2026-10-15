@@ -102,6 +102,18 @@ class HyprActions:
             verb='movetoworkspace' if follow else 'movetoworkspacesilent'
             self.runner(['hyprctl','dispatch',verb,str(number)+',address:'+address])
 
+    def minimize(self,address):
+        """Hide a window on the Opal special workspace. It does not take focus."""
+        self._validate_address(address)
+        if self.is_lua():self._lua_window(address,'hl.dispatch(hl.dsp.window.move({workspace="special:opal-minimized",follow=false,window=w}))')
+        else:self.runner(['hyprctl','dispatch','movetoworkspacesilent','special:opal-minimized,address:'+address])
+
+    def restore(self,address,number):
+        """Bring a minimized window back to its workspace and focus it."""
+        self._validate_address(address)
+        self._validate_workspace(number)
+        self.move(address,number,follow=True)
+
     _OUTPUT=re.compile(r'[A-Za-z0-9._-]{1,64}')
     def rotate(self,output,transform):
         """Rotate one output and its touch input. Transform is Hyprland's 0-3 (0, 90, 180, 270 degrees)."""

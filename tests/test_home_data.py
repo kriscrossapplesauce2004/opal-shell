@@ -74,6 +74,17 @@ class HomeDataTests(unittest.TestCase):
         self.assertEqual(hd.pending_updates(runner=lambda *a, **k: types.SimpleNamespace(returncode=2, stdout=''), which=lambda n: '/x'), 0)
         self.assertEqual(hd.pending_updates(which=lambda n: None), -1)
 
+    def test_create_and_terminal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = pathlib.Path(tmp)
+            self.assertEqual(hd.create(d, 'folder').name, 'New Folder')
+            self.assertEqual(hd.create(d, 'folder').name, 'New Folder 2')
+            self.assertEqual(hd.create(d, 'file').name, 'New Document.txt')
+            self.assertTrue((d / 'New Folder 2').is_dir())
+        self.assertEqual(hd.terminal_command('/d', which=lambda t: '/usr/bin/kitty' if t == 'kitty' else None), ['kitty', '--directory', '/d'])
+        self.assertEqual(hd.terminal_command('/d', which=lambda t: '/x' if t == 'xdg-terminal-exec' else None), ['xdg-terminal-exec', '--dir=/d'])
+        self.assertIsNone(hd.terminal_command('/d', which=lambda t: None))
+
     def test_preferences(self):
         good = [{'id': 'g1', 'kind': 'glance', 'x': 10, 'y': 0, 'w': 5, 'h': 1}]
         self.assertTrue(hd.valid_preference('desktopCanvas', good))
@@ -85,6 +96,8 @@ class HomeDataTests(unittest.TestCase):
         self.assertTrue(hd.valid_preference('weatherCity', 'Lisbon'))
         self.assertFalse(hd.valid_preference('weatherCity', 5))
         self.assertFalse(hd.valid_preference('other', 1))
+        self.assertTrue(hd.valid_preference('desktopSort', 'date')); self.assertFalse(hd.valid_preference('desktopSort', 'size'))
+        self.assertTrue(hd.valid_preference('desktopIcons', False)); self.assertTrue(hd.valid_preference('desktopSlots', {}))
 
 
 if __name__ == '__main__':

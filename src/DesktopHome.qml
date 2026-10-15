@@ -37,13 +37,18 @@ Item {
     // ~/Desktop icons in a column-major grid of slots. Dragged icons keep their slot.
     Item {
         id: icons
+        visible: Hub.prefs.desktopIcons !== false
         x: 12; y: 12; width: Math.min(parent.width * .45, 6 * slotW); height: parent.height - 24
         readonly property real slotW: 96
         readonly property real slotH: 104
         readonly property int perColumn: Math.max(1, Math.floor(height / slotH))
         readonly property var slots: {
             const saved = Hub.prefs.desktopSlots || {}, used = {}, out = [];
-            const items = HomeData.desktopItems;
+            // Icons without a saved slot fill the free slots in the chosen order: folders first, then by name, type or date.
+            const sort = Hub.prefs.desktopSort || "name";
+            const items = HomeData.desktopItems.slice().sort((a, b) => (b.dir - a.dir)
+                || (sort === "date" ? (b.mtime || 0) - (a.mtime || 0) : sort === "type" ? String(a.type || "").localeCompare(String(b.type || "")) : 0)
+                || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
             items.forEach(it => { const s = saved[it.name]; if (typeof s === "number" && !used[s]) { used[s] = true; out.push({item: it, slot: s}); } });
             let next = 0;
             items.forEach(it => { if (out.some(o => o.item === it)) return; while (used[next]) next++; used[next] = true; out.push({item: it, slot: next}); });
@@ -88,10 +93,19 @@ Item {
                         }
                         Glyph { anchors.centerIn: parent; visible: !tile.it.thumb && themeIcon.status !== Image.Ready; name: tile.it.glyph || "draft"; font.pixelSize: 40; color: Theme.primary }
                     }
-                    MText {
-                        width: parent.width; horizontalAlignment: Text.AlignHCenter; text: tile.it.name; role: "label"
-                        maximumLineCount: tile.chosen ? 3 : 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
-                        style: Text.Raised; styleColor: Theme.alpha(Theme.light ? "#ffffff" : "#000000", .5)
+                    // The label sits on a soft backing so it stays readable on any wallpaper.
+                    Item {
+                        width: parent.width; height: label.contentHeight + 6
+                        Rectangle {
+                            anchors.centerIn: parent; width: label.contentWidth + 12; height: parent.height; radius: 8
+                            color: tile.chosen ? Theme.primary : Theme.alpha(Theme.base, Theme.light ? .7 : .62)
+                        }
+                        MText {
+                            id: label
+                            anchors.centerIn: parent; width: parent.width - 8; horizontalAlignment: Text.AlignHCenter; text: tile.it.name; role: "label"
+                            maximumLineCount: tile.chosen ? 3 : 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
+                            color: tile.chosen ? Theme.onPrimary : Theme.text
+                        }
                     }
                 }
                 MouseArea {
@@ -210,10 +224,12 @@ Item {
         x: Math.max(icons.x + 2 * icons.slotW + 40, (parent.width - width) / 2 - 220)
         y: parent.height * .28
         width: row.implicitWidth; height: col.implicitHeight
+        // A soft scrim keeps the heading readable on bright wallpapers.
+        Rectangle { anchors.fill: col; anchors.margins: -28; radius: 44; color: Theme.alpha(Theme.base, Theme.light ? .62 : .5) }
         Column {
             id: col
             spacing: 16
-            MText { text: "Pick up where you left off"; role: "displayS"; style: Text.Raised; styleColor: Theme.alpha(Theme.light ? "#ffffff" : "#000000", .4) }
+            MText { text: "Pick up where you left off"; role: "displayS" }
             MText { text: home.monitor ? "Workspace " + home.monitor.workspace + " is empty" : ""; role: "body"; color: Theme.subtext }
             Row {
                 id: row

@@ -54,7 +54,9 @@ def list_desktop(folder=None):
         mime = '' if is_dir else (mimetypes.guess_type(str(path))[0] or '')
         # Freedesktop icon names for the file type, with a generic one as the fallback.
         theme_icon = 'folder' if is_dir else (mime.replace('/', '-') if mime else 'text-x-generic')
-        item = {'path': str(path), 'name': entry.name, 'dir': is_dir, 'glyph': glyph_for(path, is_dir), 'icon': theme_icon, 'app': False}
+        try: mtime = int(entry.stat().st_mtime)
+        except OSError: mtime = 0
+        item = {'path': str(path), 'name': entry.name, 'dir': is_dir, 'glyph': glyph_for(path, is_dir), 'icon': theme_icon, 'app': False, 'mtime': mtime, 'type': mime or ('inode/directory' if is_dir else '')}
         if not is_dir and entry.name.endswith('.desktop'):
             launcher = read_desktop_entry(path)
             if launcher: item.update({'name': launcher['name'], 'icon': launcher['icon'], 'app': True, 'glyph': 'apps'})
@@ -85,6 +87,41 @@ def launch_command(path):
     """The command that opens one desktop item: launchers run with gio, everything else opens with xdg-open."""
     if path.endswith('.desktop') and shutil.which('gio'): return ['gio', 'launch', path]
     return ['xdg-open', path]
+
+
+def unique_name(folder, base, suffix=''):
+    """The first free name like "New Folder", "New Folder 2" in the folder."""
+    folder = pathlib.Path(folder)
+    for n in range(1, 500):
+        name = base + ('' if n == 1 else f' {n}') + suffix
+        if not (folder / name).exists(): return folder / name
+    return None
+
+
+def create(folder, kind):
+    """Make a new folder or an empty text file on the desktop. Return its path or None."""
+    folder = pathlib.Path(folder)
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        if kind == 'folder':
+            path = unique_name(folder, 'New Folder')
+            if path: path.mkdir()
+        else:
+            path = unique_name(folder, 'New Document', '.txt')
+            if path: path.touch(exist_ok=False)
+        return path
+    except OSError:
+        return None
+
+
+def terminal_command(folder, which=shutil.which):
+    """A terminal that opens in the folder: the user's xdg-terminal-exec choice first, then common terminals."""
+    folder = str(folder)
+    if which('xdg-terminal-exec'): return ['xdg-terminal-exec', '--dir=' + folder]
+    for tool, args in (('kitty', ['--directory', folder]), ('foot', ['-D', folder]), ('alacritty', ['--working-directory', folder]),
+                       ('wezterm', ['start', '--cwd', folder]), ('ghostty', ['--working-directory=' + folder]), ('konsole', ['--workdir', folder])):
+        if which(tool): return [tool, *args]
+    return None
 
 
 def pictures(root=None, limit=MAX_SCAN):
@@ -162,5 +199,6 @@ def valid_preference(key, value):
     if key == 'desktopCanvas': return valid_canvas(value)
     if key == 'desktopSlots': return valid_slots(value)
     if key == 'weatherCity': return isinstance(value, str) and len(value) <= 80
-    if key == 'weatherFahrenheit': return type(value) is bool
+    if key in ('weatherFahrenheit', 'desktopIcons'): return type(value) is bool
+    if key == 'desktopSort': return value in ('name', 'type', 'date')
     return False
