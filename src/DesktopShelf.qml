@@ -137,12 +137,22 @@ Item {
             }
             Accessible.role:Accessible.StaticText;Accessible.name:"Key mode "+name
         }
-        // Live activities: stacked, compact, and expanded in place on hover or tap.
-        ActivityPill {
+        // Live activities: their own pill. Click pops the card up above the Shelf.
+        Rectangle {
             id:activity
-            output:shelf.output;pillHeight:parent.height;framed:shelf.framedParts
-            expandOnHover:true;maxCompact:220;maxExpanded:Math.min(460,shelf.width*.42)
-            visible:opacity>0&&shelf.width>=1000
+            readonly property var lead:Activities.primary
+            readonly property var hint:Activities.freshChips.length ? Activities.freshChips[0] : null
+            visible:(lead!==null||hint!==null)&&shelf.width>=900
+            height:parent.height;radius:height/2;color:shelf.framedParts ? Theme.level(3) : "transparent"
+            width:activityRow.implicitWidth+(shelf.framedParts ? 14 : 4)
+            Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+            Row {
+                id:activityRow;anchors.centerIn:parent;spacing:6
+                ActivityChip {visible:activity.lead!==null;a:activity.lead||({});more:Math.max(0,Activities.list.length-1)
+                    selected:Activities.cardOpen&&Activities.cardScreen===shelf.output;onClicked:Activities.toggleCard(shelf.output)}
+                ActivityChip {visible:activity.hint!==null&&activity.lead===null;a:activity.hint ? {kind:"neutral",icon:activity.hint.icon,short:activity.hint.label,title:activity.hint.label} : ({})
+                    onClicked:Activities.runChip(activity.hint)}
+            }
         }
 
         // Status: tray, battery, sound and network in one pill. Volume changes show here.

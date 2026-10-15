@@ -143,3 +143,4 @@ MediaPlayerCard 1.0 MediaPlayerCard.qml
 ProgressRing 1.0 ProgressRing.qml
 LinearProgress 1.0 LinearProgress.qml
 Squiggle 1.0 Squiggle.qml
+ActivityCardWindow 1.0 ActivityCardWindow.qml

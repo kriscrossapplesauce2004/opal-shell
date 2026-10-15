@@ -80,7 +80,7 @@ class DisplayLayoutsTests(unittest.TestCase):
             assert(#rules==1 and rules[1].workspace=="m[eDP-1]" and rules[1].no_rounding==true)
             local dismiss=false; local cards=false; local taskbar_menu=false
             for _,r in ipairs(layers) do
-                if r.match.namespace=="^opal-(audio|shade)-dismiss$" then dismiss=r.blur==false end
+                if r.match.namespace=="^opal-(audio|shade|activity)-dismiss$" then dismiss=r.blur==false end
                 if r.match.namespace=="^opal-(audio|shade)$" then cards=r.blur==true end
                 if r.match.namespace=="^opal-taskbar-menu$" then taskbar_menu=r.blur==true and r.ignore_alpha==0.1 end
             end

@@ -47,7 +47,7 @@ Scope {
         margins.top:phone ? 56 : 0
         margins.bottom:phone ? 0 : 72
         implicitWidth:Math.min(444,screen ? screen.width : 444)
-        implicitHeight:Math.min(354,screen ? screen.height-70 : 354)
+        implicitHeight:Math.min(audioPanel.implicitHeight,screen ? screen.height-(phone ? 70 : 90) : 640)
         exclusionMode:ExclusionMode.Ignore
         WlrLayershell.layer:WlrLayer.Top
         WlrLayershell.namespace:"opal-audio"
@@ -64,7 +64,7 @@ Scope {
         NumberAnimation {id:slide;target:drawer;property:"progress";duration:Theme.motion(280);easing.type:Easing.OutCubic;onFinished:if(!Hub.audioOpen)drawer.presenting=false}
         Surface {id:card;width:drawer.width-12;height:drawer.height;x:12+(1-drawer.progress)*drawer.width;radius:30;translucency:Hub.prefs.glass
             enabled:Hub.audioOpen
-            AudioPanel {anchors.fill:parent}
+            AudioPanel {id:audioPanel;anchors.fill:parent}
         }
     }
 }

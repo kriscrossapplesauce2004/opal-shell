@@ -223,6 +223,7 @@ ShellRoot {
     PolkitDialog {}
     SystemServices {}
     AudioDrawer {}
+    ActivityCardWindow {}
     ShadeWindow {}
     AssistantWindow {}
     PowerProfileWindow {}

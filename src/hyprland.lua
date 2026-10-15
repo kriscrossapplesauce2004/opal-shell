@@ -50,7 +50,7 @@ hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ign
 hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 -- Gesture, edge and split layers are input surfaces: no blur and no compositor animation.
 hl.layer_rule({ match = { namespace = "^opal-(gesture|edge|split)$" }, blur = false, no_anim = true })
-hl.layer_rule({ match = { namespace = "^opal-(audio|shade)-dismiss$" }, blur = false, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(audio|shade|activity)-dismiss$" }, blur = false, no_anim = true })
 local function bind(key, command)
     hl.unbind(key)
     hl.bind(key, hl.dsp.exec_cmd(command))

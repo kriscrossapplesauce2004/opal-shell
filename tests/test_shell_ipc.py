@@ -21,6 +21,9 @@ class ShellIpcTests(unittest.TestCase):
     def test_mcp_server_calls_existing_ipc_functions(self):
         text = SHELL.read_text()
         names = set(re.findall(r'^\s*function (\w+)\(', text[text.index('IpcHandler {'):], re.M))
+        # The activity API has its own IPC target in Activities.qml.
+        activities = (SHELL.parent / 'Activities.qml').read_text()
+        names |= set(re.findall(r'^\s*function (\w+)\(', activities[activities.index('IpcHandler {'):], re.M))
         mcp = (SHELL.parent / 'opal_mcp.py').read_text()
         called = set(re.findall(r"ipc\('(\w+)'", mcp)) | set(re.findall(r"ipc\(a\['panel'\]\)", mcp) and [])
         panels = set(re.search(r"PANELS = \(([^)]*)\)", mcp).group(1).replace("'", '').replace(' ', '').split(','))

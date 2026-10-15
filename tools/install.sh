@@ -278,11 +278,15 @@ case "${1:-on}" in
     quickaccess|qa)
         exec quickshell ipc -p "$config" call opal quickaccess
         ;;
+    activity)
+        shift
+        exec python3 "$config/opal_activity.py" "$@"
+        ;;
     launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect|lock)
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|autostart [on|off]|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|activity …|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

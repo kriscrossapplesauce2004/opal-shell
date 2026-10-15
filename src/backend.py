@@ -46,6 +46,7 @@ def valid_phone_home(value):
     return True
 
 import system_tools
+import activity_signals
 import theme_export
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
@@ -677,6 +678,9 @@ def status():
     except (OSError,ValueError,KeyError): pass
     s['profile']=values['profile']
     s['governor']=cpu_governor()
+    # Live activity signals: a running pacman transaction and camera use.
+    s['pacman']=activity_signals.pacman_state()
+    s['camera']=activity_signals.camera_users()
     return s
 
 def library_art():

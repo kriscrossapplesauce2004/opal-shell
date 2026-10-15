@@ -97,6 +97,23 @@ Item {
             ScrollBar.vertical:ScrollBar {}
             ColumnLayout {
                 id:body;width:parent.width;spacing:12
+                // Live activity on top: the one the pill opened, else the first that is not media. The others wait as chips.
+                ColumnLayout {
+                    id:liveSection
+                    readonly property var shown:Activities.byId[Activities.focusId]||Activities.list.find(a=>a.kind!=="media")||null
+                    readonly property var others:Activities.list.filter(a=>!shown||a.id!==shown.id)
+                    visible:!q.editing&&(shown!==null||others.length>0||Activities.freshChips.length>0)
+                    Layout.fillWidth:true;spacing:8
+                    ActivityCard {visible:liveSection.shown!==null;Layout.fillWidth:true;Layout.preferredHeight:implicitHeight;a:liveSection.shown||({});compactPlayer:true
+                        onOpened:Activities.open(liveSection.shown,Hub.targetScreen)}
+                    Flow {
+                        visible:liveSection.others.length>0||Activities.freshChips.length>0;Layout.fillWidth:true;spacing:8
+                        Repeater {model:liveSection.others
+                            ActivityChip {required property var modelData;a:modelData;onClicked:Activities.focusId=modelData.id}}
+                        Repeater {model:Activities.freshChips
+                            ActivityChip {required property var modelData;a:({kind:"neutral",icon:modelData.icon,short:modelData.label,title:modelData.label});onClicked:Activities.runChip(modelData)}}
+                    }
+                }
                 // Section editor: show, hide and drag to reorder.
                 ColumnLayout {
                     visible:q.editing;Layout.fillWidth:true;spacing:4

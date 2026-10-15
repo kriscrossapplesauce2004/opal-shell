@@ -8,8 +8,8 @@ CONFIG = os.environ.get('OPAL_CONFIG_DIR') or str(pathlib.Path(__file__).resolve
 PANELS = ('launcher', 'controls', 'notifications', 'clipboard', 'appearance', 'settings', 'convergence', 'audio', 'quickaccess', 'close')
 LAYOUTS = {'phone': 'phone', 'desktop': 'desktop', 'console': 'gaming', 'auto': 'adaptive'}
 
-def ipc(function, *args):
-    result = subprocess.run(['quickshell', 'ipc', '-p', CONFIG, 'call', 'opal', function, *map(str, args)], capture_output=True, text=True, timeout=10)
+def ipc(function, *args, target='opal'):
+    result = subprocess.run(['quickshell', 'ipc', '-p', CONFIG, 'call', target, function, *map(str, args)], capture_output=True, text=True, timeout=10)
     if result.returncode: raise RuntimeError((result.stderr or result.stdout).strip() or 'Opal is not running')
     return result.stdout.strip()
 
@@ -46,6 +46,19 @@ def workspace_number(value):
     if type(value) is not int or not 1 <= value <= 99: raise ValueError('Workspace must be 1 to 99')
     return value
 
+ACTIVITY_FIELDS = {
+    'id': {'type': 'string', 'pattern': '^[A-Za-z0-9._:-]{1,64}$'},
+    'title': {'type': 'string'}, 'subtitle': {'type': 'string'}, 'short': {'type': 'string', 'description': 'Short pill label, like 40% or Needs you'},
+    'kind': {'type': 'string', 'enum': ['agent', 'system', 'transfer', 'focus', 'device', 'recording', 'neutral']},
+    'icon': {'type': 'string', 'description': 'Material Symbols name, like download'},
+    'progress': {'type': 'number', 'description': '0 to 1, or -2 for busy without a known end'},
+    'progressText': {'type': 'string'}, 'code': {'type': 'string'}, 'ttl': {'type': 'number', 'description': 'Seconds until it goes away'},
+    'urgent': {'type': 'boolean'},
+}
+
+def activity_fields(arguments):
+    return {k: arguments[k] for k in ACTIVITY_FIELDS if k in arguments}
+
 TOOLS = {
     'get_status': ('Read Opal status: page, layout mode, unread count, volume, battery, network, media.', schema(), lambda a: ipc('inspect')),
     'get_preferences': ('Read Opal preferences (theme, bar style, layout, tiles, sections and more).', schema(), lambda a: ipc('preferences')),
@@ -69,6 +82,12 @@ TOOLS = {
     'search': ('Open Start with a search query.', schema({'text': {'type': 'string'}}, ('text',)), lambda a: ipc('search', a['text'])),
     'show_message': ('Show a short message in the shell.', schema({'text': {'type': 'string'}}, ('text',)), lambda a: ipc('toast', a['text']) or 'Shown'),
     'lock_screen': ('Lock the session.', schema(), lambda a: ipc('lock') or 'Locked'),
+    'activity_start': ('Show a live activity as an Opal pill and card, for example progress of a long task. Send the same id again to change it.',
+                       schema(ACTIVITY_FIELDS, ('id', 'title')), lambda a: ipc('start', json.dumps(activity_fields(a)), target='activity') or 'Not accepted'),
+    'activity_update': ('Change fields of a live activity.', schema(ACTIVITY_FIELDS, ('id',)),
+                        lambda a: ipc('update', a['id'], json.dumps({k: v for k, v in activity_fields(a).items() if k != 'id'}), target='activity') or 'Not accepted'),
+    'activity_end': ('Remove a live activity.', schema({'id': {'type': 'string'}}, ('id',)), lambda a: ipc('end', a['id'], target='activity') or 'Ended'),
+    'activity_list': ('List the live activities that Opal shows now.', schema(), lambda a: ipc('list', target='activity')),
 }
 
 def handle(message):

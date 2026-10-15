@@ -68,7 +68,8 @@ env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
     OPAL_TEST_OUTPUT="$root/images" DBUS_SESSION_BUS_ADDRESS="unix:path=$root/no-bus" \
     timeout ${OPAL_TIMEOUT:-90}s quickshell -p "$root/config/$entry" > "$root/render.log" 2>&1
 printf 'Log: %s/render.log\nImages: %s/images/\n' "$root" "$root"
-if grep -E 'TypeError|ReferenceError|ERROR|Unable to assign|Binding loop|ASSERTION_FAILED' "$root/render.log"; then
+# The sandbox has no PipeWire daemon, so a failed PipeWire connection is expected there.
+if grep -E 'TypeError|ReferenceError|ERROR|Unable to assign|Binding loop|ASSERTION_FAILED' "$root/render.log" | grep -v 'Failed to connect pipewire context'; then
     exit 1
 fi
 grep 'OFFSCREEN_TESTS_COMPLETE' "$root/render.log"
