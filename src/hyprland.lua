@@ -108,6 +108,10 @@ local titlebar_plugin = nil
 for _, path in ipairs({ os.getenv("HOME") .. "/.local/share/opal/plugins/hyprbars.so", os.getenv("HOME") .. "/.local/share/vibeshell/plugins/hyprbars.so" }) do
     if file_exists(path) then titlebar_plugin = path; break end
 end
+-- Hyprland loads the plugins that the config declares on each pass and unloads the ones it no longer declares, then reloads.
+-- Declare hyprbars on every pass in both modes: a skipped declaration unloads it (reload loop, then a crash), and an unload while bars are shown aborts Hyprland.
+if titlebar_plugin then pcall(hl.plugin.load, titlebar_plugin) end
+local bars = hl.plugin and hl.plugin.hyprbars
 if opal_floating() then
     hl.window_rule({ name = "opal-float-all", match = { class = ".*" }, float = true })
     pcall(hl.config, { general = { snap = { enabled = true, window_gap = 12, monitor_gap = 12, respect_gaps = true } } })
@@ -115,13 +119,8 @@ if opal_floating() then
     bind("SUPER + ALT + left", qs .. "snapLeft")
     bind("SUPER + ALT + right", qs .. "snapRight")
     bind("SUPER + ALT + up", qs .. "snapMaximize")
-    -- Titlebars: hyprbars in Opal colours, when the plugin is built for this Hyprland.
-    -- The plugin stays loaded across config reloads and keeps its buttons, so the buttons are added only on the first load.
-    local already = false
-    for _, p in ipairs(hl.get_loaded_plugins and hl.get_loaded_plugins() or {}) do
-        if tostring(p.name or ""):lower():find("hyprbars") then already = true end
-    end
-    if titlebar_plugin and (already or pcall(hl.plugin.load, titlebar_plugin)) and hl.plugin and hl.plugin.hyprbars then
+    -- Titlebars: hyprbars in Opal colours. The plugin clears its buttons before each reload, so they are added on every pass.
+    if bars then
         local ok, c = pcall(dofile, state_dir .. "/hypr-titlebars.lua")
         if not ok or type(c) ~= "table" then c = { bar = "rgba(271d1df2)", text = "rgb(f0dedd)", close = "rgb(ffb4ab)", button = "rgb(4a3f3e)", ink = "rgb(1b1112)", font = "Google Sans Flex" } end
         pcall(hl.config, { plugin = { hyprbars = {
@@ -132,14 +131,12 @@ if opal_floating() then
             on_double_click = qs .. "snapMaximize",
         } } })
         -- Buttons are laid out right to left: close, snap layouts, minimize.
-        if not already then
-        pcall(hl.plugin.hyprbars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
-        pcall(hl.plugin.hyprbars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "▢", action = qs .. "snaplayouts" })
-        pcall(hl.plugin.hyprbars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
-        end
+        pcall(bars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
+        pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "▢", action = qs .. "snaplayouts" })
+        pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
     end
-else
-    -- A plugin stays loaded across reloads, so its bars must be switched off when the mode is off.
-    if hl.plugin and hl.plugin.hyprbars then pcall(hl.config, { plugin = { hyprbars = { enabled = false } } }) end
+elseif bars then
+    -- Tiling mode keeps the plugin loaded with its bars switched off.
+    pcall(hl.config, { plugin = { hyprbars = { enabled = false } } })
 end
 bind("SUPER + Z", qs .. "snaplayouts")
