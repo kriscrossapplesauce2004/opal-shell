@@ -23,7 +23,7 @@ Item {
         anchors.fill: parent
         opacity: stage.cardPhase ? (stage.settling && PhoneState.outcome === "cancel" ? 1 - stage.settle : Math.min(1, .35 + stage.p * 1.2)) : 0
         visible: opacity > 0
-        PhoneBackdrop { anchors.fill: parent }
+        PhoneBackdrop { anchors.fill: parent; soft: 1 }
         Rectangle { anchors.fill: parent; color: Theme.alpha(Theme.base, .35) }
     }
     // The moving card follows the finger. Home shrinks it, recents holds it small, switch slides it.

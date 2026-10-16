@@ -35,7 +35,7 @@ PanelWindow {
         MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons}
         Rectangle {visible:win.phone;anchors.horizontalCenter:parent.horizontalCenter;y:8;width:36;height:4;radius:2;color:Theme.alpha(Theme.text,.3)}
         AssistantPanel {
-            anchors {fill:parent;topMargin:win.phone ? 12 : 0;bottomMargin:win.phone ? 28+(Hub.prefs.phoneButtons ? 64 : 48) : 0}
+            anchors {fill:parent;topMargin:win.phone ? 12 : 0;bottomMargin:win.phone ? 28+PhoneState.navHeight : 0}
             layoutMode:win.layoutMode
         }
         PhoneNavigation {visible:win.phone;anchors.bottom:parent.bottom;anchors.bottomMargin:28;width:parent.width;height:implicitHeight;output:win.screen}

@@ -4,7 +4,7 @@ Turning the mode on floats the tiled windows where they are. Turning it off tile
 but not windows that floated before, and not windows that the user's own Hyprland rules float."""
 import json, os, pathlib, re
 
-STATE = pathlib.Path(os.environ.get('XDG_STATE_HOME') or pathlib.Path.home() / '.local/state') / 'opal' / 'floating.json'
+STATE = (pathlib.Path(os.environ['OPAL_STATE_DIR']) if os.environ.get('OPAL_STATE_DIR') else pathlib.Path(os.environ.get('XDG_STATE_HOME') or pathlib.Path.home() / '.local/state') / 'opal') / 'floating.json'
 HYPR_CONFIG = pathlib.Path(os.environ.get('XDG_CONFIG_HOME') or pathlib.Path.home() / '.config') / 'hypr' / 'hyprland.lua'
 MINIMIZED = 'special:opal-minimized'
 GAP = 8
@@ -85,12 +85,16 @@ def plan_disable(clients, before, rules):
     return ops
 
 
+# Windows of nested compositors, such as the nested phone session, keep the size their own screen needs.
+NESTED_COMPOSITORS = ('aquamarine',)
+
+
 def plan_tile_outputs(clients, monitors, outputs, rules):
     """Tile the floating and maximized windows on the named outputs, except windows that the user's rules float. Tablets use desktop tiling."""
     ids = {m.get('id') for m in monitors if m.get('name') in set(outputs or [])}
     ops = []
     for c in filter(regular, clients):
-        if c.get('monitor') not in ids or floats_by_rule(c, rules): continue
+        if c.get('monitor') not in ids or floats_by_rule(c, rules) or c.get('class') in NESTED_COMPOSITORS: continue
         if c.get('fullscreen') == 1: ops.append({'op': 'unmaximize', 'address': c['address']})
         if c.get('floating'): ops.append({'op': 'float', 'address': c['address'], 'value': False})
     return ops

@@ -152,3 +152,7 @@ GlanceWidget 1.0 GlanceWidget.qml
 SnapLayouts 1.0 SnapLayouts.qml
 SnapLayoutsCard 1.0 SnapLayoutsCard.qml
 NavTriangle 1.0 NavTriangle.qml
+TabletLauncher 1.0 TabletLauncher.qml
+WorkspaceSwitcher 1.0 WorkspaceSwitcher.qml
+WorkspaceCard 1.0 WorkspaceCard.qml
+WorkspaceCardWindow 1.0 WorkspaceCardWindow.qml

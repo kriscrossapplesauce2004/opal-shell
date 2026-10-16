@@ -18,9 +18,11 @@ local p = profiles[opal_mode()] or profiles.desktop
 hl.config({
     general = { gaps_in = p.gaps_in, gaps_out = p.gaps_out, border_size = p.border,
         col = { active_border = "rgba(cbb5edee)", inactive_border = "rgba(55536655)" } },
-    decoration = { rounding = p.rounding, blur = { enabled = true, size = 8, passes = 3 },
+    decoration = { rounding = p.rounding, blur = { enabled = true, size = 6, passes = 2 },
         shadow = { enabled = true, range = 35, render_power = 3, color = "rgba(080b1880)" } }
 })
+-- The pointer stays where the user left it: focus and workspace changes never move it.
+pcall(hl.config, { cursor = { no_warps = true } })
 -- Touchscreens swipe workspaces natively. Phone mode uses the shell gesture layer instead. The 3-finger touchpad swipe lives in the user config.
 if opal_mode() ~= "phone" then
     pcall(hl.config, { gestures = { workspace_swipe_touch = true } })

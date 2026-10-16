@@ -356,6 +356,8 @@ Item {
                 options:Quickshell.screens.map(sc=>({value:sc.name,label:sc.name}))
                 onPicked:value=>Hub.set("phoneDisplay",value)
             }
+            SettingToggle {visible:Hub.settingsSection==="phone"||Hub.settingsSection==="taskbar";Layout.fillWidth:true;icon:"layers_clear";title:"Hide the home under apps";description:"Icons and widgets fade out while a window is open, so see-through apps show only the wallpaper.";checked:Hub.prefs.homeHideUnderApps!==false;onToggled:Hub.set("homeHideUnderApps",!checked)}
+            SettingToggle {visible:Hub.settingsSection==="phone";Layout.fillWidth:true;icon:"desktop_windows";title:"Desktop files on the tablet home";description:"Show the files in ~/Desktop as icons next to your apps.";checked:Hub.prefs.homeDesktopFiles===true;onToggled:Hub.set("homeDesktopFiles",!checked)}
             SettingToggle {visible:Hub.settingsSection==="phone";Layout.fillWidth:true;icon:"keyboard";title:"On-screen keyboard";description:Hub.systemOskAvailable ? "Show the system keyboard now." : "Run the installer to build the Borealis keyboard.";checked:Hub.systemOskVisible;enabled:Hub.systemOskAvailable;opacity:enabled ? 1 : .5;onToggled:Hub.systemOsk("toggle")}
             // Notifications.
             SettingToggle {visible:Hub.settingsSection==="notifications";Layout.fillWidth:true;first:true;last:false;icon:"quiet";title:"Do not disturb";description:"Silence popups. Notifications stay in your inbox.";checked:Hub.dnd;onToggled:Hub.set("dnd",!checked)}

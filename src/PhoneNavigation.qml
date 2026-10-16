@@ -6,7 +6,7 @@ Item {
     property var output:null
     // On a tablet the app dock is part of this bar: keys at the left, apps in the middle, the gesture strip at the bottom edge.
     readonly property bool tablet:!!output&&PhoneState.isTablet(output)&&Hub.prefs.tabletDock!==false
-    implicitHeight:tablet ? (Hub.prefs.phoneButtons ? 68 : 80) : Hub.prefs.phoneButtons ? 64 : 48
+    implicitHeight:tablet ? PhoneState.tabletNavHeight : PhoneState.navHeight
     function go(tab) {if(output)Hub.targetScreen=output;Hub.mobileTab=tab;Hub.page="launcher";}
     // Home closes every Opal surface; the embedded home screen is then what remains.
     function home() {if(output)Hub.targetScreen=output;PhoneState.goHome();}
@@ -35,7 +35,7 @@ Item {
     Loader {
         active:nav.tablet
         anchors {left:parent.left;right:parent.right;top:parent.top}
-        height:68
+        height:88
         sourceComponent:Component {
             TabletBar {
                 screenObj:nav.output;keys:!!Hub.prefs.phoneButtons
@@ -62,7 +62,8 @@ Item {
         }
         MouseArea {
             id:gesture
-            anchors.horizontalCenter:parent.horizontalCenter;width:Math.min(parent.width,320);height:parent.height
+            // The whole strip takes the gesture, so a short bar is still easy to hit.
+            anchors.horizontalCenter:parent.horizontalCenter;width:parent.width;height:parent.height
             preventStealing:true
             property real startX:0
             property real startY:0

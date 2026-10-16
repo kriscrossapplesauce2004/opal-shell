@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 
@@ -15,7 +16,8 @@ Item {
     // The icon whose long-press menu is open: {page, index, app, x, y}.
     property var menuFor: null
     property alias pager: pager
-    readonly property int columns: PhoneState.columnsFor(pager.width, wide) + (wide ? 1 : 0)
+    // A tablet grid keeps icon cells near 168 px wide, so a large screen gets more columns and not wider cells.
+    readonly property int columns: wide ? Math.max(PhoneState.columnsFor(pager.width, true) + 1, Math.floor((pager.width - 8) / 168)) : PhoneState.columnsFor(pager.width, false)
     readonly property real cellWidth: (pager.width - 8) / columns
     readonly property real cellHeight: PhoneState.cellHeight(Math.min(cellWidth, 104))
     readonly property int dockCount: wide ? 0 : Math.min(4, Hub.favoriteApps.length)
@@ -23,8 +25,47 @@ Item {
     readonly property string layoutKey: JSON.stringify(Hub.phoneHome)
     property var layout: ({pages: [{widgets: [], items: []}]})
     onLayoutKeyChanged: layout = {pages: JSON.parse(layoutKey).pages.map(p => ({widgets: p.widgets.map(norm), items: p.items}))}
-    Component.onCompleted: layout = {pages: JSON.parse(layoutKey).pages.map(p => ({widgets: p.widgets.map(norm), items: p.items}))}
+    Component.onCompleted: { layout = {pages: JSON.parse(layoutKey).pages.map(p => ({widgets: p.widgets.map(norm), items: p.items}))}; fileSync.restart(); }
     readonly property var live: Activities.list.find(a => a.kind !== "media") || null
+    // With the option on, the tablet home is the ~/Desktop folder too: every file there is an icon in the grid, next to the apps. With it off, the files leave the home.
+    readonly property bool desktopFiles: Hub.prefs.homeDesktopFiles === true
+    onDesktopFilesChanged: fileSync.restart()
+    // A new file goes after the last icon; a file that leaves the folder leaves the home. Nothing happens before the first folder listing.
+    function fileFor(item) { return item && typeof item === "object" && item.path ? (HomeData.desktopItems || []).find(f => f.path === item.path) || null : null; }
+    function syncFiles() {
+        if (!wide || desktopFiles && HomeData.desktopFolder === "" || pager.height <= 0) return;
+        const paths = desktopFiles ? (HomeData.desktopItems || []).map(f => f.path) : [];
+        const next = copy();
+        let changed = false;
+        const placed = {};
+        next.pages.forEach(p => {
+            const before = p.widgets.length;
+            p.widgets = p.widgets.filter(w => w.kind !== "files");
+            if (p.widgets.length !== before) changed = true;
+            p.items.forEach((it, i) => {
+                if (!it || typeof it !== "object" || !it.path) return;
+                if (paths.indexOf(it.path) < 0 || placed[it.path]) { p.items[i] = null; changed = true; } else placed[it.path] = true;
+            });
+        });
+        paths.filter(path => !placed[path]).forEach(path => {
+            let n = 0;
+            for (;; n++) {
+                if (n >= next.pages.length) { if (next.pages.length >= 8) return; next.pages.push({widgets: [], items: []}); }
+                const page = next.pages[n];
+                const rows = Math.max(1, Math.floor((pager.height - pack({widgets: page.widgets.map(norm), items: page.items}).firstY) / cellHeight));
+                // After the last icon, so the gaps the user left between icons stay empty.
+                const free = page.items.length;
+                if (free < rows * columns) { while (page.items.length <= free) page.items.push(null); page.items[free] = {path: path}; changed = true; return; }
+            }
+        });
+        if (!changed) return;
+        next.pages.forEach(p => trim(p.items));
+        save(next);
+    }
+    // A timer owned by the home, so a sync never runs after the home is gone.
+    Timer { id: fileSync; interval: 120; onTriggered: home.syncFiles() }
+    Connections { target: HomeData; function onDesktopItemsChanged() { fileSync.restart(); } }
+    onWideChanged: fileSync.restart()
     PenWatcher { anchors.fill: parent }
     signal dragProgress(real value)
     signal dragFinished(bool open)
@@ -41,48 +82,118 @@ Item {
     function save(next) { Hub.setPhoneHome(next, editing); }
     function finishEditing() { editing = false; pickerOpen = false; Hub.setPhoneHome(copy(), false); }
     function pageIndex() { return Math.max(0, pager.currentIndex - 1); }
-    // Pack widgets row by row, then icons in the cells after the last widget row.
+    // Pack widgets row by row, then icons in the cells after the last widget row. Each result has its pixel box: px, py, pw, ph.
     function pack(page) {
+        return wide ? packWide(page) : packCells(page);
+    }
+    function packCells(page) {
         const placed = [];
         let x = 0, y = 0, rowH = 0;
         page.widgets.forEach((w, i) => {
             const collapsed = w.kind === "live" && home.live === null && !home.editing;
             // On a phone a 4-wide widget fills the row whatever the column count.
-            const ww = !home.wide && w.w >= 4 ? columns : Math.min(columns, Math.max(1, w.w)), hh = collapsed ? 0 : w.h;
+            const ww = w.w >= 4 ? columns : Math.min(columns, Math.max(1, w.w)), hh = collapsed ? 0 : w.h;
             if (hh === 0) return;
             if (x + ww > columns) { x = 0; y += rowH; rowH = 0; }
-            placed.push(Object.assign({}, w, {index: i, x: x, y: y, cw: ww, ch: hh}));
+            placed.push(Object.assign({}, w, {index: i, px: x * cellWidth + 4, py: y * cellHeight + 4, pw: ww * cellWidth - 8, ph: hh * cellHeight - 8}));
             x += ww; rowH = Math.max(rowH, hh);
             if (x >= columns) { x = 0; y += rowH; rowH = 0; }
         });
-        return {widgets: placed, firstRow: y + rowH};
+        return {widgets: placed, firstY: (y + rowH) * cellHeight};
     }
+    // Width of a tablet widget for its height. Wide sizes (w 4) get the long shape, the others are square or near square.
+    function wideAspect(w) {
+        const long = w.w >= 4;
+        return ({media: long ? 2.6 : 1.6, live: long ? 1.3 : 1.1, photos: long ? 1.6 : 1, devices: long ? 1.6 : 1, clock: long ? 1.6 : 1})[w.kind] || 1.3;
+    }
+    // Tablet: widgets keep their own shape and flow left to right in rows, like the Pixel Tablet home. The glance takes a full row.
+    function packWide(page) {
+        const placed = [], gap = 16, full = columns * cellWidth - 8;
+        let x = 0, y = 0, rowH = 0;
+        page.widgets.forEach((w, i) => {
+            const collapsed = w.kind === "live" && home.live === null && !home.editing;
+            if (collapsed) return;
+            const ph = w.h * cellHeight - 8;
+            let pw = w.kind === "glance" ? full : Math.min(full, Math.round(ph * wideAspect(w)));
+            // A widget that almost fits shrinks a little to stay in the row; otherwise it starts a new row.
+            if (x > 0 && x + pw > full) {
+                if (full - x >= pw * .85) pw = full - x;
+                else { x = 0; y += rowH + gap; rowH = 0; }
+            }
+            placed.push(Object.assign({}, w, {index: i, px: x + 4, py: y + 4, pw: pw, ph: ph}));
+            x += pw + gap; rowH = Math.max(rowH, ph);
+            if (w.kind === "glance") { x = 0; y += rowH + 8; rowH = 0; }
+        });
+        return {widgets: placed, firstY: y + rowH + (rowH > 0 ? 24 : 0)};
+    }
+    // Free placement: a page is a list of cells in reading order, and null is an empty cell. Trailing empty cells are not saved.
+    function isEmpty(v) { return v === null || v === undefined; }
+    function trim(items) { while (items.length && isEmpty(items[items.length - 1])) items.pop(); }
+    function firstFree(items) { const i = items.findIndex(isEmpty); return i < 0 ? items.length : i; }
+    // A drop on an empty cell puts the icon exactly there. A drop on an icon makes room, and a drop on its centre makes a folder.
     function drop(pageIndex, from, to, merge) {
         const next = copy();
         const items = next.pages[pageIndex].items;
-        if (from < 0 || from >= items.length) return;
-        if (merge && to >= 0 && to < items.length && to !== from) {
+        if (from < 0 || from >= items.length || isEmpty(items[from]) || to < 0 || to === from) return;
+        while (items.length <= to) items.push(null);
+        // Only an app dropped on an app or a folder makes or fills a folder; files and folders just move.
+        const canMerge = typeof items[from] === "string" && (typeof items[to] === "string" || !!(items[to] && items[to].apps));
+        if (merge && canMerge) {
             const moving = items[from];
-            if (typeof moving !== "string") return;
             const target = items[to];
             if (typeof target === "string") items[to] = {folder: "Folder", apps: [target, moving]};
             else if (target.apps.length < 24 && target.apps.indexOf(moving) < 0) target.apps.push(moving);
-            items.splice(from, 1);
+            items[from] = null;
+        } else if (isEmpty(items[to])) {
+            items[to] = items[from];
+            items[from] = null;
         } else {
             const moving = items.splice(from, 1)[0];
-            items.splice(Math.max(0, Math.min(items.length, to)), 0, moving);
+            items.splice(to, 0, moving);
         }
+        trim(items);
         save(next);
     }
     function moveToPage(pageIndex, from, targetPage) {
         const next = copy();
-        const moving = next.pages[pageIndex].items.splice(from, 1)[0];
-        if (moving === undefined) return;
+        const source = next.pages[pageIndex].items;
+        const moving = source[from];
+        if (isEmpty(moving)) return;
+        source[from] = null; trim(source);
         while (next.pages.length <= targetPage && next.pages.length < 8) next.pages.push({widgets: [], items: []});
-        next.pages[Math.min(targetPage, next.pages.length - 1)].items.push(moving);
+        const items = next.pages[Math.min(targetPage, next.pages.length - 1)].items;
+        items[firstFree(items)] = moving;
         save(next);
     }
-    function removeItem(pageIndex, index) { const next = copy(); next.pages[pageIndex].items.splice(index, 1); save(next); }
+    // Right click on empty home space: the home menu, opened at the pointer in the shell's context menu window.
+    function homeMenu(item, x, y) {
+        const p = item.mapToItem(null, x, y);
+        Hub.openTaskbarContext(null, p.x, p.y + 10, [
+            {text: "Edit home", icon: "edit", run: () => home.editing = true},
+            {text: "Widgets", icon: "widgets", run: () => { home.editing = true; home.pickerOpen = true; }},
+            {text: "Add a page", icon: "add", run: () => home.addPage()},
+            {text: "Desktop files", icon: "desktop_windows", checked: home.desktopFiles, run: () => Hub.set("homeDesktopFiles", !home.desktopFiles)},
+            {text: "Hide under apps", icon: "layers_clear", checked: Hub.prefs.homeHideUnderApps !== false, run: () => Hub.set("homeHideUnderApps", Hub.prefs.homeHideUnderApps === false)},
+            {text: "Wallpaper", icon: "wallpaper", run: () => Hub.page = "wallpaper"},
+            {text: "Home settings", icon: "settings", run: () => Hub.openSettings("phone")}
+        ], false, "Home", "home");
+    }
+    // An app carried from the launcher lands at a place on a page. An app that is already on the home moves there.
+    function insertApp(pageIndex, id, at) {
+        const next = copy();
+        const target = Math.max(0, Math.min(pageIndex, next.pages.length - 1));
+        next.pages.forEach(p => { const i = p.items.indexOf(id); if (i >= 0) p.items[i] = null; });
+        const items = next.pages[target].items;
+        const toEnd = at < 0;
+        if (toEnd) at = firstFree(items);
+        while (items.length <= at) items.push(null);
+        if (isEmpty(items[at])) items[at] = id; else items.splice(at, 0, id);
+        next.pages.forEach(p => trim(p.items));
+        save(next);
+        const app = appFor(id);
+        if (toEnd && app) Hub.message(app.name + " is on your home now");
+    }
+    function removeItem(pageIndex, index) { const next = copy(); const items = next.pages[pageIndex].items; items[index] = null; trim(items); save(next); }
     function removeWidget(pageIndex, index) { const next = copy(); next.pages[pageIndex].widgets.splice(index, 1); save(next); }
     // Tap the size chip to step through the sizes: wide short, wide tall, wide taller, half square.
     function resizeWidget(pageIndex, index) {
@@ -113,7 +224,8 @@ Item {
         if (!folder || typeof folder === "string") return;
         change(folder, items);
         if (folder.apps.length === 1) items[openFolderIndex] = folder.apps[0];
-        else if (folder.apps.length === 0) items.splice(openFolderIndex, 1);
+        else if (folder.apps.length === 0) items[openFolderIndex] = null;
+        trim(items);
         save(next);
         openFolder = typeof items[openFolderIndex] === "object" ? items[openFolderIndex] : null;
     }
@@ -123,6 +235,8 @@ Item {
         id: swipe
         enabled: !home.editing && home.openFolder === null && home.menuFor === null && !home.pickerOpen
         target: null; xAxis.enabled: false; yAxis.enabled: true
+        // A clear vertical drag only: a page swipe that drifts a little up or down stays a page swipe.
+        dragThreshold: 28
         grabPermissions: PointerHandler.CanTakeOverFromItems
         onTranslationChanged: if (active && translation.y < 0) home.dragProgress(Math.min(1, -translation.y / (home.height * .55)))
         onActiveChanged: {
@@ -134,7 +248,7 @@ Item {
     }
 
     ColumnLayout {
-        anchors.fill: parent; anchors.leftMargin: home.wide ? 40 : 12; anchors.rightMargin: home.wide ? 40 : 12; anchors.bottomMargin: 14; spacing: 10
+        anchors.fill: parent; anchors.leftMargin: home.wide ? 40 : 4; anchors.rightMargin: home.wide ? 40 : 4; anchors.bottomMargin: home.wide ? 14 : 4; spacing: home.wide ? 10 : 4
         // Edit bar: add widgets, add a page, change the wallpaper, finish.
         RowLayout {
             visible: home.editing; Layout.fillWidth: true; spacing: 8
@@ -161,6 +275,20 @@ Item {
             onMovementEnded: wanted = currentIndex
             onCountChanged: Qt.callLater(() => { currentIndex = Math.min(wanted, count - 1); positionViewAtIndex(currentIndex, ListView.Beginning); })
             onWidthChanged: positionViewAtIndex(currentIndex, ListView.Beginning)
+            // A mouse wheel or a touchpad scroll turns one page per notch.
+            WheelHandler {
+                enabled: !home.editing && home.menuFor === null
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                property real sum: 0
+                onWheel: e => {
+                    sum += Math.abs(e.angleDelta.y) > Math.abs(e.angleDelta.x) ? e.angleDelta.y : e.angleDelta.x;
+                    if (Math.abs(sum) < 120 || pageTurn.running) return;
+                    const to = Math.max(0, Math.min(pager.count - 1, pager.currentIndex + (sum < 0 ? 1 : -1)));
+                    sum = 0; pageTurn.start();
+                    pager.wanted = to; pager.currentIndex = to;
+                }
+            }
+            Timer { id: pageTurn; interval: 260 }
             delegate: Loader {
                 id: pageLoader
                 required property var modelData
@@ -278,11 +406,40 @@ Item {
             readonly property var packed: home.pack(pdata)
             readonly property real gridX: (width - home.columns * home.cellWidth) / 2
             // Long-press on empty space enters edit mode.
-            MouseArea { anchors.fill: parent; onPressAndHold: { home.menuFor = null; home.editing = true; } onClicked: home.menuFor = null }
+            MouseArea {
+                anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onPressAndHold: e => { if (e.button !== Qt.LeftButton) return; home.menuFor = null; home.editing = true; }
+                onClicked: e => { home.menuFor = null; if (e.button === Qt.RightButton && !home.editing) home.homeMenu(this, e.x, e.y); }
+            }
+            // An app carried from the launcher opens a gap under the finger on the page in view, and lands there.
+            readonly property bool inView: number === home.pageIndex() && pager.currentIndex > 0
+            // Every cell that fits on the page can take an icon, not only the cells after the last icon.
+            readonly property int capacity: Math.max(pdata.items.length + 1, Math.floor(Math.max(0, height - packed.firstY) / home.cellHeight) * home.columns)
+            function cellAt(gx, gy) {
+                const col = Math.max(0, Math.min(home.columns - 1, Math.floor(gx / home.cellWidth)));
+                return Math.max(0, Math.min(page.capacity - 1, Math.floor(Math.max(0, gy) / home.cellHeight) * home.columns + col));
+            }
+            function carryIndex(x, y) {
+                const p = grid.mapFromItem(null, x, y);
+                return page.cellAt(p.x, p.y);
+            }
+            Connections {
+                target: PhoneState
+                function onHomeDragChanged() {
+                    const d = PhoneState.homeDrag;
+                    if (d && page.inView) { grid.dragFrom = page.pdata.items.length; grid.hoverTarget = page.carryIndex(d.x, d.y); }
+                    else if (grid.dragFrom === page.pdata.items.length) { grid.dragFrom = -1; grid.hoverTarget = -1; }
+                }
+                function onHomeDrop(appId, x, y) {
+                    if (page.number !== home.pageIndex()) return;
+                    grid.dragFrom = -1; grid.hoverTarget = -1;
+                    home.insertApp(page.number, appId, x < 0 ? -1 : page.carryIndex(x, y));
+                }
+            }
             Flickable {
                 id: scroll
                 anchors.fill: parent; clip: true; boundsBehavior: Flickable.StopAtBounds
-                contentHeight: (page.packed.firstRow + Math.ceil(page.pdata.items.length / home.columns)) * home.cellHeight + 12
+                contentHeight: page.packed.firstY + Math.ceil(page.pdata.items.length / home.columns) * home.cellHeight + 12
                 interactive: !pager.dragging && contentHeight > height
                 // Widgets: each spans its cells. In edit mode a chip resizes it and a badge removes it.
                 Repeater {
@@ -290,8 +447,8 @@ Item {
                     Item {
                         id: wslot
                         required property var modelData
-                        x: page.gridX + modelData.x * home.cellWidth + 4; y: modelData.y * home.cellHeight + 4
-                        width: modelData.cw * home.cellWidth - 8; height: modelData.ch * home.cellHeight - 8
+                        x: page.gridX + modelData.px; y: modelData.py
+                        width: modelData.pw; height: modelData.ph
                         Behavior on width { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
                         Behavior on height { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
                         readonly property bool legacy: ["stack", "calendar", "battery", "focus"].indexOf(modelData.kind) >= 0
@@ -319,7 +476,7 @@ Item {
                             Row {
                                 anchors.centerIn: parent; spacing: 4
                                 Glyph { name: "open_in_full"; font.pixelSize: 15; color: Theme.onPrimary; anchors.verticalCenter: parent.verticalCenter }
-                                MText { id: sizeText; text: wslot.modelData.cw + "×" + wslot.modelData.ch; role: "labelS"; font.weight: Font.Bold; color: Theme.onPrimary; anchors.verticalCenter: parent.verticalCenter }
+                                MText { id: sizeText; text: wslot.modelData.w + "×" + wslot.modelData.h; role: "labelS"; font.weight: Font.Bold; color: Theme.onPrimary; anchors.verticalCenter: parent.verticalCenter }
                             }
                             MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: home.resizeWidget(page.number, wslot.modelData.index) }
                             Accessible.role: Accessible.Button; Accessible.name: "Resize widget"
@@ -329,13 +486,15 @@ Item {
                 // Icons with absolute cells, so a dragged item can float over the others.
                 Item {
                     id: grid
-                    x: page.gridX; y: page.packed.firstRow * home.cellHeight
+                    x: page.gridX; y: page.packed.firstY
                     width: home.columns * home.cellWidth; height: Math.max(1, Math.ceil(page.pdata.items.length / home.columns)) * home.cellHeight
                     // The cell under a dragged icon, so the others make room for it.
                     property int hoverTarget: -1
                     property int dragFrom: -1
                     function shifted(i) {
                         if (dragFrom < 0 || hoverTarget < 0 || i === dragFrom) return i;
+                        // Over an empty cell nothing makes room: the icon goes exactly there.
+                        if (hoverTarget >= page.pdata.items.length || home.isEmpty(page.pdata.items[hoverTarget])) return i;
                         if (dragFrom < hoverTarget && i > dragFrom && i <= hoverTarget) return i - 1;
                         if (dragFrom > hoverTarget && i >= hoverTarget && i < dragFrom) return i + 1;
                         return i;
@@ -346,26 +505,47 @@ Item {
                             id: cell
                             required property var modelData
                             required property int index
-                            readonly property bool folder: typeof modelData !== "string"
-                            readonly property var app: folder ? null : home.appFor(modelData)
+                            readonly property bool empty: home.isEmpty(modelData)
+                            readonly property var file: home.fileFor(modelData)
+                            readonly property bool isFile: !empty && typeof modelData === "object" && !!modelData.path
+                            readonly property bool folder: !empty && !isFile && typeof modelData !== "string"
+                            readonly property var app: folder || isFile ? null : home.appFor(modelData)
+                            // The long-press and right-click menu for this cell.
+                            function openMenu() {
+                                const p = cell.mapToItem(home, 0, 0);
+                                home.menuFor = {page: page.number, index: cell.index, app: cell.app, folder: cell.folder, file: cell.file, x: p.x, y: p.y, w: cell.width, h: cell.height};
+                            }
                             readonly property bool lifted: home.menuFor !== null && home.menuFor.page === page.number && home.menuFor.index === index
                             function restX() { return (grid.shifted(index) % home.columns) * home.cellWidth; }
                             function restY() { return Math.floor(grid.shifted(index) / home.columns) * home.cellHeight; }
                             x: restX(); y: restY()
                             width: home.cellWidth; height: home.cellHeight
-                            visible: folder || app !== null
+                            visible: folder || app !== null || file !== null
                             z: dragArea.drag.active || lifted ? 10 : 0
                             scale: dragArea.drag.active || lifted ? 1.12 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durShort); easing.type: Easing.OutCubic } }
                             Behavior on x { enabled: !dragArea.drag.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
                             Behavior on y { enabled: !dragArea.drag.active; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
                             readonly property real iconSize: PhoneState.iconSize(Math.min(home.cellWidth, 104))
+                            // Pointer hover: a soft plate behind the icon and its label.
+                            Rectangle { anchors.fill: parent; anchors.margins: 4; radius: 22; color: Theme.alpha("#ffffff", .12); visible: dragArea.containsMouse && !dragArea.drag.active && !cell.lifted && !home.editing }
                             Rectangle { visible: cell.lifted || dragArea.drag.active; anchors.horizontalCenter: parent.horizontalCenter; y: 0; width: cell.iconSize + 14; height: width; radius: width / 2; color: Theme.alpha("#000000", .28) }
                             Column {
                                 anchors.horizontalCenter: parent.horizontalCenter; y: 6; spacing: 7
                                 Item {
                                     width: cell.iconSize; height: width; anchors.horizontalCenter: parent.horizontalCenter
-                                    AppIcon { anchors.fill: parent; visible: !cell.folder; app: cell.app }
+                                    AppIcon { anchors.fill: parent; visible: !cell.folder && !cell.isFile; app: cell.app }
+                                    // A Desktop file: its thumbnail, else its themed icon, else a symbol.
+                                    Item {
+                                        anchors.fill: parent; visible: cell.isFile
+                                        RoundedImage { anchors.fill: parent; anchors.margins: 4; visible: !!(cell.file && cell.file.thumb); source: cell.file && cell.file.thumb ? cell.file.thumb : ""; radius: 12; decodeSize: Qt.size(128, 128) }
+                                        Image {
+                                            id: fileIcon
+                                            anchors.fill: parent; visible: !!cell.file && !cell.file.thumb && status === Image.Ready; asynchronous: true; sourceSize: Qt.size(128, 128)
+                                            source: !cell.file || cell.file.thumb ? "" : Quickshell.iconPath(cell.file.icon || "text-x-generic", true) || Quickshell.iconPath(cell.file.dir ? "folder" : "text-x-generic", true)
+                                        }
+                                        Glyph { anchors.centerIn: parent; visible: !!cell.file && !cell.file.thumb && fileIcon.status !== Image.Ready; name: cell.file && cell.file.dir ? "folder" : cell.file ? cell.file.glyph || "draft" : "draft"; font.pixelSize: cell.iconSize * .7; color: "#ffffff" }
+                                    }
                                     Rectangle {
                                         visible: cell.folder; anchors.fill: parent; radius: width * .3; color: Theme.alpha(Theme.level(3), .92)
                                         Grid {
@@ -374,7 +554,7 @@ Item {
                                         }
                                     }
                                     Rectangle {
-                                        visible: !cell.folder && Hub.windows.some(w => Hub.appForWindow(w) === cell.app)
+                                        visible: !!cell.app && Hub.windows.some(w => Hub.appForWindow(w) === cell.app)
                                         anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.bottom; anchors.topMargin: 2
                                         width: 5; height: 5; radius: 2.5; color: Theme.primary
                                     }
@@ -382,35 +562,49 @@ Item {
                                 MText {
                                     visible: !dragArea.drag.active && !cell.lifted
                                     anchors.horizontalCenter: parent.horizontalCenter; width: home.cellWidth - 6; horizontalAlignment: Text.AlignHCenter
-                                    text: cell.folder ? cell.modelData.folder : cell.app ? cell.app.name : ""; role: "label"
-                                    style: Text.Raised; styleColor: Theme.alpha(Theme.light ? "#ffffff" : "#000000", .35)
+                                    text: cell.folder ? cell.modelData.folder : cell.app ? cell.app.name : cell.file ? cell.file.name : ""; role: "label"
+                                    maximumLineCount: 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
+                                    // Labels on the wallpaper are white with a small dense shadow, the same as the desktop labels.
+                                    font.weight: Font.DemiBold; color: "#ffffff"
+                                    style: GraphicsInfo.api === GraphicsInfo.Software ? Text.Outline : Text.Normal; styleColor: Theme.alpha("#000000", .45)
+                                    layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
+                                    layer.effect: MultiEffect { shadowEnabled: true; shadowColor: "#000000"; shadowOpacity: 1; blurMax: 8; shadowBlur: .5; shadowScale: 1.04; shadowHorizontalOffset: 1; shadowVerticalOffset: 1 }
                                 }
                             }
                             // Edit mode: a badge removes the icon from home.
                             Rectangle {
-                                visible: home.editing && !dragArea.drag.active
+                                visible: home.editing && !dragArea.drag.active && !cell.isFile
                                 x: parent.width / 2 + cell.iconSize / 2 - 14; y: 0; width: 24; height: 24; radius: 12; color: Theme.level(4)
                                 Glyph { anchors.centerIn: parent; name: "remove"; font.pixelSize: 16; color: Theme.text }
                                 MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: home.removeItem(page.number, cell.index) }
                             }
                             MouseArea {
                                 id: dragArea
-                                anchors.fill: parent
+                                anchors.fill: parent; enabled: !cell.empty
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                 // A long press lifts the icon and opens its menu; moving the finger then drags it.
-                                drag.target: home.editing || cell.lifted ? cell : null
+                                drag.target: home.editing || cell.lifted || mouseDrag ? cell : null
+                                // A mouse picks an icon up at once. A finger still needs the long press, so a swipe changes the page.
+                                property bool mouseDrag: false
                                 drag.threshold: 8
                                 preventStealing: drag.target !== null
                                 property bool moved: false
-                                onPressed: moved = false
+                                onPressed: e => { moved = false; mouseDrag = e.source === Qt.MouseEventNotSynthesized && e.button === Qt.LeftButton; }
+                                onPressAndHold: e => {
+                                    if (e.button !== Qt.LeftButton || home.editing) return;
+                                    cell.openMenu();
+                                }
                                 onPositionChanged: {
                                     if (!drag.active) return;
-                                    if (!moved) { moved = true; home.menuFor = null; home.editing = true; pager.dragging = true; grid.dragFrom = cell.index; }
+                                    if (!moved) { moved = true; home.menuFor = null; if (!mouseDrag) home.editing = true; pager.dragging = true; grid.dragFrom = cell.index; }
                                     const cx = cell.x + cell.width / 2, cy = cell.y + cell.height / 2;
-                                    grid.hoverTarget = Math.max(0, Math.min(page.pdata.items.length - 1, Math.floor(cy / home.cellHeight) * home.columns + Math.max(0, Math.min(home.columns - 1, Math.floor(cx / home.cellWidth)))));
+                                    grid.hoverTarget = page.cellAt(cx, cy);
                                     edgeTimer.cell = cell;
                                     edgeTimer.running = cell.x + cell.width > grid.width + 10 || cell.x < -10;
                                 }
                                 onReleased: {
+                                    mouseDrag = false;
                                     pager.dragging = false; edgeTimer.running = false;
                                     const from = grid.dragFrom;
                                     grid.dragFrom = -1; grid.hoverTarget = -1;
@@ -418,23 +612,23 @@ Item {
                                     const cx = cell.x + cell.width / 2, cy = cell.y + cell.height / 2;
                                     const col = Math.max(0, Math.min(home.columns - 1, Math.floor(cx / home.cellWidth)));
                                     const row = Math.max(0, Math.floor(cy / home.cellHeight));
-                                    const target = row * home.columns + col;
+                                    const target = page.cellAt(cx, cy);
                                     // The centre of a cell means "drop onto": a folder forms. The rest means "move here".
                                     const fx = cx / home.cellWidth - col, fy = cy / home.cellHeight - row;
-                                    const merge = fx > .3 && fx < .7 && fy > .2 && fy < .6 && target < page.pdata.items.length && target !== from;
+                                    const merge = fx > .3 && fx < .7 && fy > .2 && fy < .6 && target < page.pdata.items.length && !home.isEmpty(page.pdata.items[target]) && target !== from;
                                     cell.x = Qt.binding(cell.restX); cell.y = Qt.binding(cell.restY);
                                     home.drop(page.number, from, target, merge);
                                 }
-                                onClicked: {
+                                onClicked: e => {
+                                    if (e.button === Qt.RightButton) {
+                                        if (!moved) cell.openMenu();
+                                        return;
+                                    }
                                     if (moved || home.editing) return;
                                     if (home.menuFor !== null) { home.menuFor = null; return; }
                                     if (cell.folder) { home.openFolder = cell.modelData; home.openFolderPage = page.number; home.openFolderIndex = cell.index; }
                                     else if (cell.app) Hub.launch(cell.app);
-                                }
-                                onPressAndHold: {
-                                    if (home.editing) return;
-                                    const p = cell.mapToItem(home, 0, 0);
-                                    home.menuFor = {page: page.number, index: cell.index, app: cell.app, folder: cell.folder, x: p.x, y: p.y, w: cell.width, h: cell.height};
+                                    else if (cell.file) Hub.command({action: "desktop-open", path: cell.file.path});
                                 }
                             }
                             Accessible.role: Accessible.Button
@@ -461,46 +655,50 @@ Item {
         }
     }
 
-    // Long-press menu: the app's shortcuts, then Widgets, Edit and Remove.
+    // Long-press or right-click menu: the same app actions as the dock (open, pin, close, shortcuts, its windows), then the home actions.
     Rectangle {
         anchors.fill: parent; visible: home.menuFor !== null; color: Theme.alpha("#000000", .38)
-        MouseArea { anchors.fill: parent; onClicked: home.menuFor = null }
+        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onClicked: home.menuFor = null }
     }
     Rectangle {
         id: menuCard
         visible: home.menuFor !== null
         readonly property var app: home.menuFor ? home.menuFor.app : null
-        readonly property var shortcuts: app && app.actions ? app.actions.slice(0, 4) : []
-        width: Math.min(home.width - 24, 280)
-        height: menuColumn.implicitHeight + 20
+        readonly property var entries: {
+            const m = home.menuFor;
+            if (!m) return [];
+            if (m.file) {
+                const f = m.file;
+                return [
+                    {text: "Open", icon: "open_in_new", quick: true, run: () => Hub.command({action: "desktop-open", path: f.path})},
+                    {text: "Show in Files", icon: "folder_open", quick: true, run: () => Hub.command({action: "desktop-reveal", path: f.path})},
+                    {text: "Copy path", icon: "content_copy", run: () => Hub.command({action: "clipboard", text: f.path})},
+                    {text: "Edit home", icon: "edit", run: () => home.editing = true},
+                    {text: "Move to trash", icon: "delete", danger: true, run: () => Hub.command({action: "desktop-trash", path: f.path})}
+                ];
+            }
+            const appEntries = PhoneState.windowExtras(PhoneState.homeScreen(), menuCard.app).concat(Hub.appMenu(menuCard.app).filter(e => e.icon !== "add_to_home_screen"));
+            return appEntries.concat([
+                {text: "Widgets", icon: "widgets", run: () => { home.editing = true; home.pickerOpen = true; }},
+                {text: "Edit home", icon: "edit", run: () => home.editing = true},
+                {text: m.folder ? "Remove folder" : "Remove from home", icon: "delete", danger: true, run: () => home.removeItem(m.page, m.index)}
+            ]);
+        }
+        width: Math.min(home.width - 24, 300)
+        height: Math.min(menuBody.implicitHeight, home.height - 24)
         x: home.menuFor ? Math.max(12, Math.min(home.width - width - 12, home.menuFor.x + home.menuFor.w / 2 - width / 2)) : 0
-        y: home.menuFor ? (home.menuFor.y - height - 8 > 60 ? home.menuFor.y - height - 8 : home.menuFor.y + home.menuFor.h + 8) : 0
+        y: home.menuFor ? (home.menuFor.y - height - 8 > 12 ? home.menuFor.y - height - 8 : Math.min(home.height - height - 12, home.menuFor.y + home.menuFor.h + 8)) : 0
         radius: 28; color: Theme.level(3)
         scale: visible ? 1 : .9
         Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
-        ColumnLayout {
-            id: menuColumn
-            x: 10; y: 10; width: parent.width - 20; spacing: 2
-            Repeater {
-                model: menuCard.shortcuts
-                Rectangle {
-                    required property var modelData
-                    Layout.fillWidth: true; Layout.preferredHeight: 48; radius: 18; color: shortcutMouse.pressed ? Theme.alpha(Theme.text, .08) : "transparent"
-                    Row {
-                        x: 12; anchors.verticalCenter: parent.verticalCenter; spacing: 14
-                        Glyph { name: "bolt"; font.pixelSize: 20; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                        MText { text: modelData.name; role: "body"; anchors.verticalCenter: parent.verticalCenter }
-                    }
-                    MouseArea { id: shortcutMouse; anchors.fill: parent; onClicked: { modelData.execute(); home.menuFor = null; } }
-                }
-            }
-            Rectangle { visible: menuCard.shortcuts.length > 0; Layout.fillWidth: true; Layout.preferredHeight: 1; Layout.topMargin: 4; Layout.bottomMargin: 6; color: Theme.outline }
-            Row {
-                Layout.alignment: Qt.AlignHCenter; spacing: 6
-                MButton { text: "Widgets"; icon: "widgets"; tonal: true; compact: true; onClicked: { home.menuFor = null; home.editing = true; home.pickerOpen = true; } }
-                MButton { icon: "edit"; tonal: true; compact: true; tooltip: "Edit home"; onClicked: { home.menuFor = null; home.editing = true; } }
-                MButton { icon: "delete"; tonal: true; compact: true; tooltip: "Remove from home"; onClicked: { const m = home.menuFor; home.menuFor = null; home.removeItem(m.page, m.index); } }
-            }
+        ContextMenuBody {
+            id: menuBody
+            anchors.fill: parent
+            entries: menuCard.entries
+            title: menuCard.app ? menuCard.app.name : home.menuFor && home.menuFor.file ? home.menuFor.file.name : home.menuFor && home.menuFor.folder ? "Folder" : ""
+            icon: "apps"
+            maxHeight: home.height - 24
+            onActivated: entry => { home.menuFor = null; if (entry.run) entry.run(); }
         }
     }
 
@@ -581,7 +779,7 @@ Item {
                             Rectangle {
                                 visible: home.editing; x: parent.width / 2 + 14; y: 0; width: 22; height: 22; radius: 11; color: Theme.level(4)
                                 Glyph { anchors.centerIn: parent; name: "remove"; font.pixelSize: 16; color: Theme.text }
-                                MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: { const id = modelData; home.folderSet((f, items) => { f.apps = f.apps.filter(a => a !== id); items.push(id); }); } }
+                                MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: { const id = modelData; home.folderSet((f, items) => { f.apps = f.apps.filter(a => a !== id); items[home.firstFree(items)] = id; }); } }
                             }
                         }
                     }

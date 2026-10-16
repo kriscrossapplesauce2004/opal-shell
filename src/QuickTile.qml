@@ -22,7 +22,7 @@ Rectangle {
         MText {text:t.title;width:parent.width;font.pixelSize:13;font.weight:Font.DemiBold;color:t.active ? Theme.onPrimary : Theme.text}
         MText {text:t.subtitle;width:parent.width;font.pixelSize:10;color:t.active ? Theme.alpha(Theme.onPrimary,.8) : Theme.subtext}
     }
-    MouseArea {id:mouse;anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:t.clicked();onPressAndHold:t.openSettings()}
+    MouseArea {id:mouse;anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:t.clicked();onDoubleClicked:t.clicked();onPressAndHold:t.openSettings()}
     Loader {active:t.settings;anchors {top:parent.top;right:parent.right;topMargin:10;rightMargin:10}
         sourceComponent:Component {MButton {icon:"next";compact:true;implicitWidth:32;implicitHeight:32;ink:t.active ? Theme.onPrimary : Theme.subtext;tooltip:"Open settings";onClicked:t.openSettings()}}
     }

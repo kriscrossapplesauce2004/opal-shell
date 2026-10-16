@@ -1,7 +1,7 @@
 """Weather for the Glance widget from Open-Meteo (no key, no account). The user names a city; there is no geolocation."""
 import json, os, pathlib, time, urllib.parse, urllib.request
 
-STATE = pathlib.Path(os.environ.get('XDG_STATE_HOME') or pathlib.Path.home() / '.local/state') / 'opal' / 'weather.json'
+STATE = (pathlib.Path(os.environ['OPAL_STATE_DIR']) if os.environ.get('OPAL_STATE_DIR') else pathlib.Path(os.environ.get('XDG_STATE_HOME') or pathlib.Path.home() / '.local/state') / 'opal') / 'weather.json'
 GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search'
 FORECAST = 'https://api.open-meteo.com/v1/forecast'
 REFRESH = 30 * 60

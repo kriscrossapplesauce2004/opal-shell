@@ -64,6 +64,8 @@ Rectangle {
                 hoverEnabled:true
                 cursorShape:Qt.PointingHandCursor
                 onClicked:t.toggled()
+                // A fast second tap arrives as a double click; it must toggle again, not be lost.
+                onDoubleClicked:t.toggled()
                 activeFocusOnTab:true
                 Keys.onReturnPressed:t.toggled()
                 Keys.onSpacePressed:t.toggled()
@@ -85,6 +87,7 @@ Rectangle {
         hoverEnabled:true
         cursorShape:Qt.PointingHandCursor
         onClicked:mouse=>t.clicked(mouse ? mouse.x : width/2,mouse ? mouse.y : height/2)
+        onDoubleClicked:mouse=>t.clicked(mouse.x,mouse.y)
         onPressAndHold:if(t.settings)t.openSettings()
         activeFocusOnTab:true
         Keys.onReturnPressed:t.clicked(width/2,height/2)

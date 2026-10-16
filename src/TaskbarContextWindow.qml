@@ -6,9 +6,10 @@ import Quickshell.Wayland
 PanelWindow {
     id:context
     screen:Hub.taskbarContextScreen || Quickshell.screens[0]
-    visible:Hub.taskbarContextOpen&&screen!==null
+    // Visibility reads only the open flag. Reading the screen back here made a binding loop that could remap the window as it opened.
+    visible:Hub.taskbarContextOpen
     readonly property string layoutMode:Hub.layoutFor(screen ? screen.width : 1920,screen ? screen.height : 1080,screen ? screen.name : "")
-    readonly property int taskbarHeight:layoutMode==="phone" ? (Hub.prefs.phoneButtons ? 64 : 48) : 64
+    readonly property int taskbarHeight:layoutMode==="phone" ? PhoneState.navHeight : 64
     anchors {top:true;bottom:true;left:true;right:true}
     exclusionMode:ExclusionMode.Ignore
     WlrLayershell.layer:WlrLayer.Overlay
@@ -77,6 +78,7 @@ PanelWindow {
             subtitle:Hub.taskbarContextIcon==="desktop"&&menu.entries.some(e=>e.icon==="desktop"&&!e.quick) ? "Open windows" : ""
             maxHeight:Math.max(160,context.height-120)
             onActivated:entry=>{
+                console.info("opal: menu action "+entry.text+(entry.run ? "" : " (no action)"));
                 Hub.targetScreen=context.screen;
                 Hub.closeTaskbarContext();
                 if(entry.run)entry.run();

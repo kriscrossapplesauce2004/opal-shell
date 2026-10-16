@@ -6,11 +6,19 @@ import Quickshell
 Item {
     id:drawer
     property bool keyboardOpen:false
+    // Floating: the full-screen tablet launcher. There is no sheet and no drag handle; the blurred wallpaper is the background.
+    property bool floating:false
+    // Dense: tablet icon cells near 150 px. The full-screen launcher and the tablet sheet are both dense.
+    property bool dense:floating
+    // Room at the bottom for a dock that floats over the sheet.
+    property int bottomInset:0
     property string category:"All apps"
     readonly property string filter:Hub.query.trim()
     readonly property bool math:filter!==""&&(filter.startsWith("=")||Hub.looksLikeMath(filter))
-    readonly property int columns:PhoneState.columnsFor(width-32,width>=720)
-    readonly property real cellW:(width-32-(rail.visible ? 26 : 0))/columns
+    readonly property int inset:dense ? 48 : 12
+    // The tablet sheet keeps icon cells near 150 px, so a wide sheet gets more columns and not wider gaps.
+    readonly property int columns:dense ? Math.max(6,Math.floor((width-inset)/150)) : PhoneState.columnsFor(width-32,width>=720)
+    readonly property real cellW:(width-inset-(rail.visible ? 26 : 0))/columns
     // The system keyboard covers the bottom of the sheet, so the sheet leaves room for it.
     readonly property int keyboardInset:Hub.systemOskVisible&&Hub.systemOskReady ? Math.round(height*.38) : 0
     readonly property var apps:math ? [] : Hub.searchApps(filter,filter ? "All apps" : category)
@@ -20,7 +28,13 @@ Item {
         return seen;
     }
     signal closeRequested()
+    // Dense drawers let a long-pressed app be carried out onto the home. Points are in window coordinates.
+    signal appLifted(var app, real x, real y)
+    signal appDragged(real x, real y)
+    signal appDropped(real x, real y)
     function focusSearch() {search.forceActiveFocus();keyboardOpen=true;PhoneState.refreshActivity();}
+    // A kept drawer opens like a new one: all apps, at the top, with no keyboard.
+    function reset() {category="All apps";keyboardOpen=false;search.focus=false;grid.positionViewAtBeginning();}
     function jump(letter) {
         const index=apps.findIndex(a=>{const l=(a.name||"#").charAt(0).toUpperCase();return letter==="#" ? !/[A-Z]/.test(l) : l===letter;});
         if(index>=0)grid.positionViewAtIndex(index,GridView.Beginning);
@@ -33,21 +47,23 @@ Item {
     Rectangle {
         id:sheet
         anchors.fill:parent
-        topLeftRadius:32;topRightRadius:32
-        color:Theme.alpha(Theme.light ? Theme.surfaceLow : Theme.mix(Theme.base,Theme.primaryContainer,.12),.97)
+        topLeftRadius:32;topRightRadius:32;bottomLeftRadius:drawer.floating ? 32 : 0;bottomRightRadius:drawer.floating ? 32 : 0
+        color:drawer.floating ? "transparent" : Theme.alpha(Theme.light ? Theme.surfaceLow : Theme.mix(Theme.base,Theme.primaryContainer,.12),.97)
         ColumnLayout {
-            anchors.fill:parent;anchors.leftMargin:16;anchors.rightMargin:16;anchors.topMargin:8;anchors.bottomMargin:8+drawer.keyboardInset;spacing:12
+            anchors.fill:parent;anchors.leftMargin:drawer.dense ? 24 : 6;anchors.rightMargin:drawer.dense ? 24 : 6;anchors.topMargin:drawer.floating ? 20 : 8;anchors.bottomMargin:8+drawer.bottomInset+drawer.keyboardInset;spacing:12
             Behavior on anchors.bottomMargin {NumberAnimation {duration:Theme.motion(200);easing.type:Easing.OutCubic}}
             // Handle and header: dragging down here closes the drawer.
             Item {
+                visible:!drawer.floating
                 Layout.fillWidth:true;Layout.preferredHeight:20
                 Rectangle {anchors.centerIn:parent;width:36;height:4;radius:2;color:Theme.alpha(Theme.text,.35)}
                 DragHandler {target:null;xAxis.enabled:false;onActiveChanged:if(!active&&translation.y>50)drawer.closeRequested()}
                 TapHandler {onTapped:drawer.closeRequested()}
             }
             Rectangle {
-                Layout.fillWidth:true;Layout.preferredHeight:56;radius:28
-                color:Theme.light ? "#ffffff" : Theme.mix(Theme.base,Theme.primaryContainer,.5)
+                Layout.fillWidth:true;Layout.maximumWidth:drawer.dense ? 720 : 100000;Layout.alignment:Qt.AlignHCenter
+                Layout.preferredHeight:56;radius:28;Layout.bottomMargin:drawer.floating ? 8 : 0
+                color:Theme.light ? "#ffffff" : drawer.floating ? Theme.alpha(Theme.level(3),.92) : Theme.mix(Theme.base,Theme.primaryContainer,.5)
                 RowLayout {
                     anchors.fill:parent;anchors.leftMargin:18;anchors.rightMargin:8;spacing:10
                     Glyph {name:"search";font.pixelSize:22;color:Theme.subtext}
@@ -115,7 +131,13 @@ Item {
                         required property var modelData
                         required property int index
                         width:GridView.view.cellWidth;height:GridView.view.cellHeight
-                        PhoneAppIcon {anchors.centerIn:parent;app:parent.modelData;size:PhoneState.iconSize(drawer.cellW);selected:drawer.filter!==""&&parent.index===0;onActivated:Hub.launch(app)}
+                        PhoneAppIcon {
+                            anchors.centerIn:parent;app:parent.modelData;size:PhoneState.iconSize(drawer.cellW);selected:drawer.filter!==""&&parent.index===0;onActivated:Hub.launch(app)
+                            dragOut:drawer.dense
+                            onLifted:(x,y)=>drawer.appLifted(app,x,y)
+                            onDragged:(x,y)=>drawer.appDragged(x,y)
+                            onDropped:(x,y)=>drawer.appDropped(x,y)
+                        }
                     }
                     Column {
                         anchors.centerIn:parent;visible:drawer.apps.length===0;spacing:10

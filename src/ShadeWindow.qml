@@ -36,7 +36,7 @@ Scope {
             required property var modelData
             screen:modelData
             readonly property string layoutMode:Hub.layoutFor(modelData.width,modelData.height,modelData.name)
-            readonly property int barHeight:layoutMode==="phone" ? 48 : 0
+            readonly property int barHeight:layoutMode==="phone" ? PhoneState.statusFor(modelData) : 0
             visible:shadeScope.presentCard&&modelData!==shade.screen
             anchors {top:true;bottom:true;left:true;right:true}
             exclusionMode:ExclusionMode.Ignore
@@ -57,7 +57,9 @@ Scope {
         screen:Hub.targetScreen||Quickshell.screens[0]
         readonly property string layoutMode:Hub.layoutFor(screen ? screen.width : 1920,screen ? screen.height : 1080,screen ? screen.name : "")
         readonly property bool phone:layoutMode==="phone"&&(screen ? screen.width<680 : true)
-        readonly property int barHeight:layoutMode==="phone" ? 48 : 0
+        readonly property int barHeight:layoutMode==="phone" ? PhoneState.statusFor(screen) : 0
+        // A tablet drops the card from the top right under the status bar, like an Android tablet; it never runs under the dock.
+        readonly property bool tablet:layoutMode==="phone"&&!phone
         visible:shadeScope.presentCard
         anchors {top:true;bottom:true;left:true;right:true}
         exclusionMode:ExclusionMode.Ignore
@@ -91,11 +93,11 @@ Scope {
             Surface {
             id:shadeCard
             readonly property real fit:shadeContent.item&&shadeContent.item.fitHeight>0 ? shadeContent.item.fitHeight : 460
-            width:shade.phone ? shade.width : Math.min(380,shade.width-36)
-            height:shade.phone ? shade.height : Math.min(fit,shade.height-92)
+            width:shade.phone ? shade.width : Math.min(shade.tablet ? 420 : 380,shade.width-36)
+            height:shade.phone ? shade.height : shade.tablet ? Math.min(fit,shade.height-shade.barHeight-PhoneState.tabletNavHeight-16) : Math.min(fit,shade.height-92)
             Behavior on height {enabled:shadeCard.reveal>0.99&&!shade.phone;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            x:shade.phone ? 0 : shade.width-width-18
-            y:shade.phone ? 0 : shade.height-height-72
+            x:shade.phone ? 0 : shade.width-width-(shade.tablet ? 12 : 18)
+            y:shade.phone ? 0 : shade.tablet ? shade.barHeight+6 : shade.height-height-72
             radius:shade.phone ? 0 : 32;translucency:shade.phone ? Hub.prefs.glass : Math.min(.55,Hub.prefs.glass)
             HoverHandler {id:cardHover}
             // Blank space inside the card must not reach the dismiss area.
@@ -111,11 +113,12 @@ Scope {
                 exit.from=reveal;
                 exit.restart();
             }
-            opacity:reveal;scale:.95+.05*reveal;transformOrigin:shade.phone ? Item.Top : Item.BottomRight
-            transform:Translate {y:(shade.phone ? -28 : 32)*(1-shadeCard.reveal)}
+            opacity:reveal;scale:.95+.05*reveal;transformOrigin:shade.phone ? Item.Top : shade.tablet ? Item.TopRight : Item.BottomRight
+            transform:Translate {y:(shade.phone||shade.tablet ? -28 : 32)*(1-shadeCard.reveal)}
             NumberAnimation {id:enter;target:shadeCard;property:"reveal";to:1;duration:Theme.motion(400);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}
-            NumberAnimation {id:exit;target:shadeCard;property:"reveal";to:0;duration:Theme.motion(200);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedAccelerate;onFinished:if(!shadeScope.opened)shadeScope.presentCard=false}
-            Loader {id:shadeContent;anchors.fill:parent;anchors.topMargin:shade.phone ? 48 : 0;anchors.bottomMargin:shade.phone ? (Hub.prefs.phoneButtons ? 64 : 48) : 0;active:shadeScope.presentCard;sourceComponent:Component {QuickSettings {}}}
+            // A closed shade forgets its detail page, so the next open starts at the main sheet.
+            NumberAnimation {id:exit;target:shadeCard;property:"reveal";to:0;duration:Theme.motion(200);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedAccelerate;onFinished:if(!shadeScope.opened){shadeScope.presentCard=false;Hub.controlDetail="";}}
+            Loader {id:shadeContent;anchors.fill:parent;anchors.topMargin:shade.phone ? 48 : 0;anchors.bottomMargin:shade.phone ? PhoneState.navHeight : 0;active:shadeScope.presentCard;sourceComponent:Component {QuickSettings {}}}
             PhoneNavigation {visible:shade.phone;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight;output:shade.screen}
             Rectangle {visible:Hub.toast!=="";anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:12;height:70;radius:22;color:Theme.surfaceHigh;z:5
                 MText {anchors.fill:parent;anchors.margins:12;text:Hub.toast;font.pixelSize:12;wrapMode:Text.Wrap;maximumLineCount:3;verticalAlignment:Text.AlignVCenter}

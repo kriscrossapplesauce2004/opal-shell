@@ -67,6 +67,16 @@ class PhoneHomeValidationTests(unittest.TestCase):
         layout = {'pages': [{'widgets': ['glance', 'stack'], 'items': ['firefox', {'folder': 'Games', 'apps': ['steam', 'prism']}]}, {'widgets': [], 'items': []}]}
         self.assertTrue(backend.valid_phone_home(layout))
 
+    def test_accepts_empty_cells_for_free_placement(self):
+        layout = {'pages': [{'widgets': [], 'items': ['firefox', None, None, 'steam']}]}
+        self.assertTrue(backend.valid_phone_home(layout))
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [None] * 97}]}))
+
+    def test_accepts_desktop_files_as_home_items(self):
+        self.assertTrue(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'path': '/home/u/Desktop/notes.md'}, 'firefox']}]}))
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'path': 'relative.md'}]}]}))
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'path': '/x', 'run': 'rm'}]}]}))
+
     def test_rejects_unknown_widgets_and_bad_folders(self):
         self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': ['evil'], 'items': []}]}))
         self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'folder': 'x', 'apps': []}]}]}))

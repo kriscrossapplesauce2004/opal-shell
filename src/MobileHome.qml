@@ -18,7 +18,8 @@ Item {
         if(embedded&&tab!=="home")Hub.page="launcher";
     }
     function openDrawer(search) {
-        if(embedded){Hub.drawerHandoff=progress;Hub.mobileTab="apps";Hub.page="launcher";if(search)Hub.drawerSearch=true;return;}
+        // On a tablet the home stays under the launcher sheet, so its own drawer goes back down.
+        if(embedded){Hub.drawerHandoff=progress;Hub.mobileTab="apps";Hub.page="launcher";if(search)Hub.drawerSearch=true;settle.to=0;settle.restart();return;}
         Hub.mobileTab="apps";settle.to=1;settle.restart();
         if(search)Qt.callLater(drawer.focusSearch);
     }

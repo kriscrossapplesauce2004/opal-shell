@@ -31,7 +31,7 @@ PanelWindow {
     }
     anchors {bottom:true;left:true;right:true}
     visible:!consoleMode&&!fullscreen
-    implicitHeight:phone ? (tablet ? 68 : Hub.prefs.phoneButtons ? 64 : 48) : Hub.prefs.barStyle==="edge" ? 52 : 64
+    implicitHeight:phone ? (tablet ? PhoneState.tabletNavHeight : PhoneState.navHeight) : Hub.prefs.barStyle==="edge" ? 52 : 64
     exclusiveZone:(autoHide||consoleMode||fullscreen) ? 0 : implicitHeight
     color:"transparent"
     WlrLayershell.namespace:"opal-shelf"
@@ -53,10 +53,11 @@ PanelWindow {
         width:bar.width;height:bar.height
         radius:0;border.width:0
         y:bar.autoHide&&!bar.revealed ? height-3 : 0
-        color:bar.phone ? Theme.alpha(Theme.dockTint,Hub.prefs.glass) : "transparent"
+        // The tablet dock floats over the wallpaper. The phone bar floats on the home and turns solid under an app, like Android.
+        color:bar.phone&&!bar.tablet&&PhoneState.appInFront&&Hub.page==="" ? Theme.base : "transparent"
         Behavior on y {NumberAnimation {duration:Theme.motion(140);easing.type:Easing.OutCubic}}
         HoverHandler {id:bodyHover;onHoveredChanged:{if(hovered){hideTimer.stop();bar.revealed=true;}else hideTimer.restart();}}
-        Rectangle {visible:bar.phone;anchors.top:parent.top;width:parent.width;height:1;color:Theme.outline}
+        Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durShort)}}
         Loader {id:desktopLoader;anchors.fill:parent;active:!bar.phone;sourceComponent:desktopContent}
         Loader {anchors.fill:parent;active:bar.phone;sourceComponent:phoneContent}
     }

@@ -106,6 +106,8 @@ Rectangle {
         }
         onPressed:held=false
         onClicked:e=>{if(held)return;if(e.button===Qt.RightButton){if(a.menuEntries.length)buttonMenu.item.popupFrom(a,e.x,e.y);else a.contextRequested(e.x,e.y);}else a.clicked();}
+        // A fast second click arrives as a double click; it counts as one more click.
+        onDoubleClicked:e=>{if(e.button===Qt.LeftButton&&!held)a.clicked();}
         onPressAndHold:e=>{if(a.menuEntries.length){held=true;buttonMenu.item.popupFrom(a,e.x,e.y);}}
     }
     Accessible.role: Accessible.Button

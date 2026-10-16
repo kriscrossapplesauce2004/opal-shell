@@ -34,7 +34,7 @@ Rectangle {
         MText { Layout.fillWidth: true; text: root.text; color: root.ink; font.pixelSize: 12; font.weight: Font.Medium }
         Glyph { visible: root.trailingIcon !== ""; name: root.trailingIcon; font.pixelSize: 17; color: Theme.subtext }
     }
-    MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.clicked() }
+    MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.clicked(); onDoubleClicked: root.clicked() }
     activeFocusOnTab: true
     Keys.onReturnPressed: clicked()
     Keys.onSpacePressed: clicked()

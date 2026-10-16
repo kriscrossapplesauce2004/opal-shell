@@ -62,6 +62,11 @@ ShellRoot {
             required property var modelData
             readonly property string layoutMode:Hub.layoutFor(modelData.width,modelData.height,modelData.name)
             function show(page) {Hub.targetScreen=modelData;Hub.toggle(page);}
+            // A window on this screen's workspace: with the option on, the home's icons and widgets fade out under it.
+            readonly property int shownWorkspace:Number(((Hub.status.monitors||[]).find(m=>m.name===modelData.name)||{}).workspace||Hub.status.workspace)
+            readonly property bool covered:Hub.prefs.homeHideUnderApps!==false&&Hub.windows.some(w=>(!w.monitor||w.monitor===modelData.name)&&Number(w.workspace)===shownWorkspace)
+            // A tablet keeps its home under the launcher sheet; other pages cover it.
+            readonly property bool homeShown:Hub.page===""||Hub.page==="launcher"&&Hub.mobileTab!=="recent"&&PhoneState.isTablet(modelData)
             PanelWindow {
                 id:desktop
                 screen:output.modelData
@@ -79,12 +84,15 @@ ShellRoot {
                         anchors.fill:parent
                         sourceComponent:morph.shown==="phone" ? phoneBackdrop : desktopBackdrop
                     }
-                    Component {id:phoneBackdrop;PhoneBackdrop {}}
-                    Component {id:desktopBackdrop;Wallpaper {showWidgets:morph.shown==="desktop"&&Hub.prefs.desktopWidgets!==false;showHome:morph.shown==="desktop";screenName:output.modelData.name}}
+                    Component {id:phoneBackdrop;PhoneBackdrop {soft:output.homeShown ? 0 : 1}}
+                    Component {id:desktopBackdrop;Wallpaper {showWidgets:morph.shown==="desktop"&&Hub.prefs.desktopWidgets!==false;showHome:morph.shown==="desktop";covered:output.covered;screenName:output.modelData.name}}
                     // Non-exclusive homes live behind applications. Only the explicit overlay takes keys.
                     Loader {
-                        anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? 48 : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? (PhoneState.isTablet(output.modelData)&&Hub.prefs.tabletDock!==false ? 68 : Hub.prefs.phoneButtons ? 64 : 48) : 84}
-                        active:morph.shown!=="desktop"&&Hub.page===""
+                        anchors {fill:parent;topMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? PhoneState.statusFor(output.modelData) : 56;bottomMargin:Hub.prefs.mode==="console" ? 0 : morph.shown==="phone" ? PhoneState.navFor(output.modelData) : 84}
+                        active:morph.shown!=="desktop"&&output.homeShown
+                        // The home recedes under the tablet launcher, and comes back while an app is carried onto it.
+                        opacity:output.covered&&!PhoneState.homeDrag ? 0 : Hub.page===""||PhoneState.homeDrag ? 1 : .45
+                        Behavior on opacity {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
                         sourceComponent:morph.shown==="phone" ? phoneHome : gameHome
                     }
                     Component {id:phoneHome;MobileHome {embedded:true}}
@@ -102,6 +110,7 @@ ShellRoot {
                     {text:"Edit widgets",icon:"edit",run:()=>{Hub.set("desktopWidgets",true);HomeData.editingScreen=output.modelData.name;}},
                     {text:"Desktop icons",icon:"apps",checked:Hub.prefs.desktopIcons!==false,run:()=>Hub.set("desktopIcons",Hub.prefs.desktopIcons===false)},
                     {text:"Desktop widgets",icon:"widgets",checked:Hub.prefs.desktopWidgets!==false,run:()=>Hub.set("desktopWidgets",Hub.prefs.desktopWidgets===false)},
+                    {text:"Hide under windows",icon:"layers_clear",checked:Hub.prefs.homeHideUnderApps!==false,run:()=>Hub.set("homeHideUnderApps",Hub.prefs.homeHideUnderApps===false)},
                     {text:"Dark theme",icon:"dark_mode",checked:!Theme.light,run:()=>Hub.set("light",!Theme.light)},
                     {text:"Display settings",icon:"monitor",run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings("displays");}},
                     {text:"Settings",icon:"settings",run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}}
@@ -114,13 +123,14 @@ ShellRoot {
                 screen:output.modelData
                 visible:output.layoutMode==="phone"&&(Hub.status.fullscreenMonitors||[]).indexOf(output.modelData.name)<0
                 anchors {top:true;left:true;right:true}
-                implicitHeight:output.layoutMode==="phone" ? 48 : 44
+                implicitHeight:output.layoutMode==="phone" ? PhoneState.statusFor(output.modelData) : 44
                 exclusiveZone:visible ? implicitHeight : 0
                 // Keep bar hover effects above transient utility surfaces.
                 WlrLayershell.layer:WlrLayer.Overlay
                 WlrLayershell.namespace:"opal-bar"
-                color:Theme.alpha(Theme.base,.48)
-                Rectangle {anchors.bottom:parent.bottom;width:parent.width;height:1;color:Theme.outline}
+                // On the home the status bar sits on the wallpaper. With an app in front on a phone it turns solid, like Android, so no strip of wallpaper frames the app.
+                color:output.layoutMode==="phone"&&!PhoneState.isTablet(output.modelData)&&PhoneState.appInFront&&Hub.page==="" ? Theme.base : "transparent"
+                Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durShort)}}
                 Loader {anchors.fill:parent;active:statusbar.visible;sourceComponent:phoneStatusContent}
                 Component {id:phoneStatusContent;PhoneStatus {anchors.fill:parent;output:statusbar.screen;fpsEnabled:root.fpsEnabled;fps:root.fps}}
             }
@@ -238,6 +248,7 @@ ShellRoot {
     SystemServices {}
     AudioDrawer {}
     ActivityCardWindow {}
+    WorkspaceCardWindow {}
     SnapLayouts {id:snapLayouts}
     ShadeWindow {}
     AssistantWindow {}
@@ -297,7 +308,7 @@ ShellRoot {
         // Reads arrival directly: a binding through leaving can see a stale value for one tick and unmap the window.
         visible:wanted||panel.arrival>0
         onWantedChanged:{
-            if(wanted){lastPage=Hub.page;panelDeparture.stop();panelArrival.restart();}
+            if(wanted){lastPage=Hub.page;panelDeparture.stop();panelArrival.restart();if(overlay.tabletLauncher&&tabletLayer.item)tabletLayer.item.prepare();}
             else {panelArrival.stop();panelDeparture.restart();}
         }
         Connections {target:Hub;function onPageChanged(){if(overlay.wanted)overlay.lastPage=Hub.page;}}
@@ -306,6 +317,8 @@ ShellRoot {
         exclusionMode:ExclusionMode.Ignore
         WlrLayershell.layer:WlrLayer.Overlay
         readonly property bool phoneLauncher:layoutMode==="phone"&&overlay.pg==="launcher"
+        // Tablet: the launcher is one floating sheet above the dock, not a second home.
+        readonly property bool tabletLauncher:phoneLauncher&&Hub.mobileTab!=="recent"&&PhoneState.isTablet(screen)
         readonly property bool desktopStart:layoutMode==="desktop"&&overlay.pg==="launcher"&&Hub.launcherSection==="apps"
         readonly property bool searchPanel:overlay.pg==="search"&&layoutMode!=="phone"
         WlrLayershell.namespace:"opal-overlay"
@@ -323,6 +336,8 @@ ShellRoot {
             id:panel
             property real arrival:0
             opacity:arrival
+            // The tablet launcher has its own full-screen layer; this panel only carries the arrival value for it.
+            visible:!overlay.tabletLauncher
             // Reveal from the bottom edge. Animate local content only: the
             // panel's final x/y geometry is never interpolated from (0, 0).
             transform: [
@@ -332,7 +347,7 @@ ShellRoot {
             // Arrival and departure start from the current value, so a reopen during an exit reverses smoothly.
             NumberAnimation {id:panelArrival;target:panel;property:"arrival";to:1;duration:Theme.motion(400);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}
             NumberAnimation {id:panelDeparture;target:panel;property:"arrival";to:0;duration:Theme.motion(220);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedAccelerate}
-            readonly property bool phone:overlay.layoutMode==="phone"
+            readonly property bool phone:overlay.layoutMode==="phone"&&!overlay.tabletLauncher
             readonly property bool game:overlay.layoutMode==="console"
             readonly property bool launcher:overlay.pg==="launcher"
             width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : overlay.pg==="settings" ? 880 : launcher ? 960 : overlay.pg==="windows" ? 1100 : overlay.pg==="convergence"||overlay.pg==="wallpaper" ? 800 : overlay.pg==="appearance"||overlay.pg==="welcome" ? 660 : 490)
@@ -347,12 +362,12 @@ ShellRoot {
             MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons}
             Loader {
                 id:overlayContent
-                anchors.fill:parent;anchors.topMargin:panel.phone ? 48 : 0;anchors.bottomMargin:panel.phone ? (Hub.prefs.phoneButtons ? 64 : 48) : 0;active:overlay.visible
+                anchors.fill:parent;anchors.topMargin:panel.phone ? PhoneState.statusFor(overlay.screen) : 0;anchors.bottomMargin:panel.phone ? PhoneState.navHeight : 0;active:overlay.visible&&!overlay.tabletLauncher
                 onLoaded:contentArrival.restart()
                 NumberAnimation {id:contentArrival;target:overlayContent;property:"opacity";from:0;to:1;duration:Theme.motion(180)}
                 sourceComponent:overlay.pg==="search" ? (panel.phone ? mobileComponent : searchComponent) : overlay.pg==="settings" ? settingsComponent : overlay.pg==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : overlay.pg==="clipboard" ? clipboardComponent : overlay.pg==="appearance" ? appearanceComponent : overlay.pg==="convergence" ? convergenceComponent : overlay.pg==="wallpaper" ? wallpaperComponent : overlay.pg==="windows" ? windowsComponent : overlay.pg==="welcome" ? welcomeComponent : controlsComponent
             }
-            PhoneStatus {visible:panel.phone;anchors.top:parent.top;width:parent.width;height:48;output:overlay.screen}
+            PhoneStatus {visible:panel.phone;anchors.top:parent.top;width:parent.width;height:PhoneState.statusFor(overlay.screen);output:overlay.screen}
             PhoneNavigation {visible:panel.phone;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight;output:overlay.screen}
             Rectangle {visible:Hub.toast!=="";anchors {bottom:parent.bottom;left:parent.left;right:parent.right;margins:12} height:72;radius:24;color:Theme.surfaceHigh;z:5
                 MText {anchors {fill:parent;margins:14} text:Hub.toast;font.pixelSize:12;wrapMode:Text.Wrap;maximumLineCount:3;verticalAlignment:Text.AlignVCenter}
@@ -371,6 +386,13 @@ ShellRoot {
         Component {id:launcherComponent;Launcher {}}
         Component {id:startComponent;StartMenu {}}
         Component {id:mobileComponent;MobileHome {}}
+        Loader {
+            id:tabletLayer
+            // Built once per tablet screen and kept, so opening the launcher never decodes the wallpaper or builds the app grid again.
+            anchors.fill:parent;active:overlay.layoutMode==="phone"&&PhoneState.isTablet(overlay.screen)
+            visible:overlay.tabletLauncher
+            sourceComponent:Component {TabletLauncher {screenObj:overlay.screen;arrival:panel.arrival}}
+        }
         Component {id:consoleComponent;ConsoleHome {}}
         Component {id:controlsComponent;QuickSettings {}}
         Component {id:clipboardComponent;ClipboardPanel {touchMode:panel.phone}}
@@ -382,9 +404,9 @@ ShellRoot {
         Shortcut {sequence:"Escape";enabled:!overlay.desktopStart&&!overlay.searchPanel&&!(panel.game&&panel.launcher);onActivated:Hub.close()}
         // Controller focus for every page in this window. Pages may define controllerTab(delta) and controllerBack().
         ControllerFocus {
-            anchors.fill:parent;root:overlayContent;priority:0;closeOnBack:false;tabHints:true
+            anchors.fill:parent;root:overlay.tabletLauncher ? tabletLayer : overlayContent;priority:0;closeOnBack:false;tabHints:true
             active:overlay.visible&&!(panel.game&&panel.launcher)&&!GameState.quickAccess
-            onBack:{const page=overlayContent.item;if(!(page&&page.controllerBack&&page.controllerBack()))Hub.close();}
+            onBack:{const page=overlay.tabletLauncher ? null : overlayContent.item;if(!(page&&page.controllerBack&&page.controllerBack()))Hub.close();}
             onTab:delta=>{const page=overlayContent.item;if(page&&page.controllerTab)page.controllerTab(delta);}
         }
     }

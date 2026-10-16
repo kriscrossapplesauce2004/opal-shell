@@ -72,6 +72,11 @@ class FloatingModeTests(unittest.TestCase):
         ops = fm.plan_tile_outputs(clients, mons, ['HDMI-A-1'], fm.user_float_rules(USER_CONFIG))
         self.assertEqual(ops, [{'op': 'float', 'address': '0x1', 'value': False}, {'op': 'unmaximize', 'address': '0x2'}])
 
+    def test_nested_phone_window_stays_floating(self):
+        mons = [{'id': 0, 'name': 'HDMI-A-1'}]
+        clients = [dict(win('0x5', 'aquamarine', floating=True), monitor=0)]
+        self.assertEqual(fm.plan_tile_outputs(clients, mons, ['HDMI-A-1'], []), [])
+
     def test_titlebar_colors(self):
         lua = fm.titlebar_colors({'dynamicPalette': {'dark': {'surface_container': '#271d1d', 'on_surface': '#f0dedd', 'error': 'not a colour'}}})
         self.assertIn('bar = "rgba(271d1df2)"', lua)

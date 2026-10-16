@@ -3,7 +3,7 @@ import json
 import os
 import pathlib
 
-STORE = pathlib.Path.home() / '.local/state/opal/convergence-windows.json'
+STORE = (pathlib.Path(os.environ['OPAL_STATE_DIR']) if os.environ.get('OPAL_STATE_DIR') else pathlib.Path.home() / '.local/state/opal') / 'convergence-windows.json'
 MAX_REMEMBERED = 16
 MAX_WINDOWS = 64
 

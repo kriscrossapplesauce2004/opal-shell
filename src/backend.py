@@ -5,7 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from wallpaper_service import DEFAULTS as WALLPAPER_DEFAULTS, local_image, generate, valid_preference, image_library, browse_images
 HOME = pathlib.Path.home()
-STORE = HOME / '.local/state/opal/preferences.json'
+# OPAL_STATE_DIR moves all state for a separate instance, such as the nested phone session.
+STATE_DIR = pathlib.Path(os.environ['OPAL_STATE_DIR']) if os.environ.get('OPAL_STATE_DIR') else HOME / '.local/state/opal'
+STORE = STATE_DIR / 'preferences.json'
 lock = threading.Lock()
 prefs_lock = threading.Lock()
 JSON_SEPARATORS = (',', ':')
@@ -30,12 +32,13 @@ def spawn(args, env=None):
 BAR_STYLES = ('islands','dock','split','edge')
 SHEET_SECTION_IDS = ('sliders','tiles','media','notifications','calendar','monitor','clipboard','focus','battery','devices')
 SHEET_SECTION_DEFAULT = ('sliders','tiles','media','notifications')
-PHONE_WIDGETS = ('glance','stack','media','calendar','battery','focus','photos','devices','clock','live')
+PHONE_WIDGETS = ('glance','stack','media','calendar','battery','focus','photos','devices','clock','live','files')
 def valid_phone_home(value):
-    """Phone home layout: up to 8 pages of widgets and items; items are app ids or small folders."""
+    """Phone home layout: up to 8 pages of widgets and items; items are app ids, small folders, ~/Desktop files as {'path'}, or None for an empty cell."""
     def app_id(v): return isinstance(v,str) and 0<len(v)<300
     def item(v):
-        if app_id(v): return True
+        if v is None or app_id(v): return True
+        if isinstance(v,dict) and set(v)=={'path'}: return isinstance(v['path'],str) and v['path'].startswith('/') and 1<len(v['path'])<4096
         return isinstance(v,dict) and set(v)=={'folder','apps'} and isinstance(v['folder'],str) and len(v['folder'])<=40 and isinstance(v['apps'],list) and 0<len(v['apps'])<=24 and all(map(app_id,v['apps']))
     if not isinstance(value,dict) or set(value)!={'pages'} or not isinstance(value['pages'],list) or not 0<len(value['pages'])<=8: return False
     for page in value['pages']:
@@ -47,7 +50,7 @@ def valid_phone_home(value):
             return isinstance(w,dict) and set(w)=={'kind','w','h'} and w['kind'] in PHONE_WIDGETS and type(w['w']) is int and type(w['h']) is int and 1<=w['w']<=8 and 1<=w['h']<=4
         kinds=[w if isinstance(w,str) else w.get('kind') if isinstance(w,dict) else None for w in widgets] if isinstance(widgets,list) else []
         if not isinstance(widgets,list) or len(widgets)>6 or len(set(kinds))!=len(kinds) or not all(map(widget,widgets)): return False
-        if not isinstance(items,list) or len(items)>48 or not all(map(item,items)): return False
+        if not isinstance(items,list) or len(items)>96 or not all(map(item,items)): return False
     return True
 
 import system_tools
@@ -514,6 +517,7 @@ def commands():
             elif action=='claude-ask' and isinstance(c.get('text'),str) and 0<len(c['text'])<8000:
                 threading.Thread(target=ask_claude,args=(c['text'],int(c.get('id') or 0)),daemon=True).start()
             elif action=='claude-stop': stop_claude()
+            elif action in ('theme-export','theme-export-remove') and os.environ.get('OPAL_NESTED'): pass
             elif action=='theme-export':
                 def export(c=c):
                     options=dict(c.get('options') if isinstance(c.get('options'),dict) else {},**{k:v for k,v in (prefs.get('themeSync') or {}).items() if v not in ('',None)})
@@ -585,6 +589,7 @@ def commands():
             elif action=='desktop-trash' and home_data.inside(c.get('path'),home_data.desktop_dir()): run('gio','trash',os.path.realpath(c['path'])); home_state['desktop']=None
             elif action=='desktop-reveal' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(['gdbus','call','--session','--dest','org.freedesktop.FileManager1','--object-path','/org/freedesktop/FileManager1','--method','org.freedesktop.FileManager1.ShowItems','["'+pathlib.Path(os.path.realpath(c['path'])).as_uri()+'"]',''])
             elif action=='tablet-tile' and isinstance(c.get('outputs'),list): threading.Thread(target=tablet_tile,args=([o for o in c['outputs'] if isinstance(o,str)][:8],),daemon=True).start()
+            elif action=='window-tile' and isinstance(c.get('address'),str): threading.Thread(target=window_tile,args=(c['address'],),daemon=True).start()
             elif action=='window-minimize': threading.Thread(target=window_minimize,args=(c.get('address'),),daemon=True).start()
             elif action=='window-restore': threading.Thread(target=window_restore,args=(c.get('address'),),daemon=True).start()
             elif action=='window-snap' and floating_mode.valid_cell(c.get('cell')): threading.Thread(target=window_snap,args=(c.get('address'),c['cell']),daemon=True).start()
@@ -726,6 +731,10 @@ def floating_reload():
         emit({'event':'message','text':'Hyprland is in safe mode. Log out and in to finish switching window modes.'})
         return
     subprocess.run(['hyprctl','reload','config-only'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=10)
+def window_tile(address):
+    # A slide-over window goes back into the tiling.
+    try: hypr_actions.set_floating(address,False)
+    except (ValueError,OSError,subprocess.SubprocessError): pass
 def floating_run(ops):
     for op in ops:
         try:
@@ -887,7 +896,7 @@ def library_art():
     return result
 
 GAMES = {}
-GAME_STATE = HOME / '.local/state/opal/games.json'
+GAME_STATE = STATE_DIR / 'games.json'
 def publish_games():
     """Index local games and art, remember launch commands by id, and send the list without them."""
     import game_library
@@ -1139,7 +1148,7 @@ def link_apply():
     wanted=prefs.get('linkEnabled') is True
     service=LINK['service']
     if wanted and not service:
-        service=opal_link.LinkService(emit, HOME/'.local/state/opal/link', device_type=prefs.get('linkDeviceType','desktop') if prefs.get('linkDeviceType') in ('desktop','laptop','phone','tablet') else 'desktop')
+        service=opal_link.LinkService(emit, STATE_DIR/'link', device_type=prefs.get('linkDeviceType','desktop') if prefs.get('linkDeviceType') in ('desktop','laptop','phone','tablet') else 'desktop')
         link_handlers(service)
         try:
             if service.start(import_kde=prefs.get('linkImportKde',True) is not False): LINK['service']=service

@@ -21,8 +21,18 @@ Scope {
     }
     function iconSize(cellWidth) { return Math.round(Math.max(48, Math.min(64, cellWidth - 22))); }
     function cellHeight(cellWidth) { return iconSize(cellWidth) + 38; }
-    readonly property int navHeight: Hub.prefs.phoneButtons ? 64 : 48
+    // A slim phone bar: three keys in 48 px, or a 28 px gesture strip.
+    readonly property int navHeight: Hub.prefs.phoneButtons ? 48 : 28
+    // The tablet workspace card: open state, its screen, and the left edge of the chip it grows from.
+    property bool spacesOpen: false
+    property var spacesScreen: null
+    property real spacesX: 12
+    // An app carried from the tablet launcher onto the home: {app, x, y} in screen coordinates, or null.
+    property var homeDrag: null
+    signal homeDrop(string appId, real x, real y)
     readonly property int barHeight: 48
+    // A tablet gets a slimmer status bar than a phone.
+    function statusFor(screen) { return isTablet(screen) ? 34 : barHeight; }
 
     // Pen awareness: after a stylus touch, targets grow and nothing depends on hover.
     property bool pen: false
@@ -149,7 +159,9 @@ Scope {
     }
     // The tablet dock is inside the navigation bar now, so there is no extra dock height.
     function dockHeight(screen) { return 0; }
-    function navFor(screen) { return isTablet(screen) && Hub.prefs.tabletDock !== false ? 68 : navHeight; }
+    // The tablet bar holds the floating dock; with gestures the gesture strip sits under it.
+    readonly property int tabletNavHeight: Hub.prefs.phoneButtons ? 88 : 100
+    function navFor(screen) { return isTablet(screen) && Hub.prefs.tabletDock !== false ? tabletNavHeight : navHeight; }
     function startSplit(screen, left, right) {
         if (!left || !right || left === right || !Hub.status.hypr || isTablet(screen)) return false;
         const a = Hub.windows.find(w => w.address === left), b = Hub.windows.find(w => w.address === right);
@@ -187,13 +199,42 @@ Scope {
         splitActive = false; splitLeft = ""; splitRight = "";
     }
     function slideOver(screen, address) {
-        if (!address || !Hub.status.hypr) return;
+        if (!address || !Hub.status.hypr || !screen) return;
         slideAddress = address;
-        Hub.command({action: "phone-slideover", output: screen.name, address: address, fraction: .38, top: barHeight, bottom: navFor(screen)});
+        Hub.command({action: "phone-slideover", output: screen.name, address: address, fraction: .38, top: statusFor(screen), bottom: navFor(screen)});
+    }
+    // The phone or tablet screen that a home menu acts on.
+    function homeScreen() { return isTablet(Hub.targetScreen) || phoneScreens().indexOf(Hub.targetScreen) >= 0 ? Hub.targetScreen : phoneScreens()[0] || null; }
+    // An app opened "in slide over": its first new window slides over when it appears.
+    property var pendingSlide: null
+    function openSlideOver(screen, app) {
+        if (!app || !screen) return;
+        pendingSlide = {id: app.id, screen: screen, known: Hub.windows.map(w => w.address), until: Date.now() + 15000};
+        Hub.launch(app);
+    }
+    function catchSlide() {
+        const p = pendingSlide;
+        if (!p) return;
+        if (Date.now() > p.until) { pendingSlide = null; return; }
+        const w = Hub.windows.find(x => p.known.indexOf(x.address) < 0 && Hub.appForWindow(x) && Hub.appForWindow(x).id === p.id);
+        if (w) { pendingSlide = null; slideOver(p.screen, w.address); }
+    }
+    // Window actions for one app, shared by the dock menu and the home menu.
+    function windowExtras(screen, app) {
+        if (!app || !Hub.status.hypr || !screen) return [];
+        const w = Hub.windows.find(x => Hub.appForWindow(x) === app);
+        if (!w) return [{text: "Open in slide over", icon: "picture_in_picture", run: () => openSlideOver(screen, app)}];
+        const out = [];
+        const active = activeWindow();
+        // A tablet already tiles windows side by side, so only a phone offers to pair two apps.
+        if (!isTablet(screen) && active && active.address !== w.address) out.push({text: "Open beside current app", icon: "splitscreen_vertical_add", run: () => startSplit(screen, active.address, w.address)});
+        if (w.floating) out.push({text: "Back to tiling", icon: "dashboard", run: () => { Hub.command({action: "window-tile", address: w.address}); if (slideAddress === w.address) slideAddress = ""; }});
+        else out.push({text: "Slide over", icon: "picture_in_picture", run: () => slideOver(screen, w.address)});
+        return out;
     }
     // A split ends when one of its windows closes.
     readonly property var windowAddresses: Hub.windows.map(w => w.address)
-    onWindowAddressesChanged: if (splitActive && (windowAddresses.indexOf(splitLeft) < 0 || windowAddresses.indexOf(splitRight) < 0)) { splitActive = false; splitLeft = ""; splitRight = ""; }
+    onWindowAddressesChanged: { catchSlide(); if (splitActive && (windowAddresses.indexOf(splitLeft) < 0 || windowAddresses.indexOf(splitRight) < 0)) { splitActive = false; splitLeft = ""; splitRight = ""; } }
 
     // Fit apps to phone outputs. A window that opens, or an output that changes, triggers one debounced call.
     function fit() {

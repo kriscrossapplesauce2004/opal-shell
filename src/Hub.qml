@@ -463,12 +463,14 @@ Scope {
     }
     // While editing, empty pages stay so the user can fill them. Otherwise empty pages after the first go away.
     function setPhoneHome(layout,keepEmpty) { set("phoneHome",{pages:keepEmpty ? layout.pages : layout.pages.filter((p,i)=>i===0||p.widgets.length||p.items.length)}); }
-    function homeHas(id) { return phoneHome.pages.some(p=>p.items.some(item=>item===id||(item.apps||[]).indexOf(id)>=0)); }
+    function homeHas(id) { return phoneHome.pages.some(p=>p.items.some(item=>item===id||(item&&item.apps||[]).indexOf(id)>=0)); }
     function addToHome(app) {
         if(!app||homeHas(app.id))return;
         const layout=JSON.parse(JSON.stringify(phoneHome));
         const last=layout.pages[layout.pages.length-1];
-        if(last.items.length>=24)layout.pages.push({widgets:[],items:[app.id]});else last.items.push(app.id);
+        // The first empty cell takes the app; a full page gets a new page after it.
+        const hole=last.items.indexOf(null);
+        if(hole>=0)last.items[hole]=app.id;else if(last.items.length>=24)layout.pages.push({widgets:[],items:[app.id]});else last.items.push(app.id);
         setPhoneHome(layout);message("Added to Home");
     }
     function appMenu(app) {

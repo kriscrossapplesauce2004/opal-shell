@@ -60,7 +60,7 @@ LOCK_NOTIFICATIONS = ('off', 'count', 'title')
 
 def valid_preference(key, value):
     """Check phone preferences. Unknown keys are not valid here."""
-    if key in ('phoneFitApps', 'phoneEdgeBack', 'ambientClock'):
+    if key in ('phoneFitApps', 'phoneEdgeBack', 'ambientClock', 'homeDesktopFiles', 'homeHideUnderApps'):
         return type(value) is bool
     if key == 'lockNotifications':
         return value in LOCK_NOTIFICATIONS

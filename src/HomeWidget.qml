@@ -18,7 +18,8 @@ Item {
     Component { id: glanceView; Item { GlanceWidget { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; big: Math.max(20, Math.min(32, hw.height * .3)) } } }
     Component { id: mediaView; MediaPlayerCard { small: hw.height < 180 } }
     // A short slot drops the code preview so the title and the buttons always fit.
-    Component { id: liveView; ActivityCard { a: hw.live ? (hw.height < 250 ? Object.assign({}, hw.live, {code: ""}) : hw.live) : ({}); onOpened: Activities.open(hw.live, null) } }
+    // The card keeps its own height inside a taller slot, so no empty card body shows under the buttons.
+    Component { id: liveView; Item { ActivityCard { width: parent.width; height: Math.min(parent.height, implicitHeight); a: hw.live ? (hw.height < 250 ? Object.assign({}, hw.live, {code: ""}) : hw.live) : ({}); onOpened: Activities.open(hw.live, null) } } }
     Component {
         id: photoView
         Item {
