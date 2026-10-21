@@ -253,7 +253,8 @@ QtObject {
         case "reboot": case "poweroff": Hub.command({action:"power",verb:id});break;
         case "logout": Hub.command({action:"power",verb:"logout"});break;
         case "lock": Hub.lock();break;
-        case "switch-user": Hub.command({action:"switch-user"});break;
+        // This session locks first, then another login screen starts on a new VT.
+        case "switch-user": Hub.lock();Hub.command({action:"switch-user"});break;
         case "play-pause": case "next": case "previous": Hub.media(id);break;
         case "flashlight": if(PhoneState.torch.available)PhoneState.setTorch(!PhoneState.torch.on);break;
         case "airplane": Hub.command({action:"powerkey-toggle",what:"airplane",on:!live.airplane});break;

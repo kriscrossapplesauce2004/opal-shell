@@ -175,6 +175,24 @@ class Actions(unittest.TestCase):
         key.contact('call', '+1 555 0000')
         self.assertEqual(sent, ['sms:+44201'], 'numbers outside the address book are ignored')
 
+    def test_switch_user_reuses_an_idle_login_screen(self):
+        key, events, calls, *_ = service()
+        rows = [{'session': '4', 'class': 'user', 'seat': 'seat0'}, {'session': 'c2', 'class': 'greeter', 'seat': 'seat0'}]
+        key._out = lambda args: calls.append(args) or (json.dumps(rows) if args[:2] == ['loginctl', 'list-sessions'] else '')
+        with tempfile.TemporaryDirectory() as units:
+            (pathlib.Path(units) / 'opal-switch-greeter@.service').write_text('')
+            self.assertTrue(key.switch_user(units))
+            self.assertIn(['loginctl', 'activate', 'c2'], calls)
+            rows.pop()
+            self.assertTrue(key.switch_user(units))
+            self.assertIn(['systemctl', 'start', '--no-block', 'opal-switch-greeter@1.service'], calls)
+
+    def test_switch_user_without_setup_explains(self):
+        key, events, *_ = service()
+        with tempfile.TemporaryDirectory() as units:
+            self.assertFalse(key.switch_user(units))
+        self.assertIn('one-time setup', events[-1]['text'])
+
     def test_unknown_actions_fall_through(self):
         key, *_ = service()
         self.assertFalse(key.handle({'action': 'powerkey-nope'}))

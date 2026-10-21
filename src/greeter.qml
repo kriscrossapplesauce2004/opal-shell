@@ -24,6 +24,7 @@ ShellRoot {
                 userName: root.user.name || root.user.login
                 avatar: root.user.avatar || ""
                 users: root.users
+                running: root.running
                 userIndex: root.userIndex
                 sessions: root.sessions
                 sessionIndex: root.sessionIndex
@@ -37,6 +38,7 @@ ShellRoot {
                 onUserPicked: index => root.pickUser(index)
                 onSessionPicked: index => root.sessionIndex = index
                 onPowerRequested: verb => root.power(verb)
+                onResumeRequested: session => root.resume(session)
             }
         }
     }

@@ -367,19 +367,27 @@ class PowerKey:
             else: self.runner(['hyprctl', 'keyword', 'monitor', name + ',disable'], capture_output=True, timeout=2)
         except (OSError, subprocess.SubprocessError): pass
 
-    def switch_user(self):
-        """Start a second greeter on a new VT. This session keeps running, locked, behind it."""
-        unit = 'opal-switch-greeter@' + str(int(time.time()) % 100000) + '.service'
-        installed = pathlib.Path('/etc/systemd/system/opal-switch-greeter@.service').exists()
-        if not installed:
-            self.emit({'event': 'message', 'text': 'Fast user switching needs a one-time setup: run sudo opal-fast-user-switch-setup'})
+    def switch_user(self, unit_dir='/etc/systemd/system'):
+        """Show another login screen on a new VT. This session keeps running, locked, behind it.
+        An idle login screen from an earlier switch is reused; otherwise the next free greeter instance starts."""
+        if not (pathlib.Path(unit_dir) / 'opal-switch-greeter@.service').exists():
+            self.emit({'event': 'message', 'text': 'Fast user switching needs a one-time setup: sudo tools/install-fast-user-switch.sh in the Opal source'})
             return False
-        try: result = self.runner(['systemctl', 'start', '--no-block', unit], capture_output=True, text=True, timeout=10)
-        except (OSError, subprocess.SubprocessError): result = None
-        if not result or result.returncode != 0:
-            self.emit({'event': 'message', 'text': 'Could not start another login screen'})
-            return False
-        return True
+        try: rows = json.loads(self._out(['loginctl', 'list-sessions', '-j']) or '[]')
+        except ValueError: rows = []
+        idle = next((r for r in rows if r.get('class') == 'greeter' and r.get('seat') == 'seat0'), None)
+        if idle:
+            self._out(['loginctl', 'activate', str(idle.get('session', ''))])
+            return True
+        for n in range(1, 7):
+            unit = 'opal-switch-greeter@' + str(n) + '.service'
+            if self._out(['systemctl', 'is-active', unit]).strip() in ('active', 'activating'): continue
+            try: result = self.runner(['systemctl', 'start', '--no-block', unit], capture_output=True, text=True, timeout=10)
+            except (OSError, subprocess.SubprocessError): result = None
+            if result and result.returncode == 0: return True
+            break
+        self.emit({'event': 'message', 'text': 'Could not start another login screen'})
+        return False
 
     # ---------- Commands from the shell ----------
     def handle(self, c):

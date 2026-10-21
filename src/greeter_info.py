@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Greeter adapter: list login users and Wayland sessions, and remember the last choice. Standard library only."""
-import json, os, pathlib, pwd, shlex, sys
+import json, os, pathlib, pwd, shlex, subprocess, sys
 
 STATE = pathlib.Path(os.environ.get('OPAL_GREETER_STATE', '/var/lib/opal-greeter/state.json'))
 SESSION_DIRS = [pathlib.Path(p) for p in os.environ.get('OPAL_SESSION_DIRS', '/usr/share/wayland-sessions').split(':')]
@@ -39,6 +39,19 @@ def sessions():
                 if entry and entry['id'] not in found: found[entry['id']] = entry
     return sorted(found.values(), key=lambda s: s['name'].lower())
 
+def running(runner=subprocess.run):
+    """User sessions already running on this seat. Fast user switching offers to go back to them."""
+    try: rows = json.loads(runner(['loginctl', 'list-sessions', '-j'], capture_output=True, text=True, timeout=3).stdout or '[]')
+    except (OSError, ValueError, subprocess.SubprocessError): return []
+    found, seen = [], set()
+    for row in rows:
+        if row.get('class') != 'user' or row.get('seat') != 'seat0' or row.get('user') in seen: continue
+        seen.add(row.get('user'))
+        try: name = pwd.getpwnam(row['user']).pw_gecos.split(',')[0].strip() or row['user']
+        except (KeyError, TypeError): name = str(row.get('user', ''))
+        found.append({'session': str(row.get('session', '')), 'login': str(row.get('user', '')), 'name': name})
+    return found
+
 def keyboard_layout():
     for path in ('/etc/X11/xorg.conf.d/00-keyboard.conf',):
         try:
@@ -67,7 +80,10 @@ def main(argv):
         try: remember(argv[2], argv[3])
         except OSError as error: print(error, file=sys.stderr)
         return
-    print(json.dumps({'users': users(), 'sessions': sessions(), 'layout': keyboard_layout(), 'last': remembered()}))
+    if len(argv) == 2 and argv[1] == '--running':
+        print(json.dumps({'running': running()}))
+        return
+    print(json.dumps({'users': users(), 'sessions': sessions(), 'layout': keyboard_layout(), 'last': remembered(), 'running': running()}))
 
 if __name__ == '__main__':
     main(sys.argv)

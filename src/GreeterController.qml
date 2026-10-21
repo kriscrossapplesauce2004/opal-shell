@@ -11,6 +11,8 @@ Scope {
     property bool launched: false
     property var users: []
     property var sessions: []
+    // Sessions still running on this seat, for going back after a fast user switch.
+    property var running: []
     property string layout: ""
     property int userIndex: 0
     property int sessionIndex: 0
@@ -43,6 +45,7 @@ Scope {
                     root.users = data.users || [];
                     root.sessions = data.sessions || [];
                     root.layout = data.layout || "";
+                    root.running = data.running || [];
                     const last = data.last || {};
                     root.userIndex = Math.max(0, root.users.findIndex(u => u.login === last.user));
                     const preferred = root.sessions.findIndex(s => s.id === last.session);
@@ -52,6 +55,15 @@ Scope {
         }
     }
     Process { id: rememberer }
+    // Running sessions change while the greeter waits, so they are read again every few seconds.
+    Process {
+        id: runningInfo
+        command: root.infoCommand.concat(["--running"])
+        stdout: StdioCollector { onStreamFinished: { try { root.running = JSON.parse(text).running || []; } catch (error) {} } }
+    }
+    Timer { interval: 4000; running: true; repeat: true; onTriggered: if (!runningInfo.running) runningInfo.running = true }
+    Process { id: activator }
+    function resume(session) { if (/^[0-9a-z]+$/i.test(session)) { activator.command = ["loginctl", "activate", session]; activator.running = true; } }
 
     function submit(text) {
         if (busy || !user.login) return;

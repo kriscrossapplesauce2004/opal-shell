@@ -28,7 +28,8 @@ ShellRoot {
             {name:"pk-06-locked",view:lockView,index:2,ring:.4},
             {name:"pk-07-settings",view:settingsView},
             {name:"pk-08-settings-add",view:settingsView,sheet:"add",tree:"custom"},
-            {name:"pk-09-desktop-shortcut",view:desktopView,index:2,w:1600,h:900,source:"shortcut"}
+            {name:"pk-09-desktop-shortcut",view:desktopView,index:2,w:1600,h:900,source:"shortcut"},
+            {name:"pk-10-greeter-switch",view:greeterView}
         ]
         property var current:cases[0]
         Loader {id:loader;anchors.fill:parent}
@@ -43,7 +44,7 @@ ShellRoot {
             Opal.PowerKey.source=c.source||"key";
             Opal.PowerKey.stack=c.stack||[];
             Opal.PowerKey.index=c.index||0;
-            Opal.PowerKey.open=c.view!==settingsView;
+            Opal.PowerKey.open=c.view!==settingsView&&c.view!==greeterView;
             Opal.PowerKey.countdown=c.ring===undefined ? -1 : c.ring;
             Opal.Hub.locked=c.view===lockView;
             fixture.width=c.w||480;fixture.height=c.h||960;
@@ -77,6 +78,12 @@ ShellRoot {
     Component {id:lockView
         Body {
             Opal.LockScene {anchors.fill:parent;mode:"lock";userName:"melissa"}
+        }
+    }
+    Component {id:greeterView
+        Body {
+            Opal.LockScene {anchors.fill:parent;mode:"greeter";userName:"Guest";users:[{login:"guest",name:"Guest"},{login:"melissa",name:"Melissa"}]
+                running:[{session:"4",login:"melissa",name:"Melissa"}];sessions:[{id:"hyprland",name:"Hyprland"}]}
         }
     }
     Component {id:settingsView

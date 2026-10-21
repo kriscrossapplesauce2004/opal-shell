@@ -21,6 +21,8 @@ FocusScope {
     property var notificationGroups: []
     // Greeter extras.
     property var users: []
+    // Greeter: sessions still running behind a fast user switch.
+    property var running: []
     property int userIndex: 0
     property var sessions: []
     property int sessionIndex: 0
@@ -30,6 +32,7 @@ FocusScope {
     signal submitted(string response)
     signal powerRequested(string verb)
     signal userPicked(int index)
+    signal resumeRequested(string session)
     signal sessionPicked(int index)
 
     property bool revealed: greeter
@@ -123,6 +126,26 @@ FocusScope {
         visible: opacity > 0
         transform: Translate { y: scene.revealed ? 0 : 24; Behavior on y { NumberAnimation { duration: Theme.motion(Theme.durLong); easing.type: Easing.OutCubic } } }
         Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durMedium) } }
+        // Greeter: go back to a session that is still running.
+        Column {
+            visible: scene.greeter && scene.running.length > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 8
+            Repeater {
+                model: scene.running
+                Rectangle {
+                    required property var modelData
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: resumeRow.implicitWidth + 32; height: 44; radius: 22
+                    color: resumeMouse.containsMouse ? Theme.primary : Theme.primaryContainer
+                    Row { id: resumeRow; anchors.centerIn: parent; spacing: 8
+                        Glyph { name: "switch_account"; font.pixelSize: 19; color: resumeMouse.containsMouse ? Theme.onPrimary : Theme.onContainer; anchors.verticalCenter: parent.verticalCenter }
+                        MText { text: "Back to " + (modelData.name || modelData.login); role: "label"; color: resumeMouse.containsMouse ? Theme.onPrimary : Theme.onContainer; anchors.verticalCenter: parent.verticalCenter } }
+                    MouseArea { id: resumeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: scene.resumeRequested(modelData.session) }
+                    Accessible.role: Accessible.Button; Accessible.name: "Back to " + (modelData.name || modelData.login)
+                }
+            }
+        }
         // Greeter user picker.
         Row {
             visible: scene.greeter && scene.users.length > 1
