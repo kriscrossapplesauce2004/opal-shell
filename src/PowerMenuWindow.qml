@@ -6,7 +6,8 @@ import Quickshell.Wayland
 PanelWindow {
     id:win
     screen:PowerKey.screen||Hub.internalScreen||Quickshell.screens[0]
-    visible:menu.visible&&!Hub.locked
+    // The reveal, not the item visibility: an item in a hidden window is never visible, so that would never show the window.
+    visible:(PowerKey.open||menu.reveal>0)&&!Hub.locked
     anchors {top:true;bottom:true;left:true;right:true}
     exclusionMode:ExclusionMode.Ignore
     WlrLayershell.layer:WlrLayer.Overlay
