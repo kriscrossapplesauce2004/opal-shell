@@ -203,6 +203,14 @@ class HyprActions:
             self.runner(['hyprctl','dispatch','resizewindowpixel','exact '+str(width)+' '+str(height)+',address:'+address])
             self.runner(['hyprctl','dispatch','movewindowpixel','exact '+str(x)+' '+str(y)+',address:'+address])
 
+    def snap_restore_size(self,address,width,height):
+        """Tell the opal-windowing plugin the size a snapped window returns to when it is dragged away. Zero forgets the window."""
+        self._validate_address(address)
+        for value in (width,height):
+            if type(value) is not int or not 0<=value<=100000:raise ValueError('Invalid size')
+        if not self.is_lua():return
+        self.runner(['hyprctl','eval','if hl.plugin and hl.plugin.opal_windowing then hl.plugin.opal_windowing.set_restore("'+address+'",'+str(width)+','+str(height)+') end'])
+
     def fullscreen(self,address,mode,restore_focus=''):
         """Set fullscreen mode 0 (off), 1 (maximize) or 2 (fullscreen). Hyprland acts on the focused window, so focus returns afterwards."""
         self._validate_address(address)

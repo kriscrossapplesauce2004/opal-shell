@@ -592,7 +592,11 @@ def commands():
             elif action=='window-tile' and isinstance(c.get('address'),str): threading.Thread(target=window_tile,args=(c['address'],),daemon=True).start()
             elif action=='window-minimize': threading.Thread(target=window_minimize,args=(c.get('address'),),daemon=True).start()
             elif action=='window-restore': threading.Thread(target=window_restore,args=(c.get('address'),),daemon=True).start()
-            elif action=='window-snap' and floating_mode.valid_cell(c.get('cell')): threading.Thread(target=window_snap,args=(c.get('address'),c['cell']),daemon=True).start()
+            elif action=='window-snap' and floating_mode.valid_cell(c.get('cell')): threading.Thread(target=window_snap,args=(c.get('address'),c['cell'],c.get('monitor') if isinstance(c.get('monitor'),str) else '',c.get('assist') is True),daemon=True).start()
+            elif action=='window-unsnap': threading.Thread(target=window_unsnap,args=(c.get('address'),),daemon=True).start()
+            elif action=='window-maximize': threading.Thread(target=window_maximize,args=(c.get('address'),),daemon=True).start()
+            elif action=='window-key-snap' and c.get('direction') in ('left','right','up','down'): threading.Thread(target=window_key_snap,args=(c.get('address'),c['direction']),daemon=True).start()
+            elif action=='show-desktop': threading.Thread(target=show_desktop,daemon=True).start()
             elif action in ('desktop-new-folder','desktop-new-file'):
                 made=home_data.create(home_data.desktop_dir(),'folder' if action=='desktop-new-folder' else 'file'); home_state['desktop']=None
                 if not made: emit({'event':'message','text':'Could not make it on the desktop'})
@@ -720,6 +724,7 @@ def status():
 # Floating window mode. Every Hyprland call goes through HyprActions; the plan comes from floating_mode.
 floating_lock=threading.Lock()
 floating_seen=set()
+floating_primed=[False]
 floating_saved_at=[0.0]
 def hyprland_safe_mode():
     # After a crash Hyprland runs a recovery config; a reload then drops the user's own config.
@@ -765,6 +770,10 @@ def floating_apply(on):
             floating_reload()
             floating_run(ops)
             state['before']=[]
+            # Tiling has no snaps: forget them, and the sizes the plugin would restore.
+            for address in state.pop('snapped',{}):
+                try: hypr_actions.snap_restore_size(address,0,0)
+                except (ValueError,OSError,subprocess.SubprocessError): pass
             floating_mode.save(state)
         floating_seen.clear()
         floating_seen.update(c.get('address') for c in clients)
@@ -776,10 +785,14 @@ def tablet_tile(outputs):
         rules=floating_mode.user_float_rules(floating_mode.HYPR_CONFIG.read_text())
     except (ValueError,OSError,subprocess.SubprocessError): return
     floating_run(floating_mode.plan_tile_outputs(clients,monitors,outputs,rules))
+titlebar_seen={'at':0.0,'height':0}
 def floating_titlebar():
-    # Titlebars come from the hyprbars plugin when it is loaded.
-    try: return floating_mode.TITLEBAR if 'hyprbars' in subprocess.run(['hyprctl','plugin','list'],capture_output=True,text=True,timeout=3).stdout else 0
-    except (OSError,subprocess.SubprocessError): return 0
+    # Titlebars come from the hyprbars plugin when it is loaded. The answer is reused for a few seconds.
+    if time.time()-titlebar_seen['at']<5: return titlebar_seen['height']
+    try: height=floating_mode.TITLEBAR if 'hyprbars' in subprocess.run(['hyprctl','plugin','list'],capture_output=True,text=True,timeout=3).stdout else 0
+    except (OSError,subprocess.SubprocessError): height=0
+    titlebar_seen.update(at=time.time(),height=height)
+    return height
 def floating_watch(data):
     # While the mode is on: a new window opens where its app was last time, inside the screen, and places are remembered.
     windows=data.get('windows')
@@ -788,6 +801,10 @@ def floating_watch(data):
               'workspace':{'id':w.get('workspace',0)},'at':w.get('at',[0,0]),'size':w.get('size',[0,0])} for w in windows]
     state=floating_mode.load()
     memory=state.get('memory',{})
+    # The first snapshot after the backend starts only records the open windows: a restart must never move them.
+    if not floating_primed[0]:
+        floating_primed[0]=True
+        floating_seen.update(c['address'] for c in clients)
     fresh=[c for c in clients if c['address'] not in floating_seen]
     floating_seen.update(c['address'] for c in clients)
     fresh=[c for c in fresh if c['floating'] and floating_mode.regular(c)]
@@ -799,13 +816,20 @@ def floating_watch(data):
             w=next((x for x in windows if x.get('address')==c['address']),{})
             monitor=monitors.get(w.get('monitor'))
             if not monitor: continue
-            rect=memory.get(c['class']) or [*c['at'],*c['size']]
-            placed=floating_mode.fit_rect(rect,monitor,titlebar=bar)
-            if placed!=[int(v) for v in rect] or c['class'] in memory: floating_run([{'op':'geometry','address':c['address'],'rect':placed}])
+            remembered=memory.get(c['class'])
+            rect=remembered or [*c['at'],*c['size']]
+            # A window without a remembered place does not land exactly on another one: it steps down and right.
+            others=[x['at'] for x in clients if x['address']!=c['address'] and x['workspace']['id']==c['workspace']['id']]
+            placed=floating_mode.cascade(rect,others,monitor,titlebar=bar)
+            if placed!=[int(v) for v in rect] or remembered: floating_run([{'op':'geometry','address':c['address'],'rect':placed}])
     if time.time()-floating_saved_at[0]>15:
         floating_saved_at[0]=time.time()
-        state['memory']=floating_mode.remember(memory,clients)
-        floating_mode.save(state)
+        live={c['address'] for c in clients}
+        with floating_lock:
+            state=floating_mode.load()
+            state['snapped']={a:e for a,e in state.get('snapped',{}).items() if a in live}
+            state['memory']=floating_mode.remember(state.get('memory',{}),clients,state['snapped'])
+            floating_mode.save(state)
 def floating_active(address):
     if isinstance(address,str) and address: return address
     try: return json.loads(subprocess.run(['hyprctl','-j','activewindow'],capture_output=True,text=True,timeout=3).stdout or '{}').get('address','')
@@ -815,25 +839,128 @@ def window_minimize(address):
     try:
         client=next((c for c in hypr_actions.clients() if c.get('address')==address),None)
         if not client or int(client['workspace']['id'])<=0: return
-        state=floating_mode.load(); state.setdefault('minimized',{})[address]=int(client['workspace']['id']); floating_mode.save(state)
+        with floating_lock:
+            state=floating_mode.load(); state.setdefault('minimized',{})[address]=int(client['workspace']['id']); floating_mode.save(state)
         hypr_actions.minimize(address)
     except (ValueError,OSError,KeyError,subprocess.SubprocessError): pass
 def window_restore(address):
     try:
-        state=floating_mode.load(); number=state.get('minimized',{}).pop(address,None); floating_mode.save(state)
+        with floating_lock:
+            state=floating_mode.load(); number=state.get('minimized',{}).pop(address,None); floating_mode.save(state)
         hypr_actions.restore(address,number if type(number) is int and number>0 else 1)
     except (ValueError,OSError,subprocess.SubprocessError): pass
-def window_snap(address,cell):
+def client_monitor(client,monitors,name=''):
+    if name:
+        named=next((m for m in monitors if m.get('name')==name),None)
+        if named: return named
+    return next((m for m in monitors if m.get('id')==client.get('monitor')),None)
+drag_origin={}
+def drag_began(address):
+    # Where a window was when its drag started: a drop that snaps it restores to this place later, not to where it was dropped.
+    try:
+        client=next((c for c in hypr_actions.clients() if c.get('address')==address),None)
+        if client: drag_origin[address]=[int(v) for v in (*client.get('at',[0,0]),*client.get('size',[800,600]))]
+    except (ValueError,OSError,subprocess.SubprocessError): pass
+    while len(drag_origin)>32: drag_origin.pop(next(iter(drag_origin)))
+def window_snap(address,cell,monitor_name='',assist=False):
+    # Snap a window into a cell. The first snap remembers the window's free size and place: restoring, maximize again and dragging away return to it.
     address=floating_active(address)
     try:
         client=next((c for c in hypr_actions.clients() if c.get('address')==address),None)
         if not client: return
-        monitor=next((m for m in hypr_actions.monitors() if m.get('id')==client.get('monitor')),None)
+        monitors=hypr_actions.monitors()
+        monitor=client_monitor(client,monitors,monitor_name)
         if not monitor: return
         if client.get('fullscreen'): hypr_actions.fullscreen(address,0)
         if not client.get('floating'): hypr_actions.set_floating(address,True)
+        with floating_lock:
+            state=floating_mode.load(); snapped=state.setdefault('snapped',{})
+            origin=drag_origin.pop(address,None)
+            entry=snapped.get(address) or {'rect':origin or [int(v) for v in (*client.get('at',[0,0]),*client.get('size',[800,600]))]}
+            entry.update(cell=[float(v) for v in cell],monitor=monitor.get('name',''),workspace=int(monitor.get('activeWorkspace',{}).get('id',(client.get('workspace') or {}).get('id',0))))
+            snapped[address]=entry
+            floating_mode.save(state)
         hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell,titlebar=floating_titlebar() if prefs.get('floatingMode') else 0))
+        if prefs.get('floatingMode'): hypr_actions.snap_restore_size(address,int(entry['rect'][2]),int(entry['rect'][3]))
+        if assist and prefs.get('floatingMode'): snap_assist(address,cell,entry,snapped)
     except (ValueError,OSError,subprocess.SubprocessError): pass
+def snap_assist(address,cell,entry,snapped):
+    # Offer the other windows for the rest of the layout. Cells that another snapped window of the workspace already fills stay out.
+    filled=[e.get('cell') for a,e in snapped.items() if a!=address and e.get('monitor')==entry.get('monitor') and e.get('workspace')==entry.get('workspace')]
+    cells=floating_mode.assist_cells(cell,filled)
+    if not cells: return
+    try: monitor=next((m for m in hypr_actions.monitors() if m.get('name')==entry.get('monitor')),None)
+    except (ValueError,OSError,subprocess.SubprocessError): monitor=None
+    if not monitor: return
+    bar=floating_titlebar()
+    emit({'event':'snapAssist','monitor':entry.get('monitor',''),'workspace':entry.get('workspace',0),
+          'cells':[{'cell':c,'rect':floating_mode.snap_frame(monitor,c,titlebar=bar)} for c in cells],
+          'exclude':[a for a,e in snapped.items() if e.get('workspace')==entry.get('workspace')]})
+def window_unsnap(address,move=True):
+    # Back to the free size and place the window had before its first snap.
+    address=floating_active(address)
+    with floating_lock:
+        state=floating_mode.load(); entry=state.get('snapped',{}).pop(address,None); floating_mode.save(state)
+    if not entry: return
+    try:
+        hypr_actions.snap_restore_size(address,0,0)
+        if move: hypr_actions.geometry(address,*[int(v) for v in entry['rect']])
+    except (ValueError,OSError,KeyError,subprocess.SubprocessError): pass
+def snapped_cell(address):
+    return (floating_mode.load().get('snapped',{}).get(address) or {}).get('cell')
+def window_maximize(address):
+    # The titlebar's maximize button and a double click: maximize, or restore a maximized window.
+    address=floating_active(address)
+    if floating_mode.same_cell(snapped_cell(address),floating_mode.FULL): window_unsnap(address)
+    else: window_snap(address,floating_mode.FULL)
+def window_key_snap(address,direction):
+    address=floating_active(address)
+    step=floating_mode.next_cell(snapped_cell(address),direction)
+    if step=='restore': window_unsnap(address)
+    elif step=='minimize': window_minimize(address)
+    elif step: window_snap(address,step)
+snap_monitors={'at':0.0,'list':[]}
+snap_seq=[0]
+def cached_monitors():
+    # A drag sends a zone change every few frames at most; the monitor list is reused for a moment.
+    if time.time()-snap_monitors['at']>2:
+        snap_monitors['list']=hypr_actions.monitors(); snap_monitors['at']=time.time()
+    return snap_monitors['list']
+def snap_preview(drag,seq):
+    # Show where a drop would snap the window: the shell draws this rectangle on the zone's monitor. A newer zone wins over a slow older one.
+    if not prefs.get('floatingMode'): return
+    zone=drag.get('zone','')
+    cell=floating_mode.ZONES.get(zone)
+    if not cell:
+        if seq==snap_seq[0]: emit({'event':'snapPreview','monitor':drag.get('monitor',''),'zone':'','rect':None})
+        return
+    try: monitor=next((m for m in cached_monitors() if m.get('name')==drag.get('monitor')),None)
+    except (ValueError,OSError,subprocess.SubprocessError): monitor=None
+    if monitor and seq==snap_seq[0]: emit({'event':'snapPreview','monitor':monitor.get('name',''),'zone':zone,'rect':floating_mode.snap_frame(monitor,cell,titlebar=floating_titlebar())})
+def floating_drag(drag):
+    # The opal-windowing plugin reports drags: a drop in a zone snaps, and a snapped window dragged away is free again.
+    kind=drag.get('kind'); address=drag.get('address','')
+    if not prefs.get('floatingMode') or not address: return
+    if kind=='unsnap':
+        drag_origin.pop(address,None)
+        window_unsnap(address,move=False)
+    elif kind=='end' and drag.get('zone') in floating_mode.ZONES:
+        zone=drag['zone']
+        window_snap(address,floating_mode.ZONES[zone],monitor_name=drag.get('monitor',''),assist=zone!='top')
+def show_desktop():
+    # Minimize every window of the focused workspace, or bring back the ones this minimized.
+    try:
+        clients=hypr_actions.clients()
+        workspace=json.loads(subprocess.run(['hyprctl','-j','activeworkspace'],capture_output=True,text=True,timeout=3).stdout or '{}').get('id',0)
+    except (OSError,ValueError,subprocess.SubprocessError): return
+    state=floating_mode.load()
+    op,addresses=floating_mode.desktop_toggle(clients,workspace,state.get('desktopShown',[]))
+    if op=='restore':
+        for a in addresses: window_restore(a)
+        state=floating_mode.load(); state['desktopShown']=[]; floating_mode.save(state)
+    else:
+        for a in addresses: window_minimize(a)
+        state=floating_mode.load(); state['desktopShown']=addresses; floating_mode.save(state)
 
 # Home sources: each one is published only when it changes.
 home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0}
@@ -1257,6 +1384,12 @@ def main():
             link_compositor(data.get('data') or {})
             try: floating_watch(data.get('data') or {})
             except (ValueError,OSError,KeyError,TypeError): pass
+            drag=(data.get('data') or {}).get('windowDrag')
+            if drag and drag.get('kind')=='begin' and prefs.get('floatingMode'): threading.Thread(target=drag_began,args=(drag.get('address',''),),daemon=True).start()
+            if drag and drag.get('kind') in ('end','unsnap'): threading.Thread(target=floating_drag,args=(drag,),daemon=True).start()
+            if drag and drag.get('kind') in ('zone','end'):
+                snap_seq[0]+=1
+                threading.Thread(target=snap_preview,args=(drag if drag.get('kind')=='zone' else {'zone':''},snap_seq[0]),daemon=True).start()
     threading.Thread(target=listen_hyprland, args=(compositor_emit,), daemon=True).start()
     last_published=None
     while True:

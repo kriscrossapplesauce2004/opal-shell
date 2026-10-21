@@ -67,6 +67,14 @@ def _handle_state_event(event, payload, patch, state):
         state['special'][monitor] = name
         patch({'special': dict(state['special'])})
         return False
+    elif event == 'opalwindrag':
+        # From the opal-windowing plugin: begin,ADDRESS / zone,ZONE,MONITOR / end,ADDRESS,ZONE,MONITOR / unsnap,ADDRESS.
+        fields = payload.strip().split(',')
+        kind = fields[0]
+        if kind == 'zone':
+            patch({'windowDrag': {'kind': 'zone', 'zone': fields[1] if len(fields) > 1 else '', 'monitor': fields[2] if len(fields) > 2 else ''}})
+        elif kind in ('begin', 'end', 'unsnap') and len(fields) > 1:
+            patch({'windowDrag': {'kind': kind, 'address': _address(fields[1]), 'zone': fields[2] if len(fields) > 2 else '', 'monitor': fields[3] if len(fields) > 3 else ''}})
     elif event == 'windowtitlev2':
         address, _, title = payload.partition(',')
         patch({'windowTitle': {'address': _address(address), 'title': title}})

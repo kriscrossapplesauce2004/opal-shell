@@ -318,6 +318,21 @@ sed -i "s|@OPAL_TOOLS@|$tools_dir|" "$wrapper_tmp"
 chmod 0755 "$wrapper_tmp"
 mv -- "$wrapper_tmp" "$bin_dir/opal"
 
+# Opal's drag-snap plugin. Rebuilt here so it always matches the installed Hyprland.
+install_windowing_plugin() {
+    local plugin_source plugin_dir
+    plugin_source=$(CDPATH= cd -- "$source_dir/../plugins/opal-windowing" 2>/dev/null && pwd) || { echo "Windowing plugin source not found; drag snapping stays off." >&2; return 0; }
+    plugin_dir="${OPAL_PLUGIN_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/opal/plugins}"
+    mkdir -p "$plugin_dir"
+    if make -s -C "$plugin_source" >"$state_dir/plugin-build.log" 2>&1 && [[ -f "$plugin_source/opal-windowing.so" ]]; then
+        install -m 0644 "$plugin_source/opal-windowing.so" "$plugin_dir/opal-windowing.so.tmp"
+        mv -- "$plugin_dir/opal-windowing.so.tmp" "$plugin_dir/opal-windowing.so"
+        echo "Installed windowing plugin to $plugin_dir/opal-windowing.so"
+    else
+        echo "Windowing plugin build failed; see $state_dir/plugin-build.log. Drag snapping stays off." >&2
+    fi
+}
+
 # Borealis is Opal's system keyboard. Build it from the checkout and install it next to the opal command.
 install_borealis() {
     local keyboard_source build_dir
@@ -346,6 +361,7 @@ if [[ "$install_keyboard" -eq 1 ]]; then
 fi
 
 if [[ "$install_hyprland" -eq 1 ]]; then
+    install_windowing_plugin
     install_hyprland_hook
     install_autostart_hook
 fi

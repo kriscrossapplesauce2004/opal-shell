@@ -50,6 +50,10 @@ ShellRoot {
         function snapLeft():void {Hub.command({action:"window-snap",cell:[0,0,.5,1],address:Hub.status.activeAddress||""});}
         function snapRight():void {Hub.command({action:"window-snap",cell:[.5,0,.5,1],address:Hub.status.activeAddress||""});}
         function snapMaximize():void {Hub.command({action:"window-snap",cell:[0,0,1,1],address:Hub.status.activeAddress||""});}
+        // Maximize or restore; Super+Alt+arrows cycle snaps; Super+D shows the desktop.
+        function maximize():void {Hub.command({action:"window-maximize",address:Hub.status.activeAddress||""});}
+        function keySnap(direction:string):void {Hub.command({action:"window-key-snap",direction:direction,address:Hub.status.activeAddress||""});}
+        function showDesktop():void {Hub.command({action:"show-desktop"});}
         function windows():string {return JSON.stringify(Hub.windows.map(w=>({title:w.title||"",app:w.className||"",workspace:w.workspace||0})));}
         function navigate(key:string):void {Hub.navigate(key);}
         function search(text:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openSection("apps");Hub.query=text;if(text.startsWith("="))Hub.command({action:"calculate",text:text.slice(1).trim()});}
@@ -250,6 +254,9 @@ ShellRoot {
     ActivityCardWindow {}
     WorkspaceCardWindow {}
     SnapLayouts {id:snapLayouts}
+    SnapPreview {target:Hub.snapPreview}
+    SnapAssist {id:snapAssist}
+    Connections {target:Hub;function onSnapAssistRequested(event) {snapAssist.show(event);}}
     ShadeWindow {}
     AssistantWindow {}
     PowerProfileWindow {}

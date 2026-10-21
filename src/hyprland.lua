@@ -1,9 +1,11 @@
 -- Loaded only while the runtime Opal marker exists. No DMS files are edited.
+-- A nested test session points these at its own state folder, shell and plugin builds.
+local OPAL_STATE = os.getenv("OPAL_STATE_DIR") or (os.getenv("HOME") .. "/.local/state/opal")
 -- Compositor styling follows the shell layout mode, tuned per mode instead of
 -- one generic desktop profile. Re-read on every Hyprland config reload; the
 -- shell triggers one whenever the mode changes (see Hub.mode).
 local function opal_mode()
-    local f = io.open(os.getenv("HOME") .. "/.local/state/opal/preferences.json", "r")
+    local f = io.open(OPAL_STATE .. "/preferences.json", "r")
     if not f then return "desktop" end
     local body = f:read("*a"); f:close()
     return body:match('"mode"%s*:%s*"([a-z]+)"') or "desktop"
@@ -49,15 +51,17 @@ hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = true, igno
 hl.layer_rule({ match = { namespace = "^opal-assistant$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 -- Newer card surfaces animate themselves and blur only their painted cards.
-hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity|snap)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity|snap|snap-assist)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 -- Gesture, edge and split layers are input surfaces: no blur and no compositor animation.
 hl.layer_rule({ match = { namespace = "^opal-(gesture|edge|split)$" }, blur = false, no_anim = true })
+-- The snap preview stays unblurred: the dragged window under it must stay readable.
+hl.layer_rule({ match = { namespace = "^opal-snap-preview$" }, blur = false, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-(audio|shade|activity)-dismiss$" }, blur = false, no_anim = true })
 local function bind(key, command)
     hl.unbind(key)
     hl.bind(key, hl.dsp.exec_cmd(command))
 end
-local qs = "quickshell ipc -p " .. os.getenv("HOME") .. "/.config/quickshell/opal call opal "
+local qs = "quickshell ipc -p " .. (os.getenv("OPAL_SHELL_PATH") or (os.getenv("HOME") .. "/.config/quickshell/opal")) .. " call opal "
 bind("SUPER + space", qs .. "launcher")
 -- A lone Super tap toggles Start. Release binds are skipped when another key was pressed with Super.
 hl.unbind("SUPER + Super_L")
@@ -93,7 +97,7 @@ pcall(dofile, os.getenv("HOME") .. "/.config/hypr/opal-monitors.lua")
 
 -- Floating window mode (opt-in). It reads the preference like opal_mode(); turning it off removes the rule, and the shell tiles the windows again.
 local function opal_floating()
-    local f = io.open(os.getenv("HOME") .. "/.local/state/opal/preferences.json", "r")
+    local f = io.open(OPAL_STATE .. "/preferences.json", "r")
     if not f then return false end
     local body = f:read("*a"); f:close()
     return body:match('"floatingMode"%s*:%s*true') ~= nil
@@ -103,23 +107,38 @@ local function file_exists(path)
     if f then f:close(); return true end
     return false
 end
-local state_dir = os.getenv("HOME") .. "/.local/state/opal"
-local titlebar_plugin = nil
-for _, path in ipairs({ os.getenv("HOME") .. "/.local/share/opal/plugins/hyprbars.so", os.getenv("HOME") .. "/.local/share/vibeshell/plugins/hyprbars.so" }) do
-    if file_exists(path) then titlebar_plugin = path; break end
+local state_dir = OPAL_STATE
+local function first_existing(paths)
+    for _, path in ipairs(paths) do
+        if file_exists(path) then return path end
+    end
+    return nil
 end
+local plugin_dir = os.getenv("OPAL_PLUGIN_DIR") or (os.getenv("HOME") .. "/.local/share/opal/plugins/")
+local titlebar_plugin = first_existing({ plugin_dir .. "hyprbars.so", os.getenv("HOME") .. "/.local/share/vibeshell/plugins/hyprbars.so" })
+-- opal-windowing reports window drags for snap zones and gives a snapped window its size back when it is dragged away.
+local windowing_plugin = first_existing({ plugin_dir .. "opal-windowing.so" })
 -- Hyprland loads the plugins that the config declares on each pass and unloads the ones it no longer declares, then reloads.
--- Declare hyprbars on every pass in both modes: a skipped declaration unloads it (reload loop, then a crash), and an unload while bars are shown aborts Hyprland.
+-- Declare both plugins on every pass in both modes: a skipped declaration unloads the plugin (reload loop, then a crash), and unloading hyprbars while bars are shown aborts Hyprland.
 if titlebar_plugin then pcall(hl.plugin.load, titlebar_plugin) end
+if windowing_plugin then pcall(hl.plugin.load, windowing_plugin) end
 local bars = hl.plugin and hl.plugin.hyprbars
+local windowing = hl.plugin and hl.plugin.opal_windowing
 if opal_floating() then
     hl.window_rule({ name = "opal-float-all", match = { class = ".*" }, float = true })
-    pcall(hl.config, { general = { snap = { enabled = true, window_gap = 12, monitor_gap = 12, respect_gaps = true } } })
+    -- Windows snap to each other and to the screen edges; any border resizes the window.
+    pcall(hl.config, { general = { snap = { enabled = true, window_gap = 12, monitor_gap = 12, respect_gaps = true },
+        resize_on_border = true, extend_border_grab_area = 12, hover_icon_on_border = true } })
+    if windowing then pcall(hl.config, { plugin = { opal_windowing = { snap_zones = true } } }) end
     bind("SUPER + H", qs .. "minimize")
-    bind("SUPER + ALT + left", qs .. "snapLeft")
-    bind("SUPER + ALT + right", qs .. "snapRight")
-    bind("SUPER + ALT + up", qs .. "snapMaximize")
-    -- Titlebars: hyprbars in Opal colours. The plugin clears its buttons before each reload, so they are added on every pass.
+    bind("SUPER + D", qs .. "showDesktop")
+    -- Super+Alt+arrows: left and right cycle the side's widths, up and down split into quarters, maximize, restore and minimize.
+    bind("SUPER + ALT + left", qs .. "keySnap left")
+    bind("SUPER + ALT + right", qs .. "keySnap right")
+    bind("SUPER + ALT + up", qs .. "keySnap up")
+    bind("SUPER + ALT + down", qs .. "keySnap down")
+    -- Titlebars: hyprbars in Opal colours. The bar options reapply on every pass.
+    -- The vendored hyprbars keeps its buttons across reloads, so seed them once per session.
     if bars then
         local ok, c = pcall(dofile, state_dir .. "/hypr-titlebars.lua")
         if not ok or type(c) ~= "table" then c = { bar = "rgba(271d1df2)", text = "rgb(f0dedd)", close = "rgb(ffb4ab)", button = "rgb(4a3f3e)", ink = "rgb(1b1112)", font = "Google Sans Flex" } end
@@ -128,15 +147,20 @@ if opal_floating() then
             bar_text_font = c.font, bar_text_size = 11, bar_text_weight = "semibold", bar_text_align = "left", bar_padding = 14,
             bar_button_padding = 10, bar_part_of_window = true, bar_precedence_over_border = true, bar_blur = false,
             icon_on_hover = true, inactive_button_color = c.button,
-            on_double_click = qs .. "snapMaximize",
+            on_double_click = qs .. "maximize",
         } } })
-        -- Buttons are laid out right to left: close, snap layouts, minimize.
-        pcall(bars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
-        pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "▢", action = qs .. "snaplayouts" })
-        pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
+        -- Buttons are laid out right to left: close, maximize, minimize, snap layouts.
+        if not _G.opal_hyprbars_seeded then
+            pcall(bars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
+            pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "□", action = qs .. "maximize" })
+            pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
+            pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "⊞", action = qs .. "snaplayouts" })
+            _G.opal_hyprbars_seeded = true
+        end
     end
-elseif bars then
-    -- Tiling mode keeps the plugin loaded with its bars switched off.
-    pcall(hl.config, { plugin = { hyprbars = { enabled = false } } })
+else
+    -- Tiling mode keeps both plugins loaded with their parts switched off.
+    if bars then pcall(hl.config, { plugin = { hyprbars = { enabled = false } } }) end
+    if windowing then pcall(hl.config, { plugin = { opal_windowing = { snap_zones = false } } }) end
 end
 bind("SUPER + Z", qs .. "snaplayouts")

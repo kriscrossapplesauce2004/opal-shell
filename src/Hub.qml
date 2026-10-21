@@ -325,6 +325,9 @@ Scope {
     // taskbar's complete window grouping model.
     property bool compositorActive: false
     property var compositorWindows: []
+    // Floating mode: the drop target while a window is dragged, and Snap Assist offers after a snap.
+    property var snapPreview: null
+    signal snapAssistRequested(var event)
     property var windows: compositorActive ? compositorWindows : ToplevelManager.toplevels.values.map(w => ({title:w.title,className:w.appId,handle:w,workspace:0,address:""}))
     property var taskGroups: {
         let groups=[];
@@ -603,6 +606,8 @@ Scope {
                     else if(e.event === "themeChoices") h.themeChoices=e.data||({});
                     else if(e.event === "recentActivity"||e.event === "torch"||e.event === "batteryStats") PhoneState.ingest(e);
                     else if(e.event === "monitors") h.monitors=e.data;
+                    else if(e.event === "snapPreview") h.snapPreview=e;
+                    else if(e.event === "snapAssist") h.snapAssistRequested(e);
                     else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
                     else if(e.event.indexOf("assistant") === 0) AssistantState.ingest(e);
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}

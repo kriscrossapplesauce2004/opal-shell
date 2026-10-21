@@ -100,12 +100,16 @@ def plan_tile_outputs(clients, monitors, outputs, rules):
     return ops
 
 
-def remember(memory, clients):
-    """Keep the last floating size and place of each app class. The newest entries win when the list is full."""
+def remember(memory, clients, snapped=None):
+    """Keep the last floating size and place of each app class. The newest entries win when the list is full.
+    A snapped or maximized window is remembered at the size it had before the snap."""
     out = dict(memory or {})
+    snapped = snapped or {}
     for c in filter(regular, clients):
         if not c.get('floating') or c.get('fullscreen') or not c.get('class'): continue
         x, y = c.get('at', [0, 0]); w, h = c.get('size', [0, 0])
+        before = (snapped.get(c.get('address')) or {}).get('rect')
+        if before and len(before) == 4: x, y, w, h = before
         if w < 120 or h < 80: continue
         out.pop(c['class'], None)
         out[c['class']] = [int(x), int(y), int(w), int(h)]
@@ -177,3 +181,89 @@ def titlebar_colors(prefs):
     button = hexa('surface_container_highest', '#e2d8d7' if light else '#3d3231')
     ink = hexa('on_error', '#ffffff' if light else '#690005')
     return ('return { bar = "%s", text = "%s", close = "%s", button = "%s", ink = "%s", font = "Google Sans Flex" }\n' % (bar, text, close, button, ink))
+
+
+# Drag snapping: the opal-windowing plugin names the zone under the cursor.
+FULL = [0, 0, 1, 1]
+ZONES = {
+    'left': [0, 0, .5, 1], 'right': [.5, 0, .5, 1], 'top': FULL,
+    'topleft': [0, 0, .5, .5], 'topright': [.5, 0, .5, .5], 'bottomleft': [0, .5, .5, .5], 'bottomright': [.5, .5, .5, .5],
+}
+HALVES = LAYOUTS[0]
+QUARTERS = LAYOUTS[4]
+
+
+def same_cell(a, b):
+    return bool(a) and bool(b) and len(a) == 4 and len(b) == 4 and all(abs(float(x) - float(y)) < .01 for x, y in zip(a, b))
+
+
+def layout_for(cell):
+    """The snap layout that a cell belongs to, for Snap Assist. The whole screen has none."""
+    if not cell or same_cell(cell, FULL): return None
+    for layout in LAYOUTS:
+        if any(same_cell(cell, c) for c in layout): return layout
+    return None
+
+
+def assist_cells(cell, filled):
+    """The cells of the snapped cell's layout that are still empty: Snap Assist offers windows for them."""
+    layout = layout_for(cell)
+    if not layout: return []
+    taken = [cell] + list(filled or [])
+    return [c for c in layout if not any(same_cell(c, t) for t in taken)]
+
+
+# Keyboard snapping cycles a side through these widths, like the pickers on other desktops.
+LEFT_CYCLE = [[0, 0, .5, 1], [0, 0, 2 / 3, 1], [0, 0, 1 / 3, 1]]
+RIGHT_CYCLE = [[.5, 0, .5, 1], [1 / 3, 0, 2 / 3, 1], [2 / 3, 0, 1 / 3, 1]]
+
+
+def next_cell(cell, direction):
+    """The next snap for Super+Alt+arrow. Returns a cell, 'restore' or 'minimize'.
+    Left and right cycle the side's widths and move a quarter across. Up and down walk a side's ladder: top quarter, half, bottom quarter;
+    up from the top quarter maximizes, down from the bottom quarter or from a maximized window restores, and down on a free window minimizes."""
+    half = cell and len(cell) == 4 and abs(cell[1]) < .01 and abs(cell[3] - 1) < .01 and abs(cell[2] - .5) < .01
+    quarter = cell and len(cell) == 4 and abs(cell[2] - .5) < .01 and abs(cell[3] - .5) < .01
+    top = quarter and cell[1] < .01
+    if direction in ('left', 'right'):
+        if quarter:
+            return [0 if direction == 'left' else .5, cell[1], .5, .5]
+        cycle = LEFT_CYCLE if direction == 'left' else RIGHT_CYCLE
+        for i, c in enumerate(cycle):
+            if same_cell(cell, c): return cycle[(i + 1) % len(cycle)]
+        return cycle[0]
+    if direction == 'up':
+        if half: return [cell[0], 0, .5, .5]
+        if quarter and not top: return [cell[0], 0, .5, 1]
+        return FULL
+    if direction == 'down':
+        if half: return [cell[0], .5, .5, .5]
+        if top: return [cell[0], 0, .5, 1]
+        if cell: return 'restore'
+        return 'minimize'
+    return None
+
+
+def cascade(rect, others, monitor, titlebar=0, step=32):
+    """Move a new window down and right while another window on its workspace starts at the same place, then keep it on screen."""
+    x, y, w, h = [int(v) for v in rect]
+    spots = {(int(o[0]), int(o[1])) for o in others}
+    for _ in range(12):
+        if not any(abs(x - ox) < 12 and abs(y - oy) < 12 for ox, oy in spots): break
+        x += step; y += step
+    return fit_rect([x, y, w, h], monitor, titlebar=titlebar)
+
+
+def desktop_toggle(clients, workspace, shown):
+    """Show desktop: minimize every window on the workspace, or bring back the ones it minimized.
+    Returns (operation, addresses): ('restore', the minimized ones that still exist) or ('minimize', the workspace's windows)."""
+    live = {c.get('address') for c in clients}
+    back = [a for a in (shown or []) if a in live and any(c.get('address') == a and int((c.get('workspace') or {}).get('id', 0)) <= 0 for c in clients)]
+    if back: return 'restore', back
+    return 'minimize', [c['address'] for c in filter(regular, clients) if int((c.get('workspace') or {}).get('id', 0)) == int(workspace)]
+
+
+def snap_frame(monitor, cell, titlebar=0, shelf=SHELF):
+    """Where a snapped window will be drawn, titlebar included, relative to the monitor's top left corner. The shell draws previews there."""
+    x, y, w, h = snap_rect(monitor, cell, titlebar=titlebar, shelf=shelf)
+    return [x - monitor.get('x', 0), y - titlebar - monitor.get('y', 0), w, h + titlebar]
