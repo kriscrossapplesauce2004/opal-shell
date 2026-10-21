@@ -40,6 +40,8 @@ QtObject {
         if (name === "home" || name === "guide") { guide(); return; }
         // Guide plus A always opens Quick Access, even when Guide alone is off.
         if (name === "guide+accept") { guide(true); return; }
+        // Guide plus B opens the power key menu, driven by the D-pad.
+        if (name === "guide+back") { usingController = true; PowerKey.toggle("controller"); return; }
         // Holding Guide opens the Claude assistant.
         if (name === "guideHold") { if (!Hub.locked && Hub.page !== "assistant") { usingController = true; Hub.openAssistant(); } return; }
         if (top) { usingController = true; key(name); return; }

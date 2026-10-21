@@ -399,6 +399,7 @@ from power_status import (connected_bluetooth_devices, cpu_governor,
                           system_batteries)
 hypr_actions = HyprActions()
 import phone_commands, assistant
+import power_key
 GAMES_LISTED = []
 
 
@@ -439,8 +440,10 @@ def commands():
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
                 valid = valid or key in CONVERGE_KEYS and type(value)==bool
                 valid = valid or key=='floatingMode' and type(value)==bool
+                valid = valid or power_key.valid_preference(key, value)
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
+                    if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
                     if key=='floatingMode': threading.Thread(target=floating_apply,args=(value,),daemon=True).start()
             elif action=='display-layouts':
                 from display_layouts import publish
@@ -565,6 +568,7 @@ def commands():
             elif action=='bluetooth': run('bluetoothctl','power','off' if c.get('enabled') else 'on')
             elif action=='media' and c.get('verb') in ('play-pause','next','previous'): run('playerctl',c['verb'])
             elif action=='profile' and c.get('value') in ('power-saver','balanced','performance'): run('powerprofilesctl','set',c['value'])
+            elif isinstance(action,str) and (action.startswith('powerkey-') or action=='switch-user') and POWER_KEY[0]: POWER_KEY[0].handle(c)
             elif action=='screenshot':
                 time.sleep(.5)
                 folder=HOME/'Pictures/Screenshots'; folder.mkdir(parents=True,exist_ok=True)
@@ -1333,6 +1337,20 @@ def link_command(c):
     elif action=='link-handoff' and c.get('kind') in ('url','app','text') and isinstance(c.get('value'),str) and len(c['value'])<4000:
         service.send(ident,'opal.handoff',{'kind':c['kind'],'value':c['value']})
 
+# The power key menu service, created in main().
+POWER_KEY=[None]
+
+def link_phone_url(url):
+    """Open a tel: or sms: link on a reachable linked phone. An Opal phone gets a handoff, other phones a KDE Connect share."""
+    service=LINK['service']
+    if not service: return False
+    with service.lock: devices=[d for d in service.devices.values() if d.link and d.paired and d.type=='phone']
+    for device in devices:
+        if device.opal: service.send(device.id,'opal.handoff',{'kind':'url','value':url})
+        else: service.send(device.id,'kdeconnect.share.request',{'url':url})
+        return True
+    return False
+
 def session_object_path(session_id):
     """Encode a logind session ID as its D-Bus object path, like systemd's bus_path_encode."""
     if not session_id: return ''
@@ -1372,6 +1390,9 @@ def main():
     threading.Thread(target=commands,daemon=True).start()
     threading.Thread(target=controllers,daemon=True).start()
     threading.Thread(target=logind_locks,daemon=True).start()
+    POWER_KEY[0]=power_key.PowerKey(emit,prefs,hypr_actions,link_url=link_phone_url)
+    atexit.register(POWER_KEY[0].stop)
+    threading.Thread(target=POWER_KEY[0].start,daemon=True).start()
     threading.Thread(target=orientation_watch,daemon=True).start()
     threading.Thread(target=health_watch,daemon=True).start()
     threading.Thread(target=publish_games,daemon=True).start()

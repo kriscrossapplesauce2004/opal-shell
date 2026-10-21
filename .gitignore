@@ -2,3 +2,4 @@ __pycache__/
 *.py[cod]
 *.so
 tools/vpointer/vpointer
+tools/vkey/vkey

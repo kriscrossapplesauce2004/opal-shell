@@ -33,6 +33,11 @@ ShellRoot {
         function close():void {Hub.close();}
         function quickaccess():void {GameState.toggleQuickAccess();}
         function lock():void {Hub.lock();}
+        // Power key menu: the Super chord on a desktop opens it on the focused screen; the hardware key goes through the backend first.
+        function powerMenu():void {PowerKey.toggle("shortcut",Hub.chooseScreen());}
+        function powerKey(edge:string):void {Hub.command({action:"powerkey-edge",down:edge==="down"});}
+        function powerChord():void {Hub.command({action:"powerkey-chord"});}
+        function powerMenuClose():void {PowerKey.close();}
         // Used by the Opal MCP server. The backend validates every preference.
         function setPreference(key:string, value:string):string {let parsed;try{parsed=JSON.parse(value);}catch(error){return "Value must be JSON";}Hub.set(key,parsed);return "Sent "+key;}
         // The quickshell CLI splits arguments at commas, so arrays and objects come base64-encoded.
@@ -260,6 +265,7 @@ ShellRoot {
     ShadeWindow {}
     AssistantWindow {}
     PowerProfileWindow {}
+    PowerMenuWindow {}
     TaskbarContextWindow {}
     DockWindow {}
     DockWelcomeWindow {}

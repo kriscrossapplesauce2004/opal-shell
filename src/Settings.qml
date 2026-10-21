@@ -22,7 +22,8 @@ Item {
         {title:"Device",items:[
             {id:"sound",title:"Sound",icon:"volume",detail:"Volume, outputs and microphone"},
             {id:"displays",title:"Displays",icon:"monitor",detail:"Arrangement, docking and what each screen becomes"},
-            {id:"power",title:"Battery & power",icon:"battery",detail:"Profiles and staying awake"}]},
+            {id:"power",title:"Battery & power",icon:"battery",detail:"Profiles and staying awake"},
+            {id:"powerkey",title:"Power key",icon:"power_settings_new",detail:"The menu behind the power button"}]},
         {title:"Personal",items:[
             {id:"appearance",title:"Wallpaper & style",icon:"palette",detail:"Colours, wallpaper and glass"},
             {id:"taskbar",title:"Shelf",icon:"desktop",detail:"Alignment, labels and hiding"},
@@ -125,7 +126,7 @@ Item {
                 Loader {
                     id:page
                     Layout.fillWidth:true;Layout.fillHeight:true
-                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="displays"||Hub.settingsSection==="display"||Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="link" ? linkPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
+                    sourceComponent:Hub.settingsSection==="" ? overviewPage : Hub.settingsSection==="network"||Hub.settingsSection==="bluetooth" ? connectionPage : Hub.settingsSection==="appearance" ? stylePage : Hub.settingsSection==="displays"||Hub.settingsSection==="display"||Hub.settingsSection==="screens" ? screensPage : Hub.settingsSection==="schedules" ? schedulesPage : Hub.settingsSection==="apptheme" ? appThemePage : Hub.settingsSection==="profiles" ? profilesPage : Hub.settingsSection==="system" ? systemPage : Hub.settingsSection==="link" ? linkPage : Hub.settingsSection==="powerkey" ? powerKeyPage : Hub.settingsSection==="sound" ? soundPage : optionsPage
                     // Pages slide in from the side on every section change.
                     onLoaded:{pageIn.restart();}
                     ParallelAnimation {
@@ -245,6 +246,7 @@ Item {
     Component {id:profilesPage;SettingsProfiles {}}
     Component {id:systemPage;SettingsSystem {}}
     Component {id:linkPage;SettingsLink {}}
+    Component {id:powerKeyPage;SettingsPowerKey {}}
     Component {id:connectionPage;ConnectionPanel {kind:Hub.settingsSection==="network" ? "wifi" : "bluetooth";embedded:true;backAction:()=>{Hub.settingsSection="";}}}
     Component {id:soundPage;Flickable {contentHeight:sound.implicitHeight;clip:true;boundsBehavior:Flickable.StopAtBounds
         ScrollBar.vertical:ScrollBar {}

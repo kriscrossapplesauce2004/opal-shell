@@ -9,8 +9,10 @@ Scope {
         id: session
         locked: Hub.locked
         WlSessionLockSurface {
+            id: surface
             color: Theme.base
             LockScene {
+                powerMenuHere: !PowerKey.screen || !surface.screen || PowerKey.screen.name === surface.screen.name
                 anchors.fill: parent
                 mode: "lock"
                 userName: Quickshell.env("OPAL_USER_NAME") || lock.login

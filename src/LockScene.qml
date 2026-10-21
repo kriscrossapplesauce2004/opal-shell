@@ -369,4 +369,25 @@ FocusScope {
         active: scene.greeter || Hub.locked
         onBack: { if (scene.confirmPower !== "") scene.confirmPower = ""; else { field.text = ""; if (!scene.greeter) scene.revealed = false; } }
     }
+
+    // Power key menu on the lock screen. Only the screen it opened on shows it, and it holds focus while open.
+    property bool powerMenuHere: true
+    PowerMenu {
+        id: lockPowerMenu
+        anchors.fill: parent
+        z: 100
+        locked: true
+        visible: reveal > 0 && scene.powerMenuHere && !scene.greeter
+        Keys.onPressed: event => lockPowerMenu.handleKey(event)
+    }
+    Connections {
+        target: PowerKey
+        function onOpenChanged() {
+            if (scene.greeter) return;
+            if (PowerKey.open && scene.powerMenuHere) lockPowerMenu.forceActiveFocus();
+            else if (!PowerKey.open && scene.revealed) field.forceActiveFocus();
+            else if (!PowerKey.open) scene.forceActiveFocus();
+        }
+        function onUnlockRequested() { if (!scene.greeter && scene.powerMenuHere) scene.reveal(); }
+    }
 }

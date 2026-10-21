@@ -108,6 +108,13 @@ class GuideTests(unittest.TestCase):
         self.assertEqual(nav.feed(1, 1, 0, .2), [])
         self.assertEqual(nav.repeat(1), [])
 
+    def test_chord_with_back_opens_power_menu(self):
+        nav = NavigationState(buttons=[304, 305, 316], profile='generic')
+        nav.feed(1, 2, 1, 0)
+        self.assertEqual(nav.feed(1, 1, 1, .1), ['guide+back'])
+        self.assertEqual(nav.feed(1, 1, 0, .15), [])
+        self.assertEqual(nav.feed(1, 2, 0, .2), [])
+
     def test_chord_follows_nintendo_swap(self):
         nav = NavigationState(buttons=[304, 305, 316], profile='nintendo')
         nav.feed(1, 2, 1, 0)

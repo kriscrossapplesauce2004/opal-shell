@@ -608,6 +608,10 @@ Scope {
                     else if(e.event === "monitors") h.monitors=e.data;
                     else if(e.event === "snapPreview") h.snapPreview=e;
                     else if(e.event === "snapAssist") h.snapAssistRequested(e);
+                    // Power key: key edges the backend let through, the power+volume-down chord, and device state.
+                    else if(e.event === "powerKey") PowerKey.keyEdge(!!e.down);
+                    else if(e.event === "powerKeyChord") PowerKey.chord();
+                    else if(e.event === "powerKeyState") {if(e.device)PowerKey.device=e.device;if(e.live)PowerKey.live=e.live;if(e.contacts)PowerKey.contacts=e.contacts;}
                     else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
                     else if(e.event.indexOf("assistant") === 0) AssistantState.ingest(e);
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}

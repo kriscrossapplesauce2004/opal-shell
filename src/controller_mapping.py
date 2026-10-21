@@ -175,6 +175,10 @@ class NavigationState:
                 and self.guide_down is not None and token not in self.blocked:
             self.guide_chord = True
             return ['guide+accept']
+        if kind == 1 and key == 'back' and state and not old and not initial \
+                and self.guide_down is not None and token not in self.blocked:
+            self.guide_chord = True
+            return ['guide+back']
         if initial:
             if state:
                 self.blocked.add(token)

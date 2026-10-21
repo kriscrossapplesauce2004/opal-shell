@@ -50,6 +50,7 @@ hl.layer_rule({ match = { namespace = "^opal-(audio|shade)$" }, blur = true, ign
 hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-assistant$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-power-menu$" }, no_anim = true })
 -- Newer card surfaces animate themselves and blur only their painted cards.
 hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity|snap|snap-assist)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
 -- Gesture, edge and split layers are input surfaces: no blur and no compositor animation.
@@ -83,7 +84,23 @@ bind("SUPER + M", "kitty -e btop")
 bind("SUPER + ALT + L", qs .. "lock")
 bind("SUPER + L", qs .. "lock")
 bind("XF86AudioRaiseVolume", "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 3%+")
-bind("XF86AudioLowerVolume", "wpctl set-volume @DEFAULT_AUDIO_SINK@ 3%-")
+-- Power key menu. Press and release both reach Opal, so it tells taps, double presses and holds apart; they work on the lock screen too.
+-- The backend decides per device whether Opal owns the key. Where it does not, logind keeps it and Opal ignores these edges.
+local power_held = false
+hl.unbind("XF86PowerOff")
+hl.bind("XF86PowerOff", function() power_held = true; hl.exec_cmd(qs .. "powerKey down") end, { locked = true })
+hl.bind("XF86PowerOff", function() power_held = false; hl.exec_cmd(qs .. "powerKey up") end, { locked = true, release = true })
+-- Power plus volume down is a chord while power is held.
+hl.unbind("XF86AudioLowerVolume")
+hl.bind("XF86AudioLowerVolume", function()
+    if power_held then hl.exec_cmd(qs .. "powerChord") else hl.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 3%-") end
+end)
+-- Desktops keep their power key; Super+Escape opens the same menu.
+bind("SUPER + Escape", qs .. "powerMenu")
+-- While the menu is open this empty submap is active, so the volume and power keys reach the menu surface. Super+Escape always gets out.
+pcall(hl.define_submap, "opal-power", function()
+    hl.bind("SUPER + Escape", function() hl.dispatch(hl.dsp.submap("reset")); hl.exec_cmd(qs .. "powerMenuClose") end, { locked = true })
+end)
 bind("XF86AudioMute", "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")
 bind("XF86AudioMicMute", "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle")
 bind("XF86AudioPlay", "playerctl play-pause")
