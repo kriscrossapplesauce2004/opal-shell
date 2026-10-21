@@ -337,6 +337,11 @@ Item {
                 onActivated: Hub.set("quickAccessGuide", Hub.prefs.quickAccessGuide === false)
             }
             QaRow {
+                visible: Hub.prefs.mode === "console" && !Compositor.gamescope; Layout.fillWidth: true
+                icon: "desktop_windows"; title: "Switch to desktop"; detail: "Super+Ctrl+D. Apps go back to workspace 1"
+                onActivated: { qa.leave(); Hub.mode("desktop"); }
+            }
+            QaRow {
                 Layout.fillWidth: true
                 icon: "settings"; title: "Opal settings"
                 onActivated: { qa.leave(); Hub.targetScreen = Hub.chooseScreen(); Hub.openSettings(); }
