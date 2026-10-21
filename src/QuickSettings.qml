@@ -236,9 +236,10 @@ Item {
             MText {text:"Clipboard";role:"titleS";Layout.fillWidth:true}
             MButton {text:"All";compact:true;implicitHeight:30;ink:Theme.subtext;onClicked:Hub.toggleClipboard()}
         }
-        Repeater {model:Hub.clipboardItems.slice(0,3)
+        Repeater {model:Hub.clipboardItems.filter(i=>i.pinned).concat(Hub.clipboardItems.filter(i=>!i.pinned)).slice(0,3)
             Rectangle {required property var modelData;Layout.fillWidth:true;implicitHeight:44;radius:Theme.shapeMd;color:Theme.level(3)
-                MText {anchors.fill:parent;anchors.leftMargin:14;anchors.rightMargin:14;verticalAlignment:Text.AlignVCenter;text:(modelData.text||"").replace(/\s+/g," ").trim();role:"bodyS"}
+                ClipThumb {id:qsThumb;record:modelData;x:7;anchors.verticalCenter:parent.verticalCenter;width:modelData.kind==="Image" ? 44 : 30;height:30}
+                MText {anchors.fill:parent;anchors.leftMargin:qsThumb.width+16;anchors.rightMargin:14;verticalAlignment:Text.AlignVCenter;text:modelData.kind==="Image" ? "Image" : (modelData.text||"").replace(/\s+/g," ").trim();role:"bodyS"}
                 MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:Hub.copyClipboard(modelData.id,false)}
             }
         }

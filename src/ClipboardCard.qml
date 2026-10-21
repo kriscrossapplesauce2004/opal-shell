@@ -14,13 +14,14 @@ spacing:10
             Glyph {name:"clipboard";color:Theme.primary;font.pixelSize:23}
             ColumnLayout {Layout.fillWidth:true;spacing:3
                 MText {text:"Clipboard";font.pixelSize:18;font.weight:Font.DemiBold}
-                MText {text:Hub.clipboardPaused ? "Paused · your history stays private" : Hub.clipboardItems.length+" clips · memory only";color:Theme.subtext;font.pixelSize:10}
+                MText {text:Hub.clipboardPaused ? "Paused · your history stays private" : Hub.clipboardItems.length+" clips"+(Hub.clipboardItems.some(i=>i.pinned) ? " · "+Hub.clipboardItems.filter(i=>i.pinned).length+" pinned" : "")+" · this session only";color:Theme.subtext;font.pixelSize:10}
             }
             MButton {icon:"expand";compact:true;implicitWidth:38;implicitHeight:38;tooltip:"Open clipboard · Super+V";onClicked:Hub.toggleClipboard()}
         }
         GridLayout {Layout.fillWidth:true;columns:card.narrow ? 1 : 3;columnSpacing:10;rowSpacing:8
             Repeater {
-                model:Hub.clipboardItems.slice(0,card.narrow ? 2 : 3)
+                // Pins first, so the clips used most stay one tap away.
+                model:Hub.clipboardItems.filter(i=>i.pinned).concat(Hub.clipboardItems.filter(i=>!i.pinned)).slice(0,card.narrow ? 2 : 3)
                 ClipboardEntry {required property var modelData;Layout.fillWidth:true;implicitHeight:card.narrow ? 56 : 86;record:modelData;compact:true;closeAfterCopy:false}
             }
         }

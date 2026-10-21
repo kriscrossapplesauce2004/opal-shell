@@ -9,6 +9,7 @@ NotificationCenter 1.0 NotificationCenter.qml
 AppTile 1.0 AppTile.qml
 Appearance 1.0 Appearance.qml
 Chip 1.0 Chip.qml
+ClipThumb 1.0 ClipThumb.qml
 ClipboardCard 1.0 ClipboardCard.qml
 ClipboardEntry 1.0 ClipboardEntry.qml
 ClipboardPanel 1.0 ClipboardPanel.qml

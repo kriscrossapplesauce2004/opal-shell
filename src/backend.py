@@ -388,7 +388,23 @@ def clipboard_emit(data):
     # Opal Link: share new local clipboard text with paired devices.
     if data.get('event')=='clipboard' and data.get('items'):
         link_clipboard(data['items'][0].get('text',''))
-clipboard = ClipboardHistory(clipboard_emit)
+def clipboard_source():
+    # Optional: the focused app class tags a new clip. Other compositors give no source.
+    if not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE') or not shutil.which('hyprctl'): return ''
+    try: return json.loads(subprocess.run(['hyprctl','-j','activewindow'],capture_output=True,text=True,timeout=1).stdout or '{}').get('class','')
+    except (OSError,ValueError,AttributeError,subprocess.SubprocessError): return ''
+clipboard = ClipboardHistory(clipboard_emit,clipboard_source)
+def clipboard_open(identity):
+    entry=clipboard.entry(identity)
+    if not entry: return
+    text=entry['text'].strip()
+    if entry['kind']=='Link': link_open_url(text)
+    elif entry['kind']=='Email' and shutil.which('xdg-open'): spawn(['xdg-open',text if text.startswith('mailto:') else 'mailto:'+text])
+    elif entry['kind']=='Path':
+        path=os.path.realpath(os.path.expanduser(text))
+        if os.path.exists(path): spawn(['xdg-open',path])
+        else: emit({'event':'message','text':'That path does not exist'})
+    elif entry['kind']=='Image': spawn(['xdg-open',entry['image']])
 from connectivity import Connectivity
 connectivity = Connectivity(emit)
 from hypr_actions import HyprActions
@@ -627,7 +643,10 @@ def commands():
             elif action=='clipboard-list': clipboard.publish()
             elif action=='clipboard-copy': clipboard.copy(c.get('id',''))
             elif action=='clipboard-delete': clipboard.delete(c.get('id',''))
-            elif action=='clipboard-clear': clipboard.clear()
+            elif action=='clipboard-clear': clipboard.clear(c.get('pinned') is True)
+            elif action=='clipboard-pin' and type(c.get('pinned')) is bool: clipboard.pin(c.get('id',''),c['pinned'])
+            elif action=='clipboard-copy-text' and isinstance(c.get('text'),str): clipboard.copy_text(c['text'])
+            elif action=='clipboard-open': clipboard_open(c.get('id',''))
             elif action=='clipboard-pause' and type(c.get('paused')) is bool: clipboard.set_paused(c['paused'])
             elif action=='web': spawn(['xdg-open','https://www.google.com/search?q='+__import__('urllib.parse',fromlist=['quote']).quote(str(c.get('text','')))])
         except Exception as e: emit({'event':'message','text':'That action could not be completed'})
@@ -1409,7 +1428,7 @@ def link_command(c):
     elif action=='link-ping': service.send(ident,'kdeconnect.ping',{})
     elif action=='link-ring': service.send(ident,'kdeconnect.findmyphone.request',{})
     elif action=='link-clipboard':
-        text=clipboard.items[0]['text'] if clipboard.items else ''
+        text=next((e['text'] for e in clipboard.items if e['text']),'')
         if text: service.send(ident,'kdeconnect.clipboard',{'content':text})
     elif action=='link-handoff' and c.get('kind') in ('url','app','text') and isinstance(c.get('value'),str) and len(c['value'])<4000:
         service.send(ident,'opal.handoff',{'kind':c['kind'],'value':c['value']})

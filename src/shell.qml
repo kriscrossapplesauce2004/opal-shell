@@ -43,8 +43,8 @@ ShellRoot {
         // The quickshell CLI splits arguments at commas, so arrays and objects come base64-encoded.
         function setPreferenceEncoded(key:string, value:string):string {let parsed;try{parsed=JSON.parse(Qt.atob(value));}catch(error){return "Value must be base64 JSON";}Hub.set(key,parsed);return "Sent "+key;}
         function preferences():string {return JSON.stringify(Hub.prefs);}
-        // Read-only clipboard history for Borealis. Text only, bounded, newest first.
-        function clipboardHistory():string {return JSON.stringify(Hub.clipboardItems.slice(0,20).map(e=>({id:String(e.id||""),text:String(e.text||"").slice(0,4100),kind:String(e.kind||"Text")})));}
+        // Read-only clipboard history for Borealis. Text only (no images), bounded, newest first.
+        function clipboardHistory():string {return JSON.stringify(Hub.clipboardItems.filter(e=>e.kind!=="Image").slice(0,20).map(e=>({id:String(e.id||""),text:String(e.text||"").slice(0,4100),kind:String(e.kind||"Text")})));}
         function listNotifications():string {return JSON.stringify(Notifier.inbox.map(e=>({app:e.notification.appName||"",summary:e.notification.summary||"",body:(e.notification.body||"").slice(0,300),read:e.read,received:new Date(e.received).toISOString()})));}
         function media(action:string):string {if(["play-pause","next","previous"].indexOf(action)<0)return "Unknown action";Hub.media(action);return "ok";}
         function volume(value:int):string {Hub.volume(value);return "Volume "+Math.max(0,Math.min(100,value));}

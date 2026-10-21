@@ -105,6 +105,7 @@ Scope {
     property string clipboardDetail: "Starting clipboard service"
     property string clipboardPendingId: ""
     property bool clipboardCloseAfterCopy: true
+    signal clipboardCopiedSignal(string id, bool success)
     property var gameArt: ({})
     // Console library from game_library.py. Launching sends only the id.
     // Auto-rotate: only the touch display in phone layout follows the accelerometer.
@@ -532,7 +533,13 @@ Scope {
         command({action:"clipboard-copy",id:id});
     }
     function deleteClipboard(id) { command({action:"clipboard-delete",id:id}); }
-    function clearClipboard() { command({action:"clipboard-clear"}); }
+    function clearClipboard(pinned) { command({action:"clipboard-clear",pinned:pinned===true}); }
+    function pinClipboard(id,pinned) { command({action:"clipboard-pin",id:id,pinned:pinned!==false}); }
+    function openClipboard(id) { command({action:"clipboard-open",id:id});close(); }
+    function copyClipboardText(text,closeAfter) {
+        clipboardPendingId="text";clipboardCloseAfterCopy=closeAfter!==false;
+        command({action:"clipboard-copy-text",text:String(text)});
+    }
     function pauseClipboard() { command({action:"clipboard-pause",paused:!clipboardPaused}); }
     function timerToggle() { if(focusSeconds<=0) focusSeconds=25*60; focusRunning=!focusRunning; }
     function searchApps(text,cat) {
@@ -640,6 +647,7 @@ Scope {
                         h.clipboardAvailable=!!e.available;h.clipboardDetail=e.detail||"";
                     } else if(e.event === "clipboardCopied") {
                         if(e.id===h.clipboardPendingId) {
+                            h.clipboardCopiedSignal(e.id,!!e.success);
                             if(e.success&&h.clipboardCloseAfterCopy)h.close();
                             h.clipboardPendingId="";
                         }

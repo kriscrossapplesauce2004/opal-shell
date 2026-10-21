@@ -8,7 +8,9 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'src'))
-from clipboard_service import ClipboardHistory, MAX_BYTES, MAX_ITEMS, capture
+import struct
+import tempfile
+from clipboard_service import ClipboardHistory, MAX_BYTES, MAX_IMAGES, MAX_ITEMS, MAX_PINS, capture, image_size, kind_of
 
 
 class ClipboardTests(unittest.TestCase):
@@ -23,7 +25,7 @@ class ClipboardTests(unittest.TestCase):
         self.history.add('first')
         self.assertEqual(self.history.items[0]['id'], identity)
         self.assertEqual(len(self.history.items), 2)
-        for number in range(40):
+        for number in range(MAX_ITEMS + 20):
             self.history.add(f'entry {number}')
         self.assertEqual(len(self.history.items), MAX_ITEMS)
         self.assertEqual(len(self.history._by_text), MAX_ITEMS)
@@ -139,6 +141,115 @@ class ClipboardTests(unittest.TestCase):
             self.history.watch()
             popen.assert_not_called()
         self.assertFalse(self.history.available)
+
+    def test_kinds_for_icons_and_filters(self):
+        cases = {'https://example.test/a': 'Link', 'me@example.test': 'Email', '#7c5cff': 'Color',
+                 'rgb(1, 2, 3)': 'Color', 'hsl(250 100% 60%)': 'Color', '~/Pictures/a.png': 'Path',
+                 '/etc/hosts': 'Path', '/shrug': 'Text', 'a\nb': 'Snippet', 'plain words': 'Text'}
+        for text, kind in cases.items():
+            self.assertEqual(kind_of(text), kind, text)
+        self.history.add('https://www.example.test/page')
+        self.assertEqual(self.history.items[0]['host'], 'example.test')
+
+    def test_pins_survive_eviction_and_clear_and_keep_their_identity(self):
+        self.history.add('keep me')
+        identity = self.history.items[0]['id']
+        self.assertTrue(self.history.pin(identity, True))
+        for number in range(MAX_ITEMS + 10):
+            self.history.add(f'entry {number}')
+        self.assertIn(identity, self.history._by_id)
+        self.assertEqual(len(self.history.items), MAX_ITEMS + 1)
+        self.history.add('keep me')
+        self.assertTrue(self.history.items[0]['pinned'])
+        self.assertEqual(self.history.items[0]['id'], identity)
+        self.history.clear()
+        self.assertEqual([e['id'] for e in self.history.items], [identity])
+        self.history.clear(pinned=True)
+        self.assertEqual(self.history.items, [])
+
+    def test_pin_limit(self):
+        for number in range(MAX_PINS + 1):
+            self.history.add(f'pin {number}')
+            self.history.pin(self.history.items[0]['id'], True)
+        self.assertEqual(sum(1 for e in self.history.items if e['pinned']), MAX_PINS)
+
+    def test_source_is_recorded_and_kept_on_recopy(self):
+        apps = iter(['kitty', 'firefox'])
+        history = ClipboardHistory(self.events.append, source=lambda: next(apps))
+        history.add('from the terminal')
+        history.add('from the terminal')
+        self.assertEqual(history.items[0]['source'], 'kitty')
+        broken = ClipboardHistory(self.events.append, source=lambda: 1 / 0)
+        self.assertTrue(broken.add('still captured'))
+        self.assertEqual(broken.items[0]['source'], '')
+
+    def test_published_items_hide_internal_keys(self):
+        self.history.add('visible')
+        self.assertNotIn('key', self.events[-1]['items'][0])
+
+    def test_images_are_bounded_deduplicated_copied_and_removed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.history.folder = folder
+            paths = []
+            for number in range(MAX_IMAGES + 2):
+                path = os.path.join(folder, f'{number}.png')
+                pathlib.Path(path).write_bytes(b'png %d' % number)
+                paths.append(path)
+                self.assertTrue(self.history.add_image(path, 'image/png', 5, f'hash{number}', 4, 3))
+            images = [e for e in self.history.items if e['kind'] == 'Image']
+            self.assertEqual(len(images), MAX_IMAGES)
+            self.assertFalse(os.path.exists(paths[0]))
+            self.assertEqual(images[0]['width'], 4)
+            first = images[0]['id']
+            self.assertTrue(self.history.add_image(paths[-1], 'image/png', 5, f'hash{MAX_IMAGES + 1}'))
+            self.assertEqual(self.history.items[0]['id'], first)
+            with patch('clipboard_service.shutil.which', return_value='/fake/wl-copy'), \
+                 patch('clipboard_service.subprocess.run') as run:
+                self.assertTrue(self.history.copy(first))
+                self.assertEqual(run.call_args.args[0], ['wl-copy', '--type', 'image/png'])
+                self.assertEqual(run.call_args.kwargs['input'], pathlib.Path(paths[-1]).read_bytes())
+            self.history.delete(first)
+            self.assertFalse(os.path.exists(paths[-1]))
+            # A file outside the private folder is never registered.
+            outside = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            outside.close()
+            try:
+                self.assertFalse(self.history.add_image(outside.name, 'image/png', 1, 'other'))
+                self.assertFalse(self.history.add_image(paths[3], 'text/html', 1, 'html'))
+            finally:
+                os.unlink(outside.name)
+
+    def test_image_size_headers(self):
+        png = b'\x89PNG\r\n\x1a\n' + struct.pack('>I', 13) + b'IHDR' + struct.pack('>II', 640, 360)
+        self.assertEqual(tuple(image_size(png)), (640, 360))
+        self.assertEqual(tuple(image_size(b'GIF89a' + struct.pack('<HH', 12, 7))), (12, 7))
+        jpeg = b'\xff\xd8\xff\xe0' + struct.pack('>H', 4) + b'JF' + b'\xff\xc0' + struct.pack('>HBHH', 17, 8, 90, 160) + b'\0' * 12
+        self.assertEqual(tuple(image_size(jpeg)), (160, 90))
+        self.assertEqual(tuple(image_size(b'not an image')), (0, 0))
+
+    def test_copy_text_is_bounded_and_reported(self):
+        with patch('clipboard_service.shutil.which', return_value='/fake/wl-copy'), \
+             patch('clipboard_service.subprocess.run') as run:
+            self.assertTrue(self.history.copy_text('one line'))
+            self.assertEqual(run.call_args.kwargs['input'], b'one line')
+            self.assertFalse(self.history.copy_text('x' * (MAX_BYTES + 1)))
+            self.assertFalse(self.history.copy_text(''))
+        self.assertEqual(self.events[-1], {'event': 'clipboardCopied', 'id': 'text', 'success': False})
+
+    def test_image_offer_is_written_privately(self):
+        png = b'\x89PNG\r\n\x1a\n' + struct.pack('>I', 13) + b'IHDR' + struct.pack('>II', 2, 3)
+        with tempfile.TemporaryDirectory() as folder:
+            stream = io.TextIOWrapper(io.BytesIO(b'ignored'))
+            with patch.dict(os.environ, {'CLIPBOARD_STATE': 'data', 'OPAL_CLIPBOARD_DIR': folder}), \
+                 patch.object(sys, 'stdin', stream), \
+                 patch('clipboard_service.subprocess.check_output', return_value=b'text/html\nimage/png'), \
+                 patch('clipboard_service.subprocess.run', return_value=subprocess.CompletedProcess([], 0, png)), \
+                 contextlib.redirect_stdout(io.StringIO()) as output:
+                capture()
+            event = __import__('json').loads(output.getvalue())
+            self.assertEqual((event['mime'], event['width'], event['height']), ('image/png', 2, 3))
+            self.assertEqual(pathlib.Path(event['image']).read_bytes(), png)
+            self.assertEqual(os.stat(event['image']).st_mode & 0o777, 0o600)
 
 
 if __name__ == '__main__':
