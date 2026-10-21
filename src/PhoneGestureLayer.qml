@@ -20,7 +20,7 @@ Scope {
     }
     // Edge zones: thin input strips on both sides of phone outputs.
     Variants {
-        model: Quickshell.screens.filter(sc => Hub.layoutFor(sc.width, sc.height, sc.name) === "phone" && !Hub.prefs.phoneButtons && Hub.prefs.phoneEdgeBack !== false)
+        model: Quickshell.screens.filter(sc => Hub.layoutFor(sc.width, sc.height, sc.name) === "phone" && !Hub.prefs.phoneButtons && Hub.prefs.phoneEdgeBack !== false && PhoneState.edgeZones.some(z => PhoneState.gestureAction(z, false) !== "none" || PhoneState.gestureAction(z, true) !== "none"))
         delegate: Scope {
             id: zone
             required property var modelData
@@ -43,9 +43,10 @@ Scope {
                         anchors.fill: parent
                         preventStealing: true
                         property real startX: 0
-                        onPressed: e => { startX = e.x; PhoneState.beginEdge(zone.modelData, strip.modelData); }
+                        // The press height picks the upper or lower half of the edge; it is a fraction of the whole screen.
+                        onPressed: e => { startX = e.x; PhoneState.beginEdge(zone.modelData, strip.modelData, (strip.margins.top + e.y) / zone.modelData.height); }
                         // Pull direction is inward: positive for the left edge, negative for the right.
-                        onPositionChanged: e => PhoneState.moveEdge(strip.modelData < 0 ? e.x - startX : startX - e.x)
+                        onPositionChanged: e => PhoneState.moveEdge(strip.modelData < 0 ? e.x - startX : startX - e.x, strip.margins.top + e.y)
                         onReleased: PhoneState.endEdge()
                         onCanceled: PhoneState.cancel()
                     }

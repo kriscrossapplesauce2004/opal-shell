@@ -117,11 +117,55 @@ Scope {
     function cancel() { holdTimer.stop(); if (phase === "drawer") drawerReleased(false); outcome = "cancel"; if (Theme.motion(1) === 0 || phase === "") finish(); }
 
     // Edge back swipe from the left or right edge.
-    function beginEdge(screen, side) { begin(screen); phase = "back"; edge = side; }
-    function moveEdge(offset) { dx = offset; progress = Math.min(1, Math.max(0, Math.abs(offset) / 96)); }
+    // Edge gestures. Each edge has an upper and a lower half, and each half has a swipe and a swipe-and-hold, all assignable in Settings.
+    readonly property var gestureActions: [
+        {id: "back", label: "Back", icon: "arrow_back"}, {id: "home", label: "Home", icon: "home"}, {id: "recents", label: "Recent apps", icon: "view_carousel"},
+        {id: "previous", label: "Last app", icon: "swap_horiz"}, {id: "drawer", label: "App drawer", icon: "apps"}, {id: "search", label: "Search", icon: "search"},
+        {id: "notifications", label: "Notifications", icon: "notifications"}, {id: "controls", label: "Quick settings", icon: "tune"},
+        {id: "assistant", label: "Assistant", icon: "auto_awesome"}, {id: "screenshot", label: "Screenshot", icon: "screenshot_monitor"},
+        {id: "torch", label: "Flashlight", icon: "flashlight_on"}, {id: "keyboard", label: "Keyboard", icon: "keyboard"},
+        {id: "lock", label: "Lock", icon: "lock"}, {id: "none", label: "Nothing", icon: "block"}]
+    readonly property var edgeZones: ["leftUpper", "rightUpper", "leftLower", "rightLower"]
+    function gestureAction(zone, hold) {
+        const g = Hub.prefs.phoneGestures || {};
+        const value = g[zone + (hold ? "Hold" : "")];
+        return gestureActions.some(a => a.id === value) ? value : hold ? "none" : "back";
+    }
+    function actionInfo(id) { return gestureActions.find(a => a.id === id) || gestureActions[0]; }
+    property real edgeY: .5
+    property bool edgeHeld: false
+    readonly property string edgeZone: (edge < 0 ? "left" : "right") + (edgeY < .5 ? "Upper" : "Lower")
+    // What letting go would do right now.
+    readonly property string pendingAction: phase !== "back" ? "" : edgeHeld && gestureAction(edgeZone, true) !== "none" ? gestureAction(edgeZone, true) : gestureAction(edgeZone, false)
+    Timer { id: edgeHoldTimer; interval: 420; onTriggered: if (s.phase === "back" && s.progress >= 1) s.edgeHeld = true }
+    function beginEdge(screen, side, y) { begin(screen); phase = "back"; edge = side; edgeHeld = false; edgeY = y === undefined ? .5 : y; dy = edgeY * height_(); }
+    function moveEdge(offset, y) {
+        dx = offset; progress = Math.min(1, Math.max(0, Math.abs(offset) / 96));
+        if (y !== undefined) dy = y;
+        if (progress < 1) { edgeHoldTimer.stop(); edgeHeld = false; }
+        else if (!edgeHeld && !edgeHoldTimer.running && gestureAction(edgeZone, true) !== "none") edgeHoldTimer.start();
+    }
     function endEdge() {
-        if (progress >= 1) { outcome = "back"; back(); } else outcome = "cancel";
+        edgeHoldTimer.stop();
+        if (progress >= 1) { const action = pendingAction; outcome = "back"; runGesture(action); } else outcome = "cancel";
+        edgeHeld = false;
         if (Theme.motion(1) === 0) finish();
+    }
+    function runGesture(id) {
+        if (gestureScreen) Hub.targetScreen = gestureScreen;
+        if (id === "back") back();
+        else if (id === "home") goHome();
+        else if (id === "recents") openRecents();
+        else if (id === "previous") { const w = previousWindow(); if (w) Hub.focusWindow(w); }
+        else if (id === "drawer") { Hub.mobileTab = "apps"; Hub.page = "launcher"; }
+        else if (id === "search") Hub.openSearch();
+        else if (id === "notifications") Hub.page = "notifications";
+        else if (id === "controls") Hub.page = "controls";
+        else if (id === "assistant") Hub.openAssistant("");
+        else if (id === "screenshot") Hub.screenShot();
+        else if (id === "torch") setTorch(!torch.on);
+        else if (id === "keyboard") Hub.systemOsk("toggle");
+        else if (id === "lock") Hub.lock();
     }
 
     // Actions. They only change shell state or ask the compositor adapter. They never send keys to apps.

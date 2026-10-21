@@ -69,7 +69,7 @@ ColumnLayout {
                     Glyph {name:card.modelData.mode==="light" ? "light_mode" : "dark_mode";font.pixelSize:14;color:Theme.subtext}
                     Glyph {visible:Hub.omarchyCurrent===card.modelData.id;name:"sync";font.pixelSize:14;color:Theme.primary}
                 }
-                MouseArea {id:hit;anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:Hub.command({action:"omarchy-apply",id:card.modelData.id})}
+                MouseArea {id:hit;anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:mouse=>Hub.withReveal(hit,mouse.x,mouse.y,()=>Hub.command({action:"omarchy-apply",id:card.modelData.id}))}
             }
         }
     }

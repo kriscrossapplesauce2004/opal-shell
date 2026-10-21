@@ -1,0 +1,67 @@
+import QtQuick
+import QtQuick.Effects
+// Theme changes ripple out from the finger: a snapshot of the old look covers the window, and a growing circle wipes it away once the new colours arrive.
+// One per window; Hub.withReveal finds the one in the caller's window.
+Item {
+    id:reveal
+    parent:Window.contentItem
+    anchors.fill:parent
+    z:100000
+    visible:false
+    property real cx:0
+    property real cy:0
+    property real radius:0
+    readonly property real reach:Math.hypot(Math.max(cx,width-cx),Math.max(cy,height-cy))+40
+    property string before:""
+    Component.onCompleted:Hub.revealers=Hub.revealers.concat([reveal])
+    Component.onDestruction:Hub.revealers=Hub.revealers.filter(r=>r!==reveal)
+
+    function run(item,x,y,apply) {
+        if(Theme.reduceMotion||!Window.contentItem||grow.running||visible) { apply();return; }
+        const p=item.mapToItem(Window.contentItem,x,y);
+        Window.contentItem.grabToImage(result=>{
+            cx=p.x;cy=p.y;radius=0;
+            snapshot.source=result.url;
+            before=""+Theme.base+Theme.primary+Theme.light;
+            visible=true;
+            apply();
+            giveUp.restart();
+        });
+    }
+    // The new palette arrives from the backend a moment later; the wipe starts then.
+    Connections {
+        target:Theme
+        enabled:reveal.visible&&!grow.running
+        function onBaseChanged() {reveal.start();}
+        function onPrimaryChanged() {reveal.start();}
+    }
+    function start() { if(""+Theme.base+Theme.primary+Theme.light!==before){giveUp.stop();grow.restart();} }
+    Timer {id:giveUp;interval:1500;onTriggered:fade.restart()}
+    NumberAnimation {
+        id:grow;target:reveal;property:"radius";from:0;to:reveal.reach;duration:Theme.motion(720)
+        easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasized
+        onFinished:reveal.finish()
+    }
+    NumberAnimation {id:fade;target:reveal;property:"opacity";to:0;duration:Theme.motion(200);onFinished:reveal.finish()}
+    function finish() { visible=false;opacity=1;radius=0;snapshot.source=""; }
+
+    Image {id:snapshot;anchors.fill:parent;visible:false;cache:false}
+    // Everything outside the circle still shows the old look.
+    Item {
+        id:hole
+        anchors.fill:parent;visible:false;layer.enabled:true
+        Rectangle {x:reveal.cx-reveal.radius;y:reveal.cy-reveal.radius;width:reveal.radius*2;height:width;radius:reveal.radius;color:"black"}
+    }
+    MultiEffect {
+        anchors.fill:parent;source:snapshot
+        maskEnabled:true;maskSource:hole;maskInverted:true
+        maskThresholdMin:.5;maskSpreadAtMin:.25
+    }
+    // The wavefront: a thin ring in the new accent that fades as it grows.
+    Rectangle {
+        x:reveal.cx-reveal.radius;y:reveal.cy-reveal.radius;width:reveal.radius*2;height:width;radius:reveal.radius
+        color:"transparent";border.width:3;border.color:Theme.primary
+        opacity:grow.running ? 1-reveal.radius/reveal.reach : 0
+    }
+    MouseArea {anchors.fill:parent}
+}

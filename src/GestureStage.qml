@@ -60,12 +60,21 @@ Item {
     Rectangle {
         id: bubble
         visible: stage.phase === "back"
-        readonly property real pull: PhoneState.progress * 64
+        property real pull: PhoneState.edgeHeld ? width + 12 : PhoneState.progress * 64
+        Behavior on pull { enabled: PhoneState.edgeHeld; NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasized } }
         width: 44 + (PhoneState.progress >= 1 ? 6 : 0); height: 56; radius: width / 2
-        y: stage.height * .5 - height / 2 + PhoneState.dy * .0
+        // The bubble follows the finger up and down the edge.
+        y: Math.max(16, Math.min(stage.height - height - 16, (PhoneState.dy || stage.height * .5) - height / 2))
         x: PhoneState.edge < 0 ? -width + pull + (stage.settling ? -stage.settle * width : 0) : stage.width - pull + (stage.settling ? stage.settle * width : 0)
         color: PhoneState.progress >= 1 ? Theme.primary : Theme.level(4)
         Behavior on color { ColorAnimation { duration: Theme.motion(120) } }
-        Glyph { anchors.centerIn: parent; name: "chevron_left"; rotation: PhoneState.edge < 0 ? 0 : 180; font.pixelSize: 26; color: PhoneState.progress >= 1 ? Theme.onPrimary : Theme.text }
+        Glyph { anchors.verticalCenter: parent.verticalCenter; x: PhoneState.edgeHeld ? 14 : (parent.width - width) / 2; name: PhoneState.pendingAction === "back" || PhoneState.pendingAction === "" ? "chevron_left" : PhoneState.actionInfo(PhoneState.pendingAction).icon; rotation: PhoneState.pendingAction === "back" && PhoneState.edge > 0 ? 180 : 0; font.pixelSize: 26; color: PhoneState.progress >= 1 ? Theme.onPrimary : Theme.text }
+        // Holding switches to the second action; the bubble stretches into a pill with its name.
+        states: State {
+            when: PhoneState.edgeHeld
+            PropertyChanges { bubble.width: heldLabel.implicitWidth + 64 }
+        }
+        Behavior on width { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasized } }
+        MText { id: heldLabel; visible: PhoneState.edgeHeld; anchors.verticalCenter: parent.verticalCenter; x: 46; text: PhoneState.actionInfo(PhoneState.pendingAction).label; role: "label"; color: Theme.onPrimary }
     }
 }

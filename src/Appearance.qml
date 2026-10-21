@@ -12,6 +12,7 @@ Flickable {
     readonly property var layoutModes:[{id:"auto",icon:"expand",title:"Automatic",subtitle:"Adapt to each output: phone, portrait tablet, or desktop."},{id:"desktop",icon:"desktop",title:"Desktop",subtitle:"Compact app drawer and a real running-app taskbar."},{id:"phone",icon:"phone",title:"Phone",subtitle:"Edge-to-edge home, app drawer, recents and touch actions."},{id:"console",icon:"game",title:"Console",subtitle:"Large game tiles; keyboard and D-pad navigation."}]
     clip:true;contentHeight:body.implicitHeight+24;boundsBehavior:Flickable.StopAtBounds
     ScrollBar.vertical:ScrollBar {}
+    ThemeReveal {}
     ColumnLayout {id:body;width:a.width;spacing:22
         MText {visible:!a.embedded;text:"Your device. Your personality.";font.pixelSize:a.compact ? 22 : 28;font.weight:Font.DemiBold;Layout.fillWidth:true}
         Rectangle {Layout.fillWidth:true;Layout.preferredHeight:164;radius:32;clip:true;color:Theme.surface
@@ -33,7 +34,7 @@ fill:modelData.onPrimary;lobes:6
                     }
                     MText {anchors {bottom:parent.bottom;bottomMargin:12;horizontalCenter:parent.horizontalCenter}
 text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font.DemiBold}
-                    MouseArea {anchors.fill:parent;onClicked:{Hub.set("dynamicColors",false);Hub.set("palette",index);}}
+                    MouseArea {id:swatch;anchors.fill:parent;onClicked:mouse=>Hub.withReveal(swatch,mouse.x,mouse.y,()=>{Hub.set("dynamicColors",false);Hub.set("palette",index);})}
                 }
             }
         }
@@ -46,8 +47,8 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
         MButton {visible:!!Hub.prefs.dynamicPalette&&!!Hub.prefs.dynamicPalette.dark;Layout.fillWidth:true;text:a.dynamicColorsEnabled ? "Wallpaper colors on" : "Use saved wallpaper colors";tonal:true;icon:"check";onClicked:Hub.set("dynamicColors",!a.dynamicColorsEnabled)}
         MText {Layout.fillWidth:true;text:"Colors come from your wallpaper.";wrapMode:Text.Wrap;color:Theme.subtext;font.pixelSize:11}
         RowLayout {Layout.fillWidth:true;spacing:8
-            MButton {Layout.fillWidth:true;icon:"moon";text:"Dark";filled:!Theme.light;tonal:Theme.light;onClicked:Hub.set("light",false)}
-            MButton {Layout.fillWidth:true;icon:"sun";text:"Light";filled:Theme.light;tonal:!Theme.light;onClicked:Hub.set("light",true)}
+            MButton {id:darkButton;Layout.fillWidth:true;icon:"moon";text:"Dark";filled:!Theme.light;tonal:Theme.light;onClicked:Hub.withReveal(darkButton,width/2,height/2,()=>Hub.set("light",false))}
+            MButton {id:lightButton;Layout.fillWidth:true;icon:"sun";text:"Light";filled:Theme.light;tonal:!Theme.light;onClicked:Hub.withReveal(lightButton,width/2,height/2,()=>Hub.set("light",true))}
         }
         MText {text:"GLASS & MATERIAL";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MText {text:"Panel density · "+Math.round(Hub.prefs.glass*100)+"%";color:Theme.subtext}

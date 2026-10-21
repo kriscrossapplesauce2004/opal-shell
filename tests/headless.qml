@@ -45,6 +45,7 @@ ShellRoot {
             {name:"search-math",ui:"search",w:1280,h:800,searchText:"12*(3+4)"},
             {name:"settings-taskbar",ui:"settings",w:980,h:800,section:"taskbar"},
             {name:"settings-phone-navigation",ui:"settings",w:360,h:740,section:"phone",light:true},
+            {name:"settings-phone-gestures",ui:"settings",w:980,h:900,section:"phone"},
             {name:"settings-network",ui:"settings",w:980,h:800,section:"network"},
             {name:"settings-sound",ui:"settings",w:980,h:800,section:"sound",music:true},
             {name:"settings-about",ui:"settings",w:980,h:800,section:"about",light:true},
@@ -135,6 +136,8 @@ ShellRoot {
             {name:"gesture-recents",ui:"gesture",w:412,h:915,gesture:"recents",progress:.5},
             {name:"gesture-switch",ui:"gesture",w:412,h:915,gesture:"switch",dx:150},
             {name:"gesture-back",ui:"gesture",w:412,h:915,gesture:"back",progress:1,light:true},
+            {name:"gesture-edge-held",ui:"gesture",w:412,h:915,gesture:"back",progress:1,held:true,edge:1,edgeY:.7,gestures:{rightLower:"back",rightLowerHold:"screenshot"}},
+            {name:"gesture-edge-assigned",ui:"gesture",w:412,h:915,gesture:"back",progress:1,edgeY:.25,gestures:{leftUpper:"notifications"}},
             {name:"lock-extras",ui:"lockfx",w:412,h:915},
             {name:"lock-ambient",ui:"lockfx",w:412,h:915,ambient:true},
             {name:"phone-home",ui:"phone",w:390,h:844},
@@ -504,7 +507,7 @@ ShellRoot {
             const test=cases[step];
             view.sourceComponent=null;
             width=test.w;height=test.h;musicVolume=40;
-            Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{mode:test.ui==="convergence"||test.ui==="glass"||test.ui==="dock" ? "auto" : test.ui,light:!!test.light,phoneButtons:!!test.buttons,controllerLayout:test.nintendo ? "nintendo" : "standard"});
+            Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{mode:test.ui==="convergence"||test.ui==="glass"||test.ui==="dock" ? "auto" : test.ui,light:!!test.light,phoneButtons:!!test.buttons,controllerLayout:test.nintendo ? "nintendo" : "standard",phoneGestures:test.gestures||{}});
             Opal.Hub.mobileTab=test.recent ? "recent" : test.apps||test.drawer ? "apps" : "home";
             if(test.recent) {
                 const fixtureWindows=[{title:"Project notes",className:"org.kde.kate",workspace:1,address:"fixture-1"},{title:"A good playlist",className:"firefox",workspace:2,address:"fixture-2"}];
@@ -595,7 +598,7 @@ ShellRoot {
             if(test.ui==="gesture") {
                 const gw=[{title:"Project notes",className:"org.kde.kate",workspace:1,address:"fixture-1"},{title:"A good playlist",className:"firefox",workspace:2,address:"fixture-2"}];
                 Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=gw;Opal.Hub.status=Object.assign({},Opal.Hub.status,{hypr:false,activeAddress:"fixture-1"});
-                Opal.PhoneState.phase=test.gesture;Opal.PhoneState.progress=test.progress||0;Opal.PhoneState.dx=test.dx||0;Opal.PhoneState.dy=-(test.progress||0)*test.h*.5;Opal.PhoneState.edge=-1;
+                Opal.PhoneState.phase=test.gesture;Opal.PhoneState.progress=test.progress||0;Opal.PhoneState.dx=test.dx||0;Opal.PhoneState.dy=test.gesture==="back" ? test.h*(test.edgeY||.4) : -(test.progress||0)*test.h*.5;Opal.PhoneState.edge=test.edge||-1;Opal.PhoneState.edgeY=test.edgeY||.4;Opal.PhoneState.edgeHeld=!!test.held;
             } else if(Opal.PhoneState.phase!=="")Opal.PhoneState.finish();
             if(test.filterText)Opal.Hub.query=test.filterText;
             // Quick Access and controller-focus fixtures. A controller is "connected" only in these scenes.

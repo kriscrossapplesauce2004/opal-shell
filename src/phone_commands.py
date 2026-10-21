@@ -58,6 +58,11 @@ def handle(c, emit, games=None):
 LOCK_NOTIFICATIONS = ('off', 'count', 'title')
 
 
+# Assignable edge gestures; the shell's PhoneState.gestureActions lists the same actions.
+GESTURE_ZONES = ('leftUpper', 'rightUpper', 'leftLower', 'rightLower')
+GESTURE_ACTIONS = ('back', 'home', 'recents', 'previous', 'drawer', 'search', 'notifications', 'controls', 'assistant', 'screenshot', 'torch', 'keyboard', 'lock', 'none')
+
+
 def valid_preference(key, value):
     """Check phone preferences. Unknown keys are not valid here."""
     if key in ('phoneFitApps', 'phoneEdgeBack', 'ambientClock', 'homeDesktopFiles', 'homeHideUnderApps'):
@@ -66,6 +71,8 @@ def valid_preference(key, value):
         return value in LOCK_NOTIFICATIONS
     if key == 'phoneSplitRatio':
         return type(value) in (int, float) and .25 <= value <= .75
+    if key == 'phoneGestures':
+        return isinstance(value, dict) and set(value) <= {z + h for z in GESTURE_ZONES for h in ('', 'Hold')} and all(v in GESTURE_ACTIONS for v in value.values())
     if key == 'phoneAppModes':
         return isinstance(value, dict) and len(value) <= 128 and all(isinstance(k, str) and 0 < len(k) <= 200 and v in MODES for k, v in value.items())
     return False

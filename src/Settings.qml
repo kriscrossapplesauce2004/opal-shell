@@ -348,6 +348,8 @@ Item {
                 options:[{value:false,label:"Gestures",icon:"swipe"},{value:true,label:"Three buttons",icon:"more_horiz"}]
                 onPicked:value=>Hub.set("phoneButtons",value)
             }
+            SectionLabel {visible:Hub.settingsSection==="phone";text:"Edge gestures"}
+            SettingsGestures {visible:Hub.settingsSection==="phone";Layout.fillWidth:true;Layout.bottomMargin:16}
             SectionLabel {visible:Hub.settingsSection==="phone";text:"App drawer columns"}
             SegmentedButtons {visible:Hub.settingsSection==="phone";Layout.fillWidth:true;Layout.bottomMargin:12;current:Hub.prefs.phoneRows||5
                 options:[{value:4,label:"4"},{value:5,label:"5"},{value:6,label:"6"},{value:7,label:"7"}]

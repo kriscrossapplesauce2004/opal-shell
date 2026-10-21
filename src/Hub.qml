@@ -136,6 +136,12 @@ Scope {
     property var themeChoices: ({})
     // Omarchy-format themes from omarchy_themes.py; omarchyCurrent is the theme Omarchy itself wears, if installed.
     // The file chooser apps open through the portal (opal_portal.py). One request at a time; others go to the fallback dialog.
+    // Theme ripples: one ThemeReveal per window registers here.
+    property var revealers: []
+    function withReveal(item,x,y,apply) {
+        const r=item&&item.Window ? revealers.find(v=>v.Window.window===item.Window.window) : null;
+        if(r) r.run(item,x,y,apply); else apply();
+    }
     property var portalRequest: null
     property var portalScreen: null
     property var portalFolder: null

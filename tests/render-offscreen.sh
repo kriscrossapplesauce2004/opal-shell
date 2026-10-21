@@ -72,7 +72,7 @@ printf 'Isolated render directory: %s\n' "$root"
 env -u DISPLAY -u WAYLAND_DISPLAY -u HYPRLAND_INSTANCE_SIGNATURE \
     HOME="$root/home" XDG_RUNTIME_DIR="$root/runtime" \
     XDG_CONFIG_HOME="$root/home/.config" XDG_DATA_HOME="$root/home/.local/share" \
-    QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=software QT_LOGGING_RULES="qml.debug=true" \
+    QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=basic QT_QUICK_BACKEND=${OPAL_QUICK_BACKEND:-software} QT_LOGGING_RULES="qml.debug=true" \
     OPAL_TEST_OUTPUT="$root/images" DBUS_SESSION_BUS_ADDRESS="unix:path=$root/no-bus" \
     timeout ${OPAL_TIMEOUT:-90}s quickshell -p "$root/config/$entry" > "$root/render.log" 2>&1
 printf 'Log: %s/render.log\nImages: %s/images/\n' "$root" "$root"
