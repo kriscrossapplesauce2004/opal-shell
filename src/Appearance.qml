@@ -92,6 +92,12 @@ text:modelData.name;color:modelData.onPrimary;font.pixelSize:12;font.weight:Font
         MText {text:"WINDOWS";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         // Floating windows are opt-in. Turning them off tiles every window again.
         MButton {Layout.fillWidth:true;icon:"select_window";text:Hub.prefs.floatingMode ? "Floating windows on · titlebars, snap layouts, minimize" : "Tiling windows · turn on floating windows";tonal:true;onClicked:Hub.set("floatingMode",!Hub.prefs.floatingMode)}
+        MText {text:"FILE DIALOGS";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
+        // Apps' Open and Save dialogs, once "opal portal on" made Opal the FileChooser portal.
+        SegmentedButtons {Layout.fillWidth:true;current:Hub.prefs.portalPicker||"touch"
+            options:[{value:"touch",label:"Phone & tablet",icon:"phone"},{value:"always",label:"Everywhere",icon:"devices"},{value:"never",label:"Never",icon:"block"}]
+            onPicked:value=>Hub.set("portalPicker",value)}
+        MText {Layout.fillWidth:true;text:"Opal draws apps' file dialogs here; elsewhere your previous dialog opens. Turn the portal on with “opal portal on”.";wrapMode:Text.Wrap;color:Theme.subtext;font.pixelSize:11}
         MText {text:"TASKBAR & NAVIGATION";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         MButton {Layout.fillWidth:true;icon:"expand";text:Hub.prefs.taskbarAutoHide ? "Auto-hide on · zero reserved space" : "Floating shelf · always visible";tonal:true;onClicked:Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide)}
         MButton {Layout.fillWidth:true;icon:"phone";text:Hub.prefs.phoneButtons ? "Phone: three-button navigation" : "Phone: gesture strip & shortcuts";tonal:true;onClicked:Hub.set("phoneButtons",!Hub.prefs.phoneButtons)}

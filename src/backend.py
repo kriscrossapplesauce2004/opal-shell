@@ -60,6 +60,7 @@ import home_data, weather
 import floating_mode
 import theme_export
 import omarchy_themes
+import file_browse
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
 def valid_schedules(value):
@@ -461,6 +462,7 @@ def commands():
                 valid = valid or key in CONVERGE_KEYS and type(value)==bool
                 valid = valid or key=='floatingMode' and type(value)==bool
                 valid = valid or key in ('omarchyFollow','omarchyWallpaper') and type(value)==bool
+                valid = valid or key=='portalPicker' and value in ('touch','always','never') or key=='portalView' and value in ('grid','list')
                 valid = valid or power_key.valid_preference(key, value)
                 valid = valid or game_profiles.valid_preference(key, value)
                 if valid:
@@ -552,6 +554,7 @@ def commands():
             elif action=='theme-export-remove':
                 try: system_tools.remove_export([t for t in (c.get('targets') or []) if t in system_tools.TARGETS])
                 except OSError as error: emit({'event':'message','text':str(error)})
+            elif action.startswith('portal-'): threading.Thread(target=portal_command,args=(c,),daemon=True).start()
             elif action=='omarchy-themes': threading.Thread(target=publish_omarchy,daemon=True).start()
             elif action=='omarchy-apply' and isinstance(c.get('id'),str): threading.Thread(target=omarchy_apply,args=(c['id'],),daemon=True).start()
             elif action=='omarchy-export': threading.Thread(target=omarchy_export,args=(c,),daemon=True).start()
@@ -1004,6 +1007,27 @@ def show_desktop():
 
 # Home sources: each one is published only when it changes.
 home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0}
+def portal_rule(c):
+    rule=c.get('rule') if isinstance(c.get('rule'),dict) else None
+    return {k:[v for v in rule.get(k) or [] if isinstance(v,str) and len(v)<200][:64] for k in ('globs','mimes')} if rule else None
+def portal_command(c):
+    """The file picker the portal asks the shell to draw: listings, new folders and the final answer."""
+    action=c.get('action')
+    try:
+        if action=='portal-browse':
+            data=file_browse.listing(c.get('folder') or '',c.get('hidden') is True,portal_rule(c),c.get('directories') is True)
+            emit(dict(data,event='portalFolder'))
+        elif action=='portal-places':
+            emit({'event':'portalPlaces','places':file_browse.places(),'recent':[] if c.get('directories') is True else file_browse.recent(rule=portal_rule(c))})
+        elif action=='portal-mkdir':
+            made=file_browse.make_folder(c.get('folder'),c.get('name'))
+            emit(dict(file_browse.listing(c.get('folder'),c.get('hidden') is True,portal_rule(c),c.get('directories') is True),event='portalFolder',made=made))
+        elif action=='portal-check':
+            emit(dict(file_browse.save_target(c.get('folder'),c.get('name')),event='portalSaveCheck'))
+        elif action=='portal-answer' and isinstance(c.get('token'),str):
+            file_browse.send_answer({k:c[k] for k in ('token','uris','cancel','decline','filter') if k in c})
+    except (ValueError,OSError) as error:
+        emit({'event':'portalError','text':str(error) if isinstance(error,ValueError) else 'That did not work: '+(error.strerror or str(error))})
 def publish_omarchy():
     themes=[omarchy_themes.summary(t) for t in omarchy_themes.discover()]
     now=omarchy_themes.current()

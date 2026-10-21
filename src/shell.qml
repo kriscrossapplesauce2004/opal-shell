@@ -28,6 +28,9 @@ ShellRoot {
         function appearance():void {root.show("appearance");}
         // Omarchy-format themes: wear one by folder name, or save the current look as an Omarchy theme.
         function theme(name:string):void {Hub.command({action:"omarchy-apply",id:name});}
+        // The portal asks whether Opal draws an app's file dialog; "shown" means yes.
+        function portalPick(encoded:string):string {return Hub.portalPick(Qt.atob(encoded));}
+        function portalCancel(token:string):void {Hub.portalCancel(token);}
         function themeExport(name:string):void {Hub.command({action:"omarchy-export",name:name||"opal",light:Theme.light,roles:Theme.roles()});}
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
         function convergence():void {root.show("convergence");}
@@ -185,6 +188,28 @@ ShellRoot {
         WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
         color:"transparent"
         Loader {anchors.fill:parent;active:Hub.osd!=="";sourceComponent:Component {VolumeOsd {}}}
+    }
+    // Apps' Open and Save dialogs, drawn by Opal. Full screen on phones and tablets, a large sheet on desktops.
+    LazyLoader {
+        active:Hub.portalRequest!==null
+        PanelWindow {
+            id:portalWindow
+            screen:Hub.portalScreen||Hub.chooseScreen()
+            readonly property bool touch:screen ? Hub.layoutFor(screen.width,screen.height,screen.name)!=="desktop" : true
+            anchors {top:true;bottom:true;left:true;right:true}
+            exclusionMode:ExclusionMode.Ignore
+            WlrLayershell.layer:WlrLayer.Overlay
+            WlrLayershell.namespace:"opal-portal"
+            WlrLayershell.keyboardFocus:WlrKeyboardFocus.Exclusive
+            color:portalWindow.touch ? "transparent" : Theme.alpha("#000000",.42)
+            MouseArea {anchors.fill:parent;onClicked:Hub.portalAnswer({cancel:true})}
+            FilePicker {
+                touch:portalWindow.touch
+                width:touch ? parent.width : Math.min(parent.width-48,1040);height:touch ? parent.height : Math.min(parent.height-48,720)
+                anchors.centerIn:parent
+                MouseArea {anchors.fill:parent;z:-1}
+            }
+        }
     }
     // First start: a quiet card offers the tour. It never takes the keyboard.
     PanelWindow {

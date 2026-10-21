@@ -135,6 +135,30 @@ Scope {
     property var monitors: []
     property var themeChoices: ({})
     // Omarchy-format themes from omarchy_themes.py; omarchyCurrent is the theme Omarchy itself wears, if installed.
+    // The file chooser apps open through the portal (opal_portal.py). One request at a time; others go to the fallback dialog.
+    property var portalRequest: null
+    property var portalScreen: null
+    property var portalFolder: null
+    property var portalPlaces: []
+    property var portalRecent: []
+    property var portalSaveCheck: null
+    property string portalError: ""
+    function portalPick(text) {
+        let request;
+        try { request=JSON.parse(text); } catch(error) { return "declined"; }
+        const policy=prefs.portalPicker||"touch";
+        const screen=chooseScreen();
+        const layout=screen ? layoutFor(screen.width,screen.height,screen.name) : "desktop";
+        if(portalRequest||locked||policy==="never"||policy==="touch"&&layout==="desktop") return "declined";
+        portalFolder=null;portalSaveCheck=null;portalError="";portalScreen=screen;portalRequest=request;
+        return "shown";
+    }
+    function portalAnswer(answer) {
+        if(!portalRequest)return;
+        command(Object.assign({action:"portal-answer",token:portalRequest.token},answer));
+        portalRequest=null;
+    }
+    function portalCancel(token) { if(portalRequest&&portalRequest.token===token)portalRequest=null; }
     property var omarchyThemes: []
     property string omarchyCurrent: ""
     property bool omarchyInstalled: false
@@ -629,6 +653,10 @@ Scope {
                     else if(e.event === "health") h.health={disks:e.disks,temperatures:e.temperatures,hottest:e.hottest};
                     else if(e.event === "updates") h.updates={pacman:e.pacman,flatpak:e.flatpak};
                     else if(e.event === "themeChoices") h.themeChoices=e.data||({});
+                    else if(e.event === "portalFolder") {h.portalFolder=e;h.portalError="";}
+                    else if(e.event === "portalPlaces") {h.portalPlaces=e.places||[];h.portalRecent=e.recent||[];}
+                    else if(e.event === "portalSaveCheck") h.portalSaveCheck=e;
+                    else if(e.event === "portalError") h.portalError=e.text||"";
                     else if(e.event === "omarchyThemes") {h.omarchyThemes=e.data||[];h.omarchyCurrent=e.omarchy||"";h.omarchyInstalled=!!e.installed;}
                     else if(e.event === "recentActivity"||e.event === "torch"||e.event === "batteryStats") PhoneState.ingest(e);
                     else if(e.event === "monitors") h.monitors=e.data;

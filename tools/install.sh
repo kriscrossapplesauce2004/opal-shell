@@ -314,6 +314,15 @@ case "${1:-on}" in
     quickaccess|qa)
         exec quickshell ipc -p "$config" call opal quickaccess
         ;;
+    portal)
+        # Apps' Open and Save dialogs drawn by Opal (xdg-desktop-portal FileChooser).
+        case "${2:-status}" in
+            on) exec bash "@OPAL_TOOLS@/install-portal.sh" ;;
+            off) exec bash "@OPAL_TOOLS@/install-portal.sh" --revert ;;
+            touch|always|never) exec quickshell ipc -p "$config" call opal setPreference portalPicker "\"$2\"" ;;
+            *) exec bash "@OPAL_TOOLS@/install-portal.sh" --status ;;
+        esac
+        ;;
     theme)
         # Omarchy-format themes (colors.toml), from ~/.config/opal/themes, ~/.config/omarchy/themes, Omarchy itself, or the bundled palettes.
         case "${2:-list}" in
@@ -335,7 +344,7 @@ case "${1:-on}" in
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|activity …|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|portal [on|off|touch|always|never]|activity …|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac
