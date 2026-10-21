@@ -10,7 +10,7 @@ cp -a "$source_dir/src" "$root/config/src"
 entry=${OPAL_ENTRY:-headless.qml}
 cp "$source_dir/tests/$entry" "$root/config/$entry"
 # Small generated image fixtures exercise the gallery without reading user photos.
-python3 - "$root/home/Pictures/Wallpapers" "$HOME/.local/state/opal/preferences.json" "$root/home/.local/state/opal/preferences.json" <<'PY'
+OPAL_SOURCE="$source_dir" python3 - "$root/home/Pictures/Wallpapers" "$HOME/.local/state/opal/preferences.json" "$root/home/.local/state/opal/preferences.json" <<'PY'
 import json, pathlib, struct, sys, zlib
 # Copy theme roles only into the isolated preview state.
 try:
@@ -20,6 +20,14 @@ try:
     destination.write_text(json.dumps(theme))
 except (OSError, ValueError):
     pass
+# OPAL_THEME=<omarchy theme> renders the shell wearing that theme instead of the saved colours.
+import os
+if os.environ.get('OPAL_THEME'):
+    sys.path.insert(0,os.environ['OPAL_SOURCE']+'/src')
+    import omarchy_themes
+    found=omarchy_themes.find(os.environ['OPAL_THEME'])
+    destination=pathlib.Path(sys.argv[3]);destination.parent.mkdir(parents=True,exist_ok=True)
+    destination.write_text(json.dumps({k:v for k,v in omarchy_themes.apply(found,wallpaper=False).items()}))
 folder=pathlib.Path(sys.argv[1]);folder.mkdir(parents=True)
 def chunk(kind,data):
     return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)

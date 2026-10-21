@@ -134,6 +134,10 @@ Scope {
     property var updates: ({pacman:null,flatpak:null})
     property var monitors: []
     property var themeChoices: ({})
+    // Omarchy-format themes from omarchy_themes.py; omarchyCurrent is the theme Omarchy itself wears, if installed.
+    property var omarchyThemes: []
+    property string omarchyCurrent: ""
+    property bool omarchyInstalled: false
     property var sun: ({sunrise:"07:00",sunset:"19:00",estimated:true})
     // Opal Link devices and status from opal_link.py.
     property string linkStatus: "off"
@@ -625,6 +629,7 @@ Scope {
                     else if(e.event === "health") h.health={disks:e.disks,temperatures:e.temperatures,hottest:e.hottest};
                     else if(e.event === "updates") h.updates={pacman:e.pacman,flatpak:e.flatpak};
                     else if(e.event === "themeChoices") h.themeChoices=e.data||({});
+                    else if(e.event === "omarchyThemes") {h.omarchyThemes=e.data||[];h.omarchyCurrent=e.omarchy||"";h.omarchyInstalled=!!e.installed;}
                     else if(e.event === "recentActivity"||e.event === "torch"||e.event === "batteryStats") PhoneState.ingest(e);
                     else if(e.event === "monitors") h.monitors=e.data;
                     else if(e.event === "snapPreview") h.snapPreview=e;

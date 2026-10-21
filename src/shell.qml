@@ -26,6 +26,9 @@ ShellRoot {
         function desktop():void {Hub.mode("desktop");}
         function adaptive():void {Hub.mode("auto");}
         function appearance():void {root.show("appearance");}
+        // Omarchy-format themes: wear one by folder name, or save the current look as an Omarchy theme.
+        function theme(name:string):void {Hub.command({action:"omarchy-apply",id:name});}
+        function themeExport(name:string):void {Hub.command({action:"omarchy-export",name:name||"opal",light:Theme.light,roles:Theme.roles()});}
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
         function convergence():void {root.show("convergence");}
         function assistant():void {if(Hub.page==="assistant")Hub.close();else Hub.openAssistant("");}

@@ -171,3 +171,4 @@ TabletLauncher 1.0 TabletLauncher.qml
 WorkspaceSwitcher 1.0 WorkspaceSwitcher.qml
 WorkspaceCard 1.0 WorkspaceCard.qml
 WorkspaceCardWindow 1.0 WorkspaceCardWindow.qml
+ThemeGallery 1.0 ThemeGallery.qml

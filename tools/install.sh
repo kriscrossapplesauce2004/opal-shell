@@ -314,6 +314,19 @@ case "${1:-on}" in
     quickaccess|qa)
         exec quickshell ipc -p "$config" call opal quickaccess
         ;;
+    theme)
+        # Omarchy-format themes (colors.toml), from ~/.config/opal/themes, ~/.config/omarchy/themes, Omarchy itself, or the bundled palettes.
+        case "${2:-list}" in
+            list) exec python3 "$config/omarchy_themes.py" list ;;
+            set) [[ -n "${3:-}" ]] || { echo 'Usage: opal theme set <name>' >&2; exit 2; }
+                 exec quickshell ipc -p "$config" call opal theme "$3" ;;
+            follow) case "${3:-on}" in on|off) ;; *) echo 'Usage: opal theme follow [on|off]' >&2; exit 2 ;; esac
+                    value=false; [[ "${3:-on}" == on ]] && value=true
+                    exec quickshell ipc -p "$config" call opal setPreference omarchyFollow "$value" ;;
+            export) exec quickshell ipc -p "$config" call opal themeExport "${3:-opal}" ;;
+            *) echo 'Usage: opal theme [list|set <name>|follow [on|off]|export [name]]' >&2; exit 2 ;;
+        esac
+        ;;
     activity)
         shift
         exec python3 "$config/opal_activity.py" "$@"
@@ -322,7 +335,7 @@ case "${1:-on}" in
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|autostart [on|off]|activity …|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|activity …|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

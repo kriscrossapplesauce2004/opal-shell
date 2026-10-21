@@ -59,6 +59,7 @@ import search_files
 import home_data, weather
 import floating_mode
 import theme_export
+import omarchy_themes
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
 def valid_schedules(value):
@@ -459,6 +460,7 @@ def commands():
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
                 valid = valid or key in CONVERGE_KEYS and type(value)==bool
                 valid = valid or key=='floatingMode' and type(value)==bool
+                valid = valid or key in ('omarchyFollow','omarchyWallpaper') and type(value)==bool
                 valid = valid or power_key.valid_preference(key, value)
                 valid = valid or game_profiles.valid_preference(key, value)
                 if valid:
@@ -495,7 +497,7 @@ def commands():
                     path = local_image(prefs.get('wallpaperPath'))
                     palette = generate(path, prefs.get('colorScheme','scheme-tonal-spot'))
                     with prefs_lock:
-                        prefs['dynamicPalette'] = palette
+                        prefs['dynamicPalette'] = palette; prefs['omarchyTheme'] = ''
                         prefs['dynamicColors'] = True
                         save()
                     emit({'event':'message','text':'Wallpaper colors applied · light and dark palettes ready'})
@@ -550,6 +552,9 @@ def commands():
             elif action=='theme-export-remove':
                 try: system_tools.remove_export([t for t in (c.get('targets') or []) if t in system_tools.TARGETS])
                 except OSError as error: emit({'event':'message','text':str(error)})
+            elif action=='omarchy-themes': threading.Thread(target=publish_omarchy,daemon=True).start()
+            elif action=='omarchy-apply' and isinstance(c.get('id'),str): threading.Thread(target=omarchy_apply,args=(c['id'],),daemon=True).start()
+            elif action=='omarchy-export': threading.Thread(target=omarchy_export,args=(c,),daemon=True).start()
             elif action=='theme-discover': threading.Thread(target=lambda:emit({'event':'themeChoices','data':theme_export.discover()}),daemon=True).start()
             elif action=='updates': threading.Thread(target=lambda:emit(dict(system_tools.updates(),event='updates')),daemon=True).start()
             elif action=='health': emit(dict(system_tools.health(),event='health'))
@@ -999,6 +1004,36 @@ def show_desktop():
 
 # Home sources: each one is published only when it changes.
 home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0}
+def publish_omarchy():
+    themes=[omarchy_themes.summary(t) for t in omarchy_themes.discover()]
+    now=omarchy_themes.current()
+    emit({'event':'omarchyThemes','data':themes,'omarchy':now['name'] if now else '','installed':omarchy_themes.current_dir().is_dir()})
+def omarchy_wear(theme, label):
+    update=omarchy_themes.apply(theme, wallpaper=prefs.get('omarchyWallpaper') is not False)
+    with prefs_lock: prefs.update(update); save()
+    emit({'event':'message','text':label+' · '+theme['name']})
+def omarchy_apply(name):
+    theme=omarchy_themes.find(name)
+    if theme: omarchy_wear(theme,'Theme applied')
+    else: emit({'event':'message','text':'That theme is no longer installed'})
+def omarchy_follow(now):
+    """Omarchy switched themes: wear its staged copy, which includes the user's own overrides."""
+    theme=omarchy_themes.read_dir(now['path'])
+    if not theme: return
+    theme.update(id=now['name'] if omarchy_themes.NAME.fullmatch(now['name']) else 'omarchy',name=omarchy_themes.title(now['name']))
+    if now['background']: theme['backgrounds']=[now['background']]
+    with prefs_lock: prefs['omarchySignature']=now['signature']
+    omarchy_wear(theme,'Following Omarchy')
+def omarchy_export(c):
+    roles=c.get('roles') if isinstance(c.get('roles'),dict) else {}
+    roles={k:v for k,v in roles.items() if k in omarchy_themes.TONES['dark'] and isinstance(v,str)}
+    name=c.get('name') if isinstance(c.get('name'),str) else 'opal'
+    try:
+        path=omarchy_themes.export(roles,'light' if c.get('light') is True else 'dark',str(prefs.get('wallpaperPath') or ''),name)
+        emit({'event':'message','text':'Saved as an Omarchy theme · '+path.replace(str(HOME),'~')})
+        publish_omarchy()
+    except (ValueError,OSError) as error:
+        emit({'event':'message','text':'Could not save the theme: '+str(error)})
 def home_watch():
     time.sleep(2)
     while True:
@@ -1015,6 +1050,10 @@ def home_watch():
             if now-home_state['photo']>=6*3600:
                 home_state['photo']=now
                 emit({'event':'photoMemory','data':home_data.memory(home_data.pictures())})
+            # Following Omarchy: wear each theme it switches to, once per switch (the signature survives restarts).
+            if prefs.get('omarchyFollow') is True:
+                current=omarchy_themes.current()
+                if current and current['signature']!=prefs.get('omarchySignature'): omarchy_follow(current)
             if now-home_state['updates']>=3*3600:
                 home_state['updates']=now
                 threading.Thread(target=lambda: emit({'event':'updates','count':home_data.pending_updates()}),daemon=True).start()

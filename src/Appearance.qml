@@ -19,6 +19,8 @@ Flickable {
             MButton {anchors {right:parent.right;bottom:parent.bottom;margins:14} icon:"palette";text:"Wallpaper studio";filled:true;onClicked:Hub.page="wallpaper"}
         }
         MText {Layout.fillWidth:true;text:"Pick an image. Nothing changes until you apply.";wrapMode:Text.Wrap;font.pixelSize:12;color:Theme.subtext}
+        MText {text:"THEMES";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
+        ThemeGallery {Layout.fillWidth:true}
         MText {text:"COLOR & MOOD";font.pixelSize:10;font.letterSpacing:2;color:Theme.subtext}
         RowLayout {Layout.fillWidth:true;spacing:10
             Repeater {model:Theme.palettes
