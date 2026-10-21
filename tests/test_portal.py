@@ -92,14 +92,17 @@ class PortalOverDBus(unittest.TestCase):
                   -m org.freedesktop.impl.portal.FileChooser.{method} /org/freedesktop/portal/desktop/request/1_1/t "app.test" "" "Pick" "{options}"
                 kill %1 %2
                 ''')
-            env = dict(os.environ, PATH=f'{bin_dir}:{os.environ["PATH"]}', XDG_RUNTIME_DIR=str(runtime), XDG_STATE_HOME=str(tmp / 'state'))
+            # A private home keeps D-Bus from activating an installed copy of the portal.
+            env = dict(os.environ, PATH=f'{bin_dir}:{os.environ["PATH"]}', XDG_RUNTIME_DIR=str(runtime), XDG_STATE_HOME=str(tmp / 'state'),
+                       HOME=str(tmp), XDG_DATA_HOME=str(tmp / 'data'), XDG_CONFIG_HOME=str(tmp / 'config'))
             out = subprocess.run(['dbus-run-session', '--', 'bash', '-c', script], env=env, capture_output=True, text=True, timeout=30)
             request = json.loads((tmp / 'request.json').read_text()) if (tmp / 'request.json').exists() else None
+            self.stderr = out.stderr
             return out.stdout, request
 
     def test_shell_picks_the_file(self):
         out, request = self.run_case('shown')
-        self.assertIn("file:///tmp/picked%20one.png", out)
+        self.assertIn("file:///tmp/picked%20one.png", out, self.stderr)
         self.assertIn("'current_filter': <('Images', [(uint32 0, '*.png'), (1, 'image/png')])>", out)
         self.assertEqual((request['kind'], request['multiple'], request['folder']), ('open', True, '/tmp'))
         self.assertEqual(request['filters'][1], {'name': 'Images', 'globs': ['*.png'], 'mimes': ['image/png']})
