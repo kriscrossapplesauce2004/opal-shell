@@ -15,7 +15,7 @@ PanelWindow {
     color:"transparent"
     // The controller moves the drum like the volume keys.
     readonly property int priority:90
-    onVisibleChanged:{if(visible&&PowerKey.open)ControllerNav.claim(win);else ControllerNav.release(win);}
+    onVisibleChanged:{if(visible&&PowerKey.open)ControllerNav.claim(win);else {ControllerNav.release(win);if(!PowerKey.open)Hub.command({action:"powerkey-grab",on:false});}}
     Connections {
         target:ControllerNav
         function onKey(name) {

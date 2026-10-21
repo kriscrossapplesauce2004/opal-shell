@@ -5,6 +5,8 @@ HOME = pathlib.Path.home()
 SUBMAP = 'opal-power'
 # Wake presses that land this soon after resume only woke the device.
 RESUME_GRACE = 1.5
+# Seconds before an open menu's key grab is dropped anyway.
+GRAB_LIMIT = 90
 # Catalogue ids the menu may hold. Kept in step with PowerKey.qml.
 ACTIONS = ('sleep', 'power', 'lock', 'switch-user', 'displays', 'contacts', 'media', 'flashlight', 'rotation-lock', 'airplane', 'dnd',
            'hotspot', 'keep-awake', 'screenshot', 'record', 'camera', 'assistant', 'search', 'notifications', 'quick-settings', 'clipboard',
@@ -168,6 +170,7 @@ class PowerKey:
         self.resumed_at, self.swallow = -1e9, False
         self.handset = False
         self.contacts, self.last_haptic = [], 0.0
+        self.grab_timer = None
         self.lock = threading.RLock()
 
     # ---------- Ownership of the key ----------
@@ -241,7 +244,12 @@ class PowerKey:
         if self.wanted(): self.emit({'event': 'powerKeyChord'})
 
     def grab(self, on):
-        """While the menu is open an empty submap is active, so the volume and power keys reach the menu surface."""
+        """While the menu is open an empty submap is active, so the volume and power keys reach the menu surface.
+        A grab never outlives GRAB_LIMIT, so a lost close cannot leave the global shortcuts off."""
+        with self.lock:
+            if self.grab_timer: self.grab_timer.cancel()
+            self.grab_timer = threading.Timer(GRAB_LIMIT, self.grab, args=(False,)) if on else None
+            if self.grab_timer: self.grab_timer.daemon = True; self.grab_timer.start()
         try:
             if self.hypr.is_lua(): self.runner(['hyprctl', 'eval', 'hl.dispatch(hl.dsp.submap("' + (SUBMAP if on else 'reset') + '"))'], capture_output=True, timeout=2)
             else: self.runner(['hyprctl', 'dispatch', 'submap', SUBMAP if on else 'reset'], capture_output=True, timeout=2)
