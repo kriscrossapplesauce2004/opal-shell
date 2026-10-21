@@ -77,6 +77,11 @@ find "$portal_dir" -maxdepth 1 -name '*.portal' -delete
 for file in "$system_portals"/*.portal; do
     [[ -e "$file" ]] && ln -s -- "$file" "$portal_dir/$(basename -- "$file")"
 done
+# With XDG_DESKTOP_PORTAL_DIR set, the portal also reads its *-portals.conf files from that folder: system files first, the user's win.
+find "$portal_dir" -maxdepth 1 -name '*.conf' -delete
+for file in /usr/share/xdg-desktop-portal/*.conf "$portals_conf_dir"/*.conf; do
+    [[ -e "$file" ]] && ln -sf -- "$file" "$portal_dir/$(basename -- "$file")"
+done
 cat > "$portal_dir/opal.portal" <<'EOF'
 [portal]
 DBusName=org.freedesktop.impl.portal.desktop.opal
@@ -98,6 +103,7 @@ else
     printf '[preferred]\ndefault=hyprland;gtk\norg.freedesktop.impl.portal.FileChooser=opal;%s\n' "$fallback" > "$portals_conf"
 fi
 
+ln -sf -- "$portals_conf" "$portal_dir/$(basename -- "$portals_conf")"
 restart_portal
 echo "Opal draws apps' file dialogs on phones and tablets; desktop dialogs still come from $fallback."
 echo "Change that in Settings → Wallpaper & style → Files, or undo with: opal portal off"

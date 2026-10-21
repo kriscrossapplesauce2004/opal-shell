@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 import urllib.parse
+import warnings
 
 import gi
 gi.require_version('Gio', '2.0')
@@ -24,6 +25,9 @@ OBJECT = '/org/freedesktop/portal/desktop'
 STATE = pathlib.Path(os.environ.get('XDG_STATE_HOME', pathlib.Path.home()/'.local/state'))/'opal/portal.json'
 CONFIG = pathlib.Path(os.environ.get('OPAL_CONFIG_DIR') or pathlib.Path(os.environ.get('XDG_CONFIG_HOME', pathlib.Path.home()/'.config'))/'quickshell/opal')
 from file_browse import SOCKET
+
+# PyGObject marks register_object deprecated; its replacement only exists in newer releases.
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 # Seconds the shell has to show the picker before the call goes to the fallback.
 SHOW_TIMEOUT = 4
 
