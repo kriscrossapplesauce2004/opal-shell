@@ -284,6 +284,27 @@ case "${1:-on}" in
     console|gaming)
         exec quickshell ipc -p "$config" call opal gaming
         ;;
+    game-session|gamescope)
+        # Opal game mode on gamescope, like SteamOS: gamescope owns the display and Opal is its shell.
+        # From a desktop it runs nested in a window, for trying it out; from a TTY or the greeter it takes the screen.
+        case "${2:-}" in
+            install-entry) exec sudo "@OPAL_TOOLS@/install-game-session.sh" "$(readlink -f "$0")" ;;
+            remove-entry) exec sudo "@OPAL_TOOLS@/install-game-session.sh" --remove ;;
+        esac
+        command -v gamescope >/dev/null 2>&1 || { echo 'gamescope is not installed.' >&2; exit 1; }
+        args=(-e)
+        if [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
+            args+=(-W "${OPAL_GAME_WIDTH:-1280}" -H "${OPAL_GAME_HEIGHT:-800}")
+        else
+            args+=(--backend drm)
+        fi
+        if [[ -z "${QS_ICON_THEME:-}" ]]; then
+            QS_ICON_THEME=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null | tr -d "'") || true
+            [[ -n "$QS_ICON_THEME" ]] && export QS_ICON_THEME
+        fi
+        exec env -u HYPRLAND_INSTANCE_SIGNATURE OPAL_COMPOSITOR=gamescope gamescope "${args[@]}" -- \
+            env QT_QPA_PLATFORM=xcb OPAL_COMPOSITOR=gamescope quickshell -n -p "$config/game-session.qml"
+        ;;
     greeter)
         exec sudo "@OPAL_TOOLS@/install-greeter.sh" "${@:2}"
         ;;
@@ -301,7 +322,7 @@ case "${1:-on}" in
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|autostart [on|off]|activity …|lock|greeter [--revert]|polkit|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|activity …|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

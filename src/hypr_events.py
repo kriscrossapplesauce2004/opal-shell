@@ -103,7 +103,8 @@ def _handle_event(event, payload, patch, query, state=None):
     if _handle_state_event(event, payload, patch, state) and event != 'closewindow':
         return False
     if event == 'workspacev2':
-        patch({'workspace': int(payload.split(',', 1)[0])})
+        number, _, name = payload.partition(',')
+        patch({'workspace': int(number), 'workspaceName': name})
     elif event == 'focusedmonv2':
         monitor, _, workspace = payload.partition(',')
         patch({'workspace': int(workspace), 'activeMonitor': monitor})
@@ -168,7 +169,7 @@ def listen(emit):
             'fullscreenMonitors': fullscreen_monitors(monitors, clients),
             # Monitor names and active workspaces let the phone home show and move windows between screens.
             # Geometry lets Rooms draw each workspace with its real tiling.
-            'monitors': [{'name': m.get('name', ''), 'workspace': m.get('activeWorkspace', {}).get('id', 0),
+            'monitors': [{'name': m.get('name', ''), 'workspace': m.get('activeWorkspace', {}).get('id', 0), 'workspaceName': m.get('activeWorkspace', {}).get('name', ''),
                           'x': m.get('x', 0), 'y': m.get('y', 0), 'width': m.get('width', 0), 'height': m.get('height', 0),
                           'scale': m.get('scale', 1) or 1, 'transform': m.get('transform', 0)} for m in monitors],
             'windows': [

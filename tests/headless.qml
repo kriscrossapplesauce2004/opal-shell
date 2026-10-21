@@ -192,9 +192,10 @@ ShellRoot {
             {name:"qa-performance-hd",ui:"quickaccess",w:1280,h:800,tab:1,pad:["down","down"]},
             {name:"qa-performance-fhd-light",ui:"quickaccess",w:1920,h:1080,tab:1,light:true,pad:["down","down","down"]},
             {name:"qa-performance-no-tdp",ui:"quickaccess",w:1280,h:800,tab:1,noTdp:true,pad:["down"]},
-            {name:"qa-quick-hd",ui:"quickaccess",w:1280,h:800,tab:2,pad:["down","down"]},
-            {name:"qa-quick-fhd-light",ui:"quickaccess",w:1920,h:1080,tab:2,light:true,pad:["down","down","down"]},
-            {name:"qa-alerts-hd",ui:"quickaccess",w:1280,h:800,tab:3,pad:[]},
+            {name:"qa-quick-hd",ui:"quickaccess",w:1280,h:800,tab:0,pad:["down","down","down","down","down"]},
+            {name:"qa-quick-fhd-light",ui:"quickaccess",w:1920,h:1080,tab:0,light:true,pad:["down","down","down","down","down","down"]},
+            {name:"qa-alerts-hd",ui:"quickaccess",w:1280,h:800,tab:2,pad:[]},
+            {name:"qa-glance-hd",ui:"quickaccess",w:1280,h:800,tab:0,glance:true,pad:[]},
             {name:"pad-shade",ui:"shade",w:420,h:560,pad:["down","down","right"]},
             {name:"pad-shade-light",ui:"shade",w:420,h:560,light:true,pad:["down","down","down"]},
             {name:"pad-settings",ui:"padsettings",w:980,h:800,section:"power",pad:["down","right","down"]},
@@ -207,7 +208,7 @@ ShellRoot {
             {name:"console-detail-light",ui:"console",w:1280,h:800,detail:true,light:true,pad:["down","down"]},
             {name:"console-hub-library",ui:"console",w:1280,h:800,hub:4},
             {name:"pad-guard",ui:"shapes",w:600,h:310,guard:true,pad:[]},
-            {name:"qa-close",ui:"quickaccess",w:1280,h:800,tab:2,pad:["down","back"],expectClosed:true},
+            {name:"qa-close",ui:"quickaccess",w:1280,h:800,tab:0,pad:["down","back"],expectClosed:true},
             {name:"qa-tab-step",ui:"quickaccess",w:1280,h:800,tab:0,pad:["nextTab","nextTab","down"],expectTab:2},
             {name:"pad-lock",ui:"lock",w:1440,h:900,reveal:true,music:true,pad:["accept"]},
             {name:"pad-lock-light",ui:"lock",w:1440,h:900,reveal:true,light:true,pad:["down"]},
@@ -362,7 +363,7 @@ ShellRoot {
             ];
             return count===1 ? [all[2]] : all;
         }
-        Component {id:gaming;Opal.ConsoleHome {}}
+        Component {id:gaming;Opal.ConsoleLibrary {}}
         Component {id:keyboardView;Item {
             property alias keyboard:demoKeyboard
             property alias input:demoInput
@@ -608,6 +609,7 @@ ShellRoot {
                 Opal.Hub.compositorActive=true;Opal.Hub.compositorWindows=live;
                 Opal.GameState.seenAt=new Date(Date.now()-42*60000);
                 Opal.GameState.receive({event:"gamePerf",fpsLimit:60,overlay:"compact",mangohud:true,gamemode:{available:true,active:true,clients:1},profiles:{available:true,profiles:["power-saver","balanced","performance"],active:"balanced"},tdp:test.noTdp ? null : {watts:15,min:4,max:25},gpu:test.noTdp ? null : {level:"auto"},controllers:[{name:"DualSense",percent:64,charging:false},{name:"Xbox Controller",percent:12,charging:false}]});
+                Opal.GameState.stage=test.glance ? "glance" : "sheet";
                 Opal.GameState.quickAccess=true;
             }
             view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
@@ -800,10 +802,21 @@ ShellRoot {
                 Opal.ControllerNav.input("home");
                 if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide ignored the quickAccessGuide setting");
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickAccessGuide:true});
+                // No game in front: Guide opens the sheet and closes it.
+                Opal.Hub.status=Object.assign({},Opal.Hub.status,{fullscreenMonitors:[]});Opal.Hub.compositorWindows=[];
                 Opal.ControllerNav.input("home");
-                if(!Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not open Quick Access");
+                if(!Opal.GameState.quickAccess||Opal.GameState.stage!=="sheet")console.error("ASSERTION_FAILED: Guide did not open the Quick Access sheet");
                 Opal.ControllerNav.input("home");
                 if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide did not close Quick Access");
+                // A game in front: glance, then the sheet, then closed.
+                Opal.Hub.status=Object.assign({},Opal.Hub.status,{fullscreenMonitors:["fixture"]});
+                Opal.ControllerNav.input("home");
+                if(Opal.GameState.stage!=="glance")console.error("ASSERTION_FAILED: Guide over a game did not show the glance");
+                Opal.ControllerNav.input("home");
+                if(!Opal.GameState.quickAccess||Opal.GameState.stage!=="sheet")console.error("ASSERTION_FAILED: Guide on the glance did not open the sheet");
+                Opal.ControllerNav.input("home");
+                if(Opal.GameState.quickAccess)console.error("ASSERTION_FAILED: Guide on the sheet did not close Quick Access");
+                Opal.Hub.status=Object.assign({},Opal.Hub.status,{fullscreenMonitors:[]});
             }
                 // Settings page: the first press chooses a start item. Later presses move through the real focus engine.
                 (test.pad||[]).forEach(key=>Opal.ControllerNav.input(key));

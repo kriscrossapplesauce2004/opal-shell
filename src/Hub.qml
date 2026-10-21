@@ -143,8 +143,10 @@ Scope {
     function appForClass(name) { const c=(name||"").toLowerCase();return c ? apps.find(a=>(a.id||"").toLowerCase()===c||(a.id||"").toLowerCase().endsWith("."+c)||(a.name||"").toLowerCase()===c)||null : null; }
     property var games: []
     function launchGame(game) { if(!game)return; command({action:"game-launch",id:game.id}); close(); }
-    function gameRunning(game) { return !!game&&!!game.windowClass&&windows.some(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
-    function gameWindows(game) { return !game||!game.windowClass ? [] : windows.filter(w=>(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())); }
+    // A game's windows: by window class, or under gamescope by the Steam app id the bridge read from the game's process.
+    function windowOfGame(w,game) { return !!game.windowClass&&(w.className||"").toLowerCase().startsWith(game.windowClass.toLowerCase())||w.appid!==undefined&&game.id==="steam:"+w.appid; }
+    function gameRunning(game) { return !!game&&windows.some(w=>windowOfGame(w,game)); }
+    function gameWindows(game) { return !game ? [] : windows.filter(w=>windowOfGame(w,game)); }
     function pinGame(game) { const pins=(prefs.gamePins||[]).slice();const i=pins.indexOf(game.id);if(i>=0)pins.splice(i,1);else pins.unshift(game.id);set("gamePins",pins); }
     function artFor(app) {
         if(!app)return {}
@@ -364,8 +366,16 @@ Scope {
     function command(data) { bridge.write(JSON.stringify(data)+"\n"); }
     function systemOsk(verb) { command({action:"system-osk",verb:verb||"toggle"}); }
     function set(key,value) { let p = Object.assign({},prefs); p[key]=value; prefs=p; command({action:"preference",key:key,value:value}); }
-    function toggle(p) { page = page === p ? "" : p; if(page === "launcher") query = ""; }
-    function mode(m) { if(m==="phone") {const screen=targetScreen||chooseScreen();if(screen)set("phoneDisplay",screen.name);} set("mode",m); page=""; query=""; mobileTab="home"; launcherSection="apps"; category=m==="console" ? "Games" : "All apps"; }
+    // In console mode the launcher is the console home under the apps: show it through the compositor instead of a layer over them.
+    function toggle(p) {
+        if (p === "launcher" && Compositor.consoleRoles && !greeterMode && !polkitMode) { Compositor.showHome(); return; }
+        page = page === p ? "" : p; if(page === "launcher") query = "";
+    }
+    function mode(m) {
+        // Console mode hands the session roles to the compositor: entering shows the Home workspace, leaving brings apps back from Play.
+        if(m==="console"&&prefs.mode!=="console") consoleEnter.restart();
+        else if(m!=="console"&&prefs.mode==="console") command({action:"console-release"});
+        if(m==="phone") {const screen=targetScreen||chooseScreen();if(screen)set("phoneDisplay",screen.name);} set("mode",m); page=""; query=""; mobileTab="home"; launcherSection="apps"; category=m==="console" ? "Games" : "All apps"; }
     function close() { page="";closeAudio();closePowerProfile(); }
     property int startSearchRequest:0
     // Search surface that grows from the shelf pill. It is separate from Start.
@@ -409,6 +419,8 @@ Scope {
     function volume(value) { value=Math.max(0,Math.min(100,Math.round(value)));command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=value; status=s;showVolumeOsd(); }
     function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }
     property var pendingFocus:null
+    // After the mode change reloads the compositor config.
+    property Timer consoleEnter: Timer {interval:700;onTriggered:h.command({action:"console-enter"})}
     // Floating mode keeps minimized windows on a special workspace.
     function minimized(w) { return !!w&&w.workspaceName==="special:opal-minimized"; }
     function focusWindow(w) {
@@ -419,11 +431,13 @@ Scope {
     }
     Timer {id:focusTransfer;interval:100;onTriggered:{
         const w=h.pendingFocus;h.pendingFocus=null;if(!w)return;
-        if(h.status.hypr&&w.address)h.command({action:"focus-window",address:w.address});
+        if(h.status.gamescope&&w.appid!==undefined)h.command({action:"console-focus",appid:w.appid});
+        else if(h.status.hypr&&w.address)h.command({action:"focus-window",address:w.address});
         else if(w.handle)w.handle.activate();
     }}
     function closeWindow(w) {
-        if(w.handle) w.handle.close();
+        if(status.gamescope&&w.appid!==undefined) command({action:"console-close",appid:w.appid});
+        else if(w.handle) w.handle.close();
         else if(status.hypr) command({action:"close-window",address:w.address});
     }
     function displayMode(name,mode) {
@@ -575,7 +589,7 @@ Scope {
                         if (h.preferencesLoaded && (e.data.volume !== h.status.volume || e.data.muted !== h.status.muted)) { h.osdScreen=h.chooseScreen();h.showVolumeOsd(); }
                         h.status=Object.assign({},h.status,e.data);
                     } else if(e.event === "compositor") {
-                        if (e.data.hypr !== undefined) h.compositorActive=!!e.data.hypr;
+                        if (e.data.hypr !== undefined) h.compositorActive=!!e.data.hypr||!!e.data.gamescope;
                         if (e.data.windows !== undefined) h.compositorWindows=e.data.windows;
                         // A title patch edits one window without a full refresh.
                         if (e.data.windowTitle) h.compositorWindows=h.compositorWindows.map(w=>w.address===e.data.windowTitle.address ? Object.assign({},w,{title:e.data.windowTitle.title}) : w);
@@ -617,7 +631,7 @@ Scope {
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}
                     else if(e.event === "orientation") h.applyOrientation(e.transform);
                     else if(e.event === "navigation") ControllerNav.input(e.key);
-                    else if(e.event === "gamePerf" || e.event === "gameDetail") GameState.receive(e);
+                    else if(e.event === "gamePerf" || e.event === "gameDetail" || e.event === "gameWidgets" || e.event === "gameProfile") GameState.receive(e);
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;
                     else if(e.event === "fileSearch") h.fileResults={query:e.query||"",items:e.items||[]};
                     else if(e.event === "desktopFiles"||e.event === "weather"||e.event === "photoMemory"||e.event === "updates") HomeData.ingest(e);

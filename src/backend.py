@@ -400,6 +400,9 @@ from power_status import (connected_bluetooth_devices, cpu_governor,
 hypr_actions = HyprActions()
 import phone_commands, assistant
 import power_key
+import game_profiles, gamescope_bridge
+# Set when Opal runs as the gamescope shell; it then owns window roles, app focus and the frame limit.
+GAMESCOPE=[None]
 GAMES_LISTED = []
 
 
@@ -441,6 +444,7 @@ def commands():
                 valid = valid or key in CONVERGE_KEYS and type(value)==bool
                 valid = valid or key=='floatingMode' and type(value)==bool
                 valid = valid or power_key.valid_preference(key, value)
+                valid = valid or game_profiles.valid_preference(key, value)
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
                     if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
@@ -551,6 +555,12 @@ def commands():
             elif isinstance(action,str) and action.startswith('link-'):
                 threading.Thread(target=link_command,args=(c,),daemon=True).start()
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
+            elif action=='game-widgets': threading.Thread(target=publish_game_widgets,daemon=True).start()
+            elif action=='steam-downloads': spawn(['steam','steam://open/downloads'])
+            elif action=='capture-copy' and search_files.openable(c.get('path')): threading.Thread(target=copy_image,args=(os.path.realpath(c['path']),),daemon=True).start()
+            elif action=='game-profile-start' and isinstance(c.get('id'),str): threading.Thread(target=profile_start,args=(c['id'],),daemon=True).start()
+            elif action=='game-profile-end': threading.Thread(target=profile_end,daemon=True).start()
+            elif action in ('console-enter','console-home','console-release','console-focus','console-close','console-overlay-input'): threading.Thread(target=console_action,args=(c,),daemon=True).start()
             elif action=='game-launch': launch_game(c.get('id'))
             elif action in ('perf-get','perf-set','perf-copy','game-detail','game-uninstall'):
                 import game_perf
@@ -569,6 +579,8 @@ def commands():
             elif action=='media' and c.get('verb') in ('play-pause','next','previous'): run('playerctl',c['verb'])
             elif action=='profile' and c.get('value') in ('power-saver','balanced','performance'): run('powerprofilesctl','set',c['value'])
             elif isinstance(action,str) and (action.startswith('powerkey-') or action=='switch-user') and POWER_KEY[0]: POWER_KEY[0].handle(c)
+            elif action=='screenshot' and GAMESCOPE[0]:
+                threading.Thread(target=lambda:emit({'event':'message','text':'Screenshot saved to Pictures/Screenshots' if GAMESCOPE[0].screenshot() else 'Screenshot failed'}),daemon=True).start()
             elif action=='screenshot':
                 time.sleep(.5)
                 folder=HOME/'Pictures/Screenshots'; folder.mkdir(parents=True,exist_ok=True)
@@ -1003,7 +1015,7 @@ def library_art():
             def add(path_entry, appid):
                 if not appid.isdigit(): return
                 name=path_entry.name.rsplit('.',1)[0].lower()
-                kind='cover' if '600x900' in name or 'library_capsule' in name else 'hero' if 'library_hero' in name and 'blur' not in name else 'header' if 'library_header' in name else None
+                kind='cover' if '600x900' in name or 'library_capsule' in name else 'hero' if 'library_hero' in name and 'blur' not in name else 'header' if 'library_header' in name or name=='header' else 'logo' if name=='logo' else None
                 if kind: result.setdefault(appid,{})[kind]=pathlib.Path(path_entry.path).resolve().as_uri()
             directories=[]
             with os.scandir(base) as entries:
@@ -1046,6 +1058,71 @@ def publish_games():
     listed.sort(key=lambda g: (-g['lastPlayed'], g['title'].lower()))
     GAMES_LISTED[:]=listed
     emit({'event':'gameLibrary','data':listed})
+
+def publish_game_widgets():
+    import game_widgets
+    try: emit(game_widgets.snapshot())
+    except Exception as error: emit({'event':'message','text':'Game widgets: '+str(error)[:120]})
+
+def copy_image(path):
+    tool=['wl-copy','--type','image/png' if path.lower().endswith('.png') else 'image/jpeg'] if shutil.which('wl-copy') else None
+    if not tool: emit({'event':'message','text':'wl-copy is not installed'}); return
+    try:
+        with open(path,'rb') as f: subprocess.run(tool,stdin=f,timeout=5,check=False)
+        emit({'event':'message','text':'Screenshot copied'})
+    except OSError: emit({'event':'message','text':'Could not copy that screenshot'})
+
+def _power_get(): return run('powerprofilesctl','get') or 'balanced'
+def _power_set(value): run('powerprofilesctl','set',value)
+def _fps_get():
+    import game_perf
+    return game_perf.read_config().get('fpsLimit') or 0
+def _fps_set(value):
+    import game_perf
+    game_perf.write_config(fps_limit=value)
+    if GAMESCOPE[0]: GAMESCOPE[0].fps_limit(value)
+def _tdp_set(value):
+    import game_perf
+    game_perf.set_tdp(value)
+def _overlay_set(value):
+    import game_perf
+    game_perf.write_config(overlay=value)
+PROFILES=game_profiles.Applier(_power_get,_power_set,_fps_get,_fps_set,_tdp_set,_overlay_set)
+PROFILE_LOCK=threading.Lock()
+def profile_start(game_id):
+    """A game came to the front: apply its profile, or the next-game preset."""
+    with PROFILE_LOCK:
+        if PROFILES.game==game_id: return
+        profile=game_profiles.resolve(prefs,game_id)
+        try: PROFILES.apply(game_id,profile)
+        except Exception as error: emit({'event':'message','text':'Profile not applied: '+str(error)[:120]}); return
+    emit({'event':'gameProfile','id':game_id,'profile':profile})
+    import game_perf
+    emit(game_perf.snapshot())
+def profile_end():
+    with PROFILE_LOCK:
+        restored=PROFILES.restore()
+    if restored:
+        emit({'event':'gameProfile','id':'','profile':{}})
+        import game_perf
+        emit(game_perf.snapshot())
+
+def console_action(c):
+    """Game session roles on the running compositor: show the home, focus or close an app, give the overlay input."""
+    action=c.get('action'); bridge=GAMESCOPE[0]
+    try:
+        if bridge:
+            if action in ('console-enter','console-home'): bridge.home()
+            elif action=='console-focus' and type(c.get('appid')) is int: bridge.focus(c['appid'])
+            elif action=='console-close' and type(c.get('appid')) is int: bridge.close(c['appid'])
+            elif action=='console-overlay-input': bridge.overlay_input(c.get('on') is True)
+            return
+        if not os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'): return
+        if action in ('console-enter','console-home'): hypr_actions.focus_named('Home')
+        elif action=='console-release': hypr_actions.console_release()
+        elif action=='console-focus' and isinstance(c.get('address'),str): hypr_actions.focus(c['address'])
+    except (ValueError,OSError,subprocess.SubprocessError) as error:
+        emit({'event':'message','text':'Game mode: '+str(error)[:160]})
 
 def launch_game(game_id):
     """Launch only commands from the local index; the UI sends an id, never a command line."""
@@ -1398,6 +1475,13 @@ def main():
     threading.Thread(target=publish_games,daemon=True).start()
     threading.Thread(target=link_apply,daemon=True).start()
     threading.Thread(target=home_watch,daemon=True).start()
+    if gamescope_bridge.active():
+        # Opal is the gamescope shell: the bridge reports windows and focus instead of Hyprland.
+        try:
+            GAMESCOPE[0]=gamescope_bridge.Bridge(emit)
+            threading.Thread(target=GAMESCOPE[0].run,daemon=True).start()
+        except Exception as error:
+            emit({'event':'message','text':'Gamescope bridge failed: '+str(error)[:160]})
     from hypr_events import listen as listen_hyprland
     def compositor_emit(data):
         emit(data)
@@ -1411,7 +1495,7 @@ def main():
             if drag and drag.get('kind') in ('zone','end'):
                 snap_seq[0]+=1
                 threading.Thread(target=snap_preview,args=(drag if drag.get('kind')=='zone' else {'zone':''},snap_seq[0]),daemon=True).start()
-    threading.Thread(target=listen_hyprland, args=(compositor_emit,), daemon=True).start()
+    if not GAMESCOPE[0]: threading.Thread(target=listen_hyprland, args=(compositor_emit,), daemon=True).start()
     last_published=None
     while True:
         try:

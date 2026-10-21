@@ -76,6 +76,7 @@ def steam_games(art):
             seen.add(appid)
             pictures = art.get(appid, {})
             games.append({'id': 'steam:' + appid, 'title': name, 'source': 'Steam', 'cover': pictures.get('cover', ''), 'hero': pictures.get('hero', ''),
+                          'logo': pictures.get('logo', ''), 'header': pictures.get('header', ''),
                           'launch': ['steam', 'steam://rungameid/' + appid], 'windowClass': 'steam_app_' + appid,
                           'lastPlayed': int(state.get('LastPlayed', 0) or 0)})
     return games
@@ -97,11 +98,16 @@ def steam_shortcuts():
             unsigned = appid & 0xffffffff
             def picture(stem):
                 return next((uri(grid / (stem + s)) for s in ART_SUFFIXES if (grid / (stem + s)).is_file()), '')
-            games.append({'id': 'shortcut:%d' % unsigned, 'title': name, 'source': 'Steam shortcut',
+            games.append({'id': 'shortcut:%d' % unsigned, 'title': clean_title(name), 'source': 'Steam shortcut',
                           'cover': picture('%dp' % unsigned), 'hero': picture('%d_hero' % unsigned),
                           'launch': ['steam', 'steam://rungameid/%d' % ((unsigned << 32) | 0x02000000)], 'windowClass': '',
                           'lastPlayed': int(entry.get('LastPlayTime', 0) or 0)})
     return games
+
+
+def clean_title(name):
+    """A shortcut name without a trailing .exe, as people call the game."""
+    return re.sub(r'\.exe$', '', name.strip(), flags=re.I) or name
 
 
 def prism_instances():
@@ -189,4 +195,11 @@ def library(art=None):
         try: games.extend(source())
         except Exception:
             continue
-    return sorted(games, key=lambda g: (-g.get('lastPlayed', 0), g['title'].lower()))
+    games.sort(key=lambda g: (-g.get('lastPlayed', 0), g['title'].lower()))
+    # Two shortcuts to the same game keep the one played last.
+    seen, unique = set(), []
+    for game in games:
+        key = (game['source'], game['title'].lower()) if game['source'] == 'Steam shortcut' else (game['id'],)
+        if key in seen: continue
+        seen.add(key); unique.append(game)
+    return unique

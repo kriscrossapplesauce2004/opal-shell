@@ -17,6 +17,11 @@ local profiles = {
     phone = { gaps_in = 5, gaps_out = 8, border = 1, rounding = 16 },
 }
 local p = profiles[opal_mode()] or profiles.desktop
+-- Console mode gives the compositor the game-session roles: apps open fullscreen on the Play workspace,
+-- and the empty Home workspace shows the console home under them. Leaving console mode brings the apps back (hypr_actions.console_release).
+if opal_mode() == "console" then
+    pcall(hl.window_rule, { name = "opal-console-play", match = { class = ".*" }, workspace = "name:Play", fullscreen = true })
+end
 hl.config({
     general = { gaps_in = p.gaps_in, gaps_out = p.gaps_out, border_size = p.border,
         col = { active_border = "rgba(cbb5edee)", inactive_border = "rgba(55536655)" } },

@@ -1,450 +1,664 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 
-// Console mode: a cover grid of every local game, plus the Play hub overlay. Controller first.
+// Console home: Shelves with the Spotlight inside. A rail, a featured card that follows focus, widgets that act, and shelves.
+// It is the compositor's base: Hyprland's empty Home workspace, or gamescope's base app. Apps come in front of it; it never covers them.
 Item {
-    id:c
-    property bool embedded:false
-    property string category:"Recent"
-    property string query:""
-    property bool searching:false
-    property bool menuOpen:false
-    property int menuIndex:0
-    property int menuTab:0
-    property int selection:0
-    // Sort order for lists other than Recent: az, recent or source.
-    property string sortMode:"az"
-    property bool detailOpen:false
-    readonly property var sortModes:[{id:"az",name:"A to Z"},{id:"recent",name:"Recently played"},{id:"source",name:"By source"}]
-    onQueryChanged:if(search.text!==query)search.text=query
-    readonly property bool nintendo:Hub.prefs.controllerLayout==="nintendo"
-    readonly property string acceptButton:nintendo ? "B" : "A"
-    readonly property string backButton:nintendo ? "A" : "B"
-    readonly property string pinButton:nintendo ? "Y" : "X"
-    readonly property string searchButton:nintendo ? "X" : "Y"
+    id: home
+    property bool embedded: true
+    // home, library or captures.
+    property string page: "home"
+    // A sheet over the home: storage, minecraft, profile or edit.
+    property string sheet: ""
+    property var focusEntry: null
+    property bool detailOpen: false
+    property string confirmId: ""
+    // The home takes the controller only while it is really on screen, never under a game.
+    readonly property bool shown: Compositor.homeShown && Hub.page === "" && !GameState.quickAccess && !Hub.locked && visible
+    readonly property real s: Math.min(1, Math.max(.78, height / 800))
+    readonly property real railWidth: 84
+    readonly property real contentX: railWidth + 44
+    readonly property real contentW: width - contentX - 40
+    readonly property bool wideLayout: contentW >= 980
 
-    // Library entries: games from the index, plus desktop games the index does not cover.
-    function gameEntry(g) {return {kind:"game",id:g.id,title:g.title,cover:g.cover||"",hero:g.hero||"",icon:g.icon||"",source:g.source,lastPlayed:g.lastPlayed||0,data:g};}
-    function appEntry(a,source) {const art=Hub.artFor(a);return {kind:"app",id:a.id,title:a.name,cover:art.cover||"",hero:art.hero||"",icon:a.icon||"",source:source||"App",lastPlayed:0,data:a};}
-    readonly property var gameEntries:Hub.games.map(gameEntry)
-    readonly property var desktopGames:{
-        const titles=Hub.games.map(g=>g.title.toLowerCase());
-        return Hub.searchApps("","Games").filter(a=>!/steam:\/\/|rungameid|steam_app_/.test((a.execString||"")+" "+a.id)&&titles.indexOf((a.name||"").toLowerCase())<0).map(a=>appEntry(a,"Desktop"));
+    // Library entries. Minecraft instances group into one cover.
+    function entry(g) { return {id: g.id, title: g.title, source: g.source, cover: g.cover || "", hero: g.hero || "", header: g.header || "", logo: g.logo || "", icon: g.icon || "", lastPlayed: g.lastPlayed || 0, data: g}; }
+    readonly property var games: Hub.games.map(entry)
+    readonly property var minecraft: games.filter(e => e.source === "Minecraft")
+    readonly property var group: minecraft.length > 1 ? {id: "group:minecraft", title: "Minecraft", source: "Minecraft", group: true, count: minecraft.length, cover: "", hero: "", header: "", logo: "", lastPlayed: Math.max.apply(null, minecraft.map(m => m.lastPlayed))} : null
+    function running(e) { return !!e && (e.group ? minecraft.some(m => Hub.gameRunning(m.data)) : !!e.data && Hub.gameRunning(e.data)); }
+    readonly property var recent: {
+        const list = games.filter(e => !(group && e.source === "Minecraft")).concat(group ? [group] : []);
+        const live = list.filter(e => running(e));
+        return live.concat(list.filter(e => e.lastPlayed > 0 && live.indexOf(e) < 0).sort((a, b) => b.lastPlayed - a.lastPlayed)).slice(0, 16);
     }
-    readonly property var allGames:gameEntries.concat(desktopGames)
-    readonly property var sources:allGames.map(e=>e.source).filter((s,i,all)=>all.indexOf(s)===i&&all.filter(x=>x===s).length>1).slice(0,4)
-    readonly property var tabs:["Recent","All"].concat(allGames.some(e=>running(e)) ? ["Running"] : []).concat(["Pinned","Unplayed"]).concat(sources).concat(["Apps"])
-    function running(entry) {return entry.kind==="game" ? Hub.gameRunning(entry.data) : Hub.windows.some(w=>Hub.appForWindow(w)===entry.data);}
-    function windowsFor(entry) {return !entry ? [] : entry.kind==="game" ? Hub.gameWindows(entry.data) : Hub.windows.filter(w=>Hub.appForWindow(w)===entry.data);}
-    function sorted(list) {
-        const copy=list.slice();
-        if(sortMode==="recent")copy.sort((a,b)=>(b.lastPlayed-a.lastPlayed)||a.title.localeCompare(b.title));
-        else if(sortMode==="source")copy.sort((a,b)=>a.source.localeCompare(b.source)||a.title.localeCompare(b.title));
-        else copy.sort((a,b)=>a.title.localeCompare(b.title));
-        return copy;
-    }
-    readonly property bool sortApplies:query.trim()===""&&category!=="Recent"&&category!=="Apps"
-    readonly property string sortName:sortModes.find(m=>m.id===sortMode).name
-    function cycleSort(delta) {const i=sortModes.findIndex(m=>m.id===sortMode);sortMode=sortModes[(i+delta+sortModes.length)%sortModes.length].id;selection=0;grid.positionViewAtBeginning();}
-    // Local playtime for the selected Steam game. The backend reads localconfig.vdf.
-    readonly property var facts:selected&&GameState.detail.id===selected.id ? GameState.detail : ({})
-    onSelectedChanged:{if(selected&&selected.kind==="game")detailLoad.restart();}
-    Timer {id:detailLoad;interval:240;onTriggered:if(c.selected&&c.selected.kind==="game")GameState.loadDetail(c.selected.id)}
-    function minutesText(m) {return m<60 ? m+" min" : Math.floor(m/60)+" h "+(m%60)+" min";}
+    readonly property var pinnedEntries: (Hub.prefs.gamePins || []).map(id => games.find(e => e.id === id)).filter(e => !!e)
+    readonly property var continueEntry: recent.find(e => !e.group) || null
+    readonly property var featured: focusEntry && !focusEntry.group ? focusEntry : continueEntry
+    readonly property var widgetKinds: (Hub.prefs.consoleWidgets || ["updates", "devices", "music", "storage", "captures", "next"]).filter(k => k !== "playtime")
+    readonly property var columnWidgets: wideLayout ? widgetKinds.slice(0, 2) : []
+    readonly property var shelfWidgets: wideLayout ? widgetKinds.slice(2) : widgetKinds
+    readonly property bool collapsed: flick.contentY > 190
+    readonly property var facts: featured && GameState.detail.id === featured.id ? GameState.detail : ({})
+
+    function minutesText(m) { return m < 60 ? m + " min" : Math.floor(m / 60).toLocaleString(Qt.locale(), "f", 0) + " h" + (m < 600 && m % 60 ? " " + (m % 60) + " min" : ""); }
+    function bytesText(b) { return b >= 1073741824 ? (b / 1073741824).toFixed(1) + " GB" : Math.max(1, Math.round(b / 1048576)) + " MB"; }
     function ago(stamp) {
-        if(!stamp)return "Never played";
-        const days=Math.floor((Date.now()/1000-stamp)/86400);
-        return days<1 ? "Played today" : days===1 ? "Played yesterday" : days<30 ? "Played "+days+" days ago" : "Played "+Qt.formatDate(new Date(stamp*1000),"d MMM yyyy");
+        if (!stamp) return "";
+        const days = Math.floor((Date.now() / 1000 - stamp) / 86400);
+        return days < 1 ? "today" : days === 1 ? "yesterday" : days < 7 ? days + " days ago" : Qt.formatDate(new Date(stamp * 1000), "d MMM");
     }
-    readonly property string heroKicker:!selected ? "" : running(selected) ? "Running now" : category==="Recent"&&selection===0&&selected.lastPlayed>0&&query==="" ? "Continue playing" : selected.source
-    readonly property var library:{
-        const q=query.trim().toLowerCase();
-        if(q!=="")return allGames.concat(Hub.searchApps(q,"All apps").map(a=>appEntry(a))).filter((e,i,all)=>e.title.toLowerCase().includes(q)&&all.findIndex(o=>o.title===e.title)===i);
-        if(category==="Recent"){const live=allGames.filter(e=>running(e));return live.concat(allGames.filter(e=>e.lastPlayed>0&&live.indexOf(e)<0)).slice(0,24);}
-        if(category==="All")return sorted(allGames);
-        if(category==="Running")return sorted(allGames.filter(e=>running(e)));
-        if(category==="Unplayed")return sorted(allGames.filter(e=>e.lastPlayed===0));
-        if(category==="Pinned"){const pins=Hub.prefs.gamePins||[];return sorted(allGames.filter(e=>pins.indexOf(e.id)>=0));}
-        if(category==="Apps")return Hub.searchApps("","All apps").map(a=>appEntry(a));
-        return sorted(allGames.filter(e=>e.source===category));
+    function kickerFor(e) {
+        if (!e) return "";
+        if (running(e)) return "RUNNING NOW";
+        if (continueEntry && e.id === continueEntry.id) return "CONTINUE";
+        return e.lastPlayed ? "PLAYED " + ago(e.lastPlayed).toUpperCase() : "NOT PLAYED HERE YET";
     }
-    readonly property var selected:library.length ? library[Math.min(selection,library.length-1)] : null
-    readonly property int columns:Math.max(3,Math.min(8,Math.floor((width-96)/190)))
-    onLibraryChanged:selection=Math.min(selection,Math.max(0,library.length-1))
-    function launch() {
-        if(!selected)return;
-        const open=windowsFor(selected);
-        if(open.length)Hub.focusWindow(open[0]);
-        else if(selected.kind==="game")Hub.launchGame(selected.data);
-        else Hub.launch(selected.data);
+    function play(e) {
+        if (!e) return;
+        if (e.group) { sheet = "minecraft"; return; }
+        const open = Hub.gameWindows(e.data);
+        if (open.length) Compositor.focusApp(open[0]);
+        else Hub.launchGame(e.data);
     }
-    function pin() {if(!selected)return;if(selected.kind==="game")Hub.pinGame(selected.data);else Hub.pin(selected.data);}
-    function pinned(entry) {return !!entry&&(entry.kind==="game" ? (Hub.prefs.gamePins||[]).indexOf(entry.id)>=0 : Hub.pinned(entry.data));}
-    function changeTab(delta) {category=tabs[(tabs.indexOf(category)+delta+tabs.length)%tabs.length];query="";selection=0;grid.positionViewAtBeginning();}
-    // Smooth scroll: the grid glides to keep the selected row in view.
-    function revealSelection() {
-        const row=Math.floor(selection/columns);
-        const top=row*grid.cellHeight;
-        let target=grid.contentY;
-        if(top<grid.contentY)target=top-8;
-        else if(top+grid.cellHeight>grid.contentY+grid.height)target=top+grid.cellHeight-grid.height+8;
-        target=Math.max(0,Math.min(Math.max(0,grid.contentHeight-grid.height),target));
-        if(Math.abs(target-grid.contentY)<1)return;
-        gridScroll.stop();gridScroll.from=grid.contentY;gridScroll.to=target;
-        if(Theme.reduceMotion)grid.contentY=target;else gridScroll.restart();
+    function pin(e) { if (e && e.data) Hub.pinGame(e.data); }
+    function openPage(p) { page = p; sheet = ""; if (p === "home") flick.contentY = 0; }
+    function cyclePage(delta) {
+        const pages = ["home", "library", "pinned", "captures", "search"];
+        const at = Math.max(0, pages.indexOf(page === "library" && library.category === "Pinned" ? "pinned" : page));
+        railPick(pages[(at + delta + pages.length) % pages.length]);
     }
-    NumberAnimation {id:gridScroll;target:grid;property:"contentY";duration:Theme.motion(Theme.durMedium);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasized}
-    function searchToggle() {if(embedded){Hub.page="launcher";return;}searching=!searching;if(searching)c.forceActiveFocus();}
-    Component.onCompleted:{if(!embedded)forceActiveFocus();if(!Hub.games.length)Hub.command({action:"game-library"});if(!library.length&&category==="Recent")category="All";}
-
-    // Play hub: sections of controller-friendly rows. Slider rows change with left and right.
-    readonly property var menuTabs:[{name:"Now",icon:"sports_esports"},{name:"Sound",icon:"volume_up"},{name:"Performance",icon:"speed"},{name:"Quick",icon:"bolt"},{name:"Library",icon:"grid_view"},{name:"System",icon:"settings"}]
-    readonly property var liveEntries:allGames.filter(e=>running(e))
-    readonly property var actions:{
-        if(menuTab===0){
-            const rows=[];
-            liveEntries.forEach(e=>{rows.push({text:"Return to "+e.title,icon:"play_arrow",run:()=>{const w=windowsFor(e)[0];if(w)Hub.focusWindow(w);Hub.close();}});rows.push({text:"Close "+e.title,icon:"close",run:()=>windowsFor(e).forEach(w=>Hub.closeWindow(w)),stay:true});});
-            rows.push({text:Hub.gameSession ? "End play session" : "Start play session",detail:Hub.gameSession ? Hub.gameMinutes+" min · no popups, no sleep" : "No popups, no sleep",icon:"timer",on:Hub.gameSession,run:()=>Hub.toggleGameSession(),stay:true});
-            rows.push({text:"Back to library",icon:"grid_view",run:()=>{}});
-            return rows;
-        }
-        if(menuTab===1)return [
-            {text:"Volume",detail:Hub.status.muted ? "Muted" : Hub.status.volume+"%",icon:Hub.status.muted ? "volume_off" : "volume_up",slider:Hub.status.muted ? 0 : Hub.status.volume,adjust:d=>Hub.volume(Math.max(0,Math.min(100,Hub.status.volume+d*5))),run:()=>Hub.command({action:"mute"}),stay:true},
-            {text:Hub.status.muted ? "Unmute" : "Mute",icon:"volume_off",on:Hub.status.muted,run:()=>Hub.command({action:"mute"}),stay:true},
-            {text:Hub.status.playing ? "Pause music" : "Play music",detail:Hub.status.track||"Nothing playing",icon:Hub.status.playing ? "pause" : "play_arrow",run:()=>Hub.media("play-pause"),stay:true},
-            {text:"Next track",icon:"skip_next",run:()=>Hub.media("next"),stay:true}
-        ];
-        if(menuTab===2)return (GameState.perfReady ? [
-            {text:"Frame limit",detail:GameState.perf.fpsLimit ? GameState.perf.fpsLimit+" FPS" : "Off",icon:"speed",adjust:d=>cycleFps(d),run:()=>cycleFps(1),stay:true},
-            {text:"Performance overlay",detail:GameState.perf.overlay==="fps" ? "FPS only" : GameState.perf.overlay.charAt(0).toUpperCase()+GameState.perf.overlay.slice(1),icon:"monitoring",adjust:d=>cycleOverlay(d),run:()=>cycleOverlay(1),stay:true}
-        ] : []).concat([
-            {text:"Processor",detail:Hub.status.cpu+"%",icon:"speed",slider:Hub.status.cpu,info:true},
-            {text:"Memory",detail:Hub.status.memory+"%",icon:"memory",slider:Hub.status.memory,info:true}
-        ]).concat(Hub.status.profile ? [{id:"power-saver",name:"Power saver",icon:"eco"},{id:"balanced",name:"Balanced",icon:"balance"},{id:"performance",name:"Performance",icon:"rocket_launch"}].map(p=>({text:p.name,icon:p.icon,on:Hub.status.profile===p.id,run:()=>Hub.command({action:"profile",value:p.id}),stay:true})) : []);
-        if(menuTab===4)return [
-            {text:"Sort",detail:sortApplies ? sortName : "Applies to All, Pinned and source lists",icon:"sort",adjust:d=>{if(sortApplies)cycleSort(d);},run:()=>{if(sortApplies)cycleSort(1);},stay:true},
-            {text:"Rescan library",detail:allGames.length+" games",icon:"refresh",run:()=>Hub.command({action:"game-library"}),stay:true},
-            {text:"Game details",detail:"Playtime and uninstall",icon:"info",run:()=>{if(selected&&selected.kind==="game"){detailOpen=true;GameState.loadDetail(selected.id);}}}
-        ];
-        if(menuTab===3)return [
-            {text:"Screenshot",icon:"screenshot_monitor",run:()=>Hub.screenShot()},
-            {text:"Do not disturb",icon:"do_not_disturb_on",on:Hub.dnd,run:()=>Hub.set("dnd",!Hub.dnd),stay:true},
-            {text:"Keep awake",icon:"coffee",on:Hub.keepAwake,run:()=>Hub.keepAwake=!Hub.keepAwake,stay:true},
-            {text:"App switcher",detail:Hub.windows.length+" windows",icon:"select_window",run:()=>Hub.page="windows"}
-        ];
-        return [
-            {text:"Button layout",detail:nintendo ? "Nintendo" : "Xbox",icon:"gamepad",run:()=>Hub.set("controllerLayout",nintendo ? "standard" : "nintendo"),stay:true},
-            {text:"Dark theme",icon:"dark_mode",on:!Theme.light,run:()=>Hub.set("light",!Theme.light),stay:true},
-            {text:"Steam Big Picture",icon:"sports_esports",run:()=>Hub.settings("steam")},
-            {text:"Switch to desktop",icon:"desktop_windows",run:()=>Hub.mode("desktop")}
-        ];
-    }
-    function cycleFps(delta) {const list=[0,30,40,45,60,72,90,120,144];const i=Math.max(0,list.indexOf(GameState.perf.fpsLimit||0));GameState.set("fpsLimit",list[(i+delta+list.length)%list.length]);}
-    function cycleOverlay(delta) {const list=["off","fps","compact","full"];const i=Math.max(0,list.indexOf(GameState.perf.overlay||"compact"));GameState.set("overlay",list[(i+delta+list.length)%list.length]);}
-    onTabsChanged:if(tabs.indexOf(category)<0)category="Recent"
-    function menuCategory(delta) {menuTab=(menuTab+delta+menuTabs.length)%menuTabs.length;menuIndex=0;}
-    function runAction(index) {const a=actions[index];if(!a||a.info)return;if(!a.stay)menuOpen=false;a.run();}
-    function openMenu() {menuIndex=0;menuTab=0;menuOpen=true;GameState.refresh();c.forceActiveFocus();}
-    function navigate(key) {
-        if(detailOpen) {if(key==="back")detailOpen=false;return;}
-        if(menuOpen) {
-            const a=actions[menuIndex];
-            if(key==="back"||key==="menu")menuOpen=false;
-            else if(key==="up")menuIndex=Math.max(0,menuIndex-1);
-            else if(key==="down")menuIndex=Math.min(actions.length-1,menuIndex+1);
-            else if((key==="left"||key==="right")&&a&&a.adjust)a.adjust(key==="right" ? 1 : -1);
-            else if(key==="left"||key==="previousTab")menuCategory(-1);
-            else if(key==="right"||key==="nextTab")menuCategory(1);
-            else if(key==="accept")runAction(menuIndex);
-            return;
-        }
-        if(searching&&key!=="search") {keyboard.navigation(key);return;}
-        if(key==="search") {searchToggle();return;}
-        if(key==="menu") {openMenu();return;}
-        if(key==="pin") {pin();return;}
-        if(key==="pageUp") {if(selected&&selected.kind==="game"){detailOpen=true;GameState.loadDetail(selected.id);}return;}
-        if(key==="pageDown") {if(sortApplies)cycleSort(1);return;}
-        if(key==="back") {if(query){query="";return;}Hub.close();return;}
-        if(key==="accept") {launch();return;}
-        if(key==="previousTab") {changeTab(-1);return;}
-        if(key==="nextTab") {changeTab(1);return;}
-        const delta={left:-1,right:1,up:-columns,down:columns}[key];
-        if(delta!==undefined) {selection=Math.max(0,Math.min(library.length-1,selection+delta));revealSelection();}
-    }
-    Connections {target:Hub;function onNavigate(key){if(!c.embedded&&Hub.page==="launcher"&&Hub.prefs.mode==="console")c.navigate(key);}}
-    focus:!embedded
-    Keys.onPressed:e=>{
-        const map={};
-        map[Qt.Key_Left]="left";map[Qt.Key_Right]="right";map[Qt.Key_Up]="up";map[Qt.Key_Down]="down";map[Qt.Key_Return]="accept";map[Qt.Key_Enter]="accept";map[Qt.Key_Escape]="back";map[Qt.Key_Menu]="menu";
-        if(map[e.key]){c.navigate(map[e.key]);e.accepted=true;}
-        else if(e.key===Qt.Key_Tab){c.navigate(e.modifiers&Qt.ShiftModifier ? "previousTab" : "nextTab");e.accepted=true;}
-        else if(e.key===Qt.Key_F2){c.navigate("pin");e.accepted=true;}
-        else if(e.key===Qt.Key_F3){c.searchToggle();e.accepted=true;}
-        else if(c.searching&&e.key===Qt.Key_Backspace){keyboard.eraseFromTarget();c.query=search.text;e.accepted=true;}
-        else if(c.searching&&e.text&&!(e.modifiers&(Qt.ControlModifier|Qt.AltModifier|Qt.MetaModifier))){keyboard.insertIntoTarget(e.text);c.query=search.text;e.accepted=true;}
+    function railPick(id) {
+        if (id === "home" || id === "captures") { openPage(id); return; }
+        page = "library"; sheet = "";
+        library.query = ""; library.searching = id === "search";
+        library.category = id === "pinned" ? "Pinned" : "All";
+        library.selection = 0;
     }
 
-    // Backdrop: the selected game's hero art, dimmed.
-    Rectangle {anchors.fill:parent;color:Theme.base}
-    Image {
-        id:hero
-        anchors.fill:parent
-        source:c.selected ? c.selected.hero||c.selected.cover||"" : ""
-        fillMode:Image.PreserveAspectCrop;asynchronous:true;sourceSize:Qt.size(1280,720)
-        opacity:status===Image.Ready ? .35 : 0
-        Behavior on opacity {NumberAnimation {duration:Theme.motion(Theme.durLong)}}
+    onFeaturedChanged: detailLoad.restart()
+    // A sheet takes the controller focus with it, and gives it back when it closes.
+    onSheetChanged: if (ControllerNav.usingController) padFocus.selectSoon()
+    onPageChanged: if (ControllerNav.usingController && page !== "library") padFocus.selectSoon()
+    Timer { id: detailLoad; interval: 240; onTriggered: if (home.featured && home.featured.data && !home.featured.group) GameState.loadDetail(home.featured.id) }
+    Component.onCompleted: { if (!Hub.games.length) Hub.command({action: "game-library"}); GameState.loadWidgets(); GameState.refresh(); }
+    onShownChanged: if (shown) { GameState.loadWidgets(); if (ControllerNav.usingController) padFocus.selectSoon(); }
+    // Widget data stays fresh while the home is on screen.
+    Timer { interval: 30000; repeat: true; running: home.shown; onTriggered: GameState.loadWidgets() }
+
+    focus: true
+    Keys.onPressed: e => {
+        if (home.page === "library") return;
+        if (e.key === Qt.Key_F3) { home.railPick("search"); e.accepted = true; }
+        else if (ControllerNav.fromKeyboard(e)) e.accepted = true;
+    }
+
+    Rectangle { anchors.fill: parent; color: Theme.base }
+    // The Spotlight: the featured game's art washes the top of the page and fades as the page scrolls.
+    RoundedImage {
+        id: wash
+        width: parent.width; height: Math.min(parent.height * .66, 560); radius: 0
+        source: home.featured ? home.featured.hero || home.featured.cover || "" : ""; decodeSize: Qt.size(1920, 620)
+        opacity: home.page === "home" ? .42 * Math.max(0, 1 - flick.contentY / 420) : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
     }
     Rectangle {
-        anchors.fill:parent
-        gradient:Gradient {
-            GradientStop {position:0;color:Theme.alpha(Theme.base,.55)}
-            GradientStop {position:.45;color:Theme.alpha(Theme.base,.85)}
-            GradientStop {position:1;color:Theme.base}
+        anchors.fill: wash
+        gradient: Gradient { GradientStop { position: 0; color: Theme.alpha(Theme.base, .35) } GradientStop { position: 1; color: Theme.base } }
+    }
+
+    Item {
+        id: surface
+        anchors.fill: parent
+
+        // Rail.
+        Rectangle {
+            id: rail
+            x: 12; y: 12; width: home.railWidth; height: parent.height - 24; radius: 28
+            color: Theme.alpha(Theme.level(1), .88)
+            Column {
+                anchors.horizontalCenter: parent.horizontalCenter; y: 24; spacing: 14
+                Repeater {
+                    model: [{id: "home", g: "home", t: "Home"}, {id: "library", g: "grid_view", t: "Library"}, {id: "pinned", g: "collections_bookmark", t: "Pinned"},
+                            {id: "captures", g: "photo_library", t: "Captures"}, {id: "search", g: "search", t: "Search"}]
+                    Item {
+                        id: railItem
+                        required property var modelData
+                        readonly property bool current: modelData.id === "pinned" ? home.page === "library" && library.category === "Pinned" && !library.searching
+                            : modelData.id === "search" ? home.page === "library" && library.searching
+                            : modelData.id === "library" ? home.page === "library" && library.category !== "Pinned" && !library.searching : home.page === modelData.id
+                        width: 72; height: 58
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter; width: 56; height: 32; radius: 16
+                            color: railItem.current ? Theme.secondaryContainer : "transparent"
+                            Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durShort) } }
+                            Glyph { anchors.centerIn: parent; name: railItem.modelData.g; font.pixelSize: 22; color: railItem.current ? Theme.onSecondaryContainer : Theme.subtext }
+                        }
+                        MText { anchors.horizontalCenter: parent.horizontalCenter; y: 37; text: railItem.modelData.t; role: "labelS"; font.weight: railItem.current ? Font.Bold : Font.Medium; color: railItem.current ? Theme.text : Theme.subtext }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: home.railPick(railItem.modelData.id) }
+                        Accessible.role: Accessible.PageTab
+                        Accessible.name: modelData.t
+                    }
+                }
+            }
+            MButton {
+                anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 18
+                icon: "settings"; tooltip: "Settings"; compact: true; ink: Theme.subtext
+                onClicked: { Hub.targetScreen = Hub.chooseScreen(); Hub.openSettings(); }
+            }
+        }
+
+        // Title row. Scrolled, the featured card shrinks into a chip beside the title.
+        Row {
+            x: home.contentX; y: 26; spacing: 18
+            MText { text: home.page === "captures" ? "Captures" : "Home"; role: "displayS"; anchors.verticalCenter: parent.verticalCenter; visible: home.page !== "library" }
+            Rectangle {
+                visible: home.page === "home" && home.collapsed && !!home.featured
+                anchors.verticalCenter: parent.verticalCenter
+                height: 44; width: chipRow.implicitWidth + 10; radius: 22; color: Theme.level(3)
+                Row {
+                    id: chipRow; x: 4; anchors.verticalCenter: parent.verticalCenter; spacing: 10
+                    RoundedImage { width: 36; height: 36; radius: 18; source: home.featured ? home.featured.cover || home.featured.hero || "" : ""; decodeSize: Qt.size(72, 108) }
+                    MText { text: home.featured ? home.featured.title : ""; role: "label"; font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter }
+                    MButton { text: home.running(home.featured) ? "Resume" : "Play"; icon: "play_arrow"; filled: true; compact: true; onClicked: home.play(home.featured) }
+                }
+            }
+        }
+        StatusIsland { anchors.right: parent.right; anchors.rightMargin: 40; y: 30; visible: home.page !== "library" }
+
+        // Home page.
+        Flickable {
+            id: flick
+            visible: home.page === "home"
+            x: home.contentX; y: 88; width: home.contentW; height: parent.height - y
+            contentWidth: width; contentHeight: column.implicitHeight + 120
+            clip: false; boundsBehavior: Flickable.StopAtBounds; flickableDirection: Flickable.VerticalFlick
+            Column {
+                id: column
+                width: flick.width; spacing: 22
+
+                // Featured card and the widget column.
+                Item {
+                    width: parent.width; height: 308
+                    Item {
+                        id: feature
+                        width: home.wideLayout ? parent.width - 392 : parent.width; height: parent.height
+                        RoundedImage { anchors.fill: parent; radius: 28; source: home.featured ? home.featured.hero || home.featured.header || "" : ""; decodeSize: Qt.size(1432, 616) }
+                        Rectangle {
+                            anchors.fill: parent; radius: 28
+                            color: home.featured && (home.featured.hero || home.featured.header) ? "transparent" : Theme.primaryContainer
+                            gradient: home.featured && (home.featured.hero || home.featured.header) ? shade : null
+                            Gradient { id: shade; orientation: Gradient.Horizontal
+                                GradientStop { position: 0; color: Theme.alpha("#000000", .8) } GradientStop { position: .62; color: Theme.alpha("#000000", .18) } GradientStop { position: 1; color: "transparent" } }
+                        }
+                        Column {
+                            x: 28; y: 26; width: parent.width - 56; spacing: 14
+                            MText { text: home.kickerFor(home.featured); role: "labelS"; font.letterSpacing: 1.6; font.weight: Font.Bold; color: Theme.primary }
+                            Item {
+                                width: Math.min(340, parent.width); height: 96
+                                Image {
+                                    id: logo
+                                    anchors.fill: parent; source: home.featured ? home.featured.logo : ""
+                                    fillMode: Image.PreserveAspectFit; horizontalAlignment: Image.AlignLeft; verticalAlignment: Image.AlignBottom
+                                    sourceSize.width: 680; asynchronous: true; smooth: true; mipmap: true
+                                }
+                                MText {
+                                    visible: logo.status !== Image.Ready; anchors.bottom: parent.bottom; width: parent.width
+                                    text: home.featured ? home.featured.title : "Nothing played yet"; role: "displayS"; color: "#ffffff"; wrapMode: Text.Wrap; maximumLineCount: 2
+                                }
+                            }
+                            Flow {
+                                width: parent.width; spacing: 8
+                                Repeater {
+                                    model: {
+                                        const f = home.featured, list = [];
+                                        if (!f) return list;
+                                        if (home.facts.playtimeMinutes) list.push({g: "schedule", t: home.minutesText(home.facts.playtimeMinutes)});
+                                        if (f.lastPlayed) list.push({g: "history", t: "Played " + home.ago(f.lastPlayed)});
+                                        if (home.facts.sizeBytes) list.push({g: "hard_drive", t: home.bytesText(home.facts.sizeBytes)});
+                                        const shots = ((GameState.widgets.captures || {}).perGame || {})[f.id];
+                                        if (shots) list.push({g: "photo_library", t: shots + (shots === 1 ? " capture" : " captures")});
+                                        return list;
+                                    }
+                                    Rectangle {
+                                        required property var modelData
+                                        height: 32; width: factRow.implicitWidth + 24; radius: 16; color: Theme.alpha("#000000", .45)
+                                        Row { id: factRow; anchors.centerIn: parent; spacing: 6
+                                            Glyph { name: modelData.g; font.pixelSize: 17; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                                            MText { text: modelData.t; role: "label"; font.weight: Font.DemiBold; font.features: {"tnum": 1}; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter } }
+                                    }
+                                }
+                            }
+                            Row {
+                                spacing: 8
+                                visible: !!home.featured
+                                MButton { text: home.running(home.featured) ? "Resume" : "Play"; icon: "play_arrow"; filled: true; onClicked: home.play(home.featured) }
+                                MButton { text: home.featured ? GameState.profileLabel(home.featured.id) : ""; icon: "tune"; tonal: true; onClicked: home.sheet = "profile" }
+                                MButton { icon: "info"; tooltip: "Details"; tonal: true; onClicked: { home.detailOpen = true; GameState.loadDetail(home.featured.id); } }
+                            }
+                        }
+                    }
+                    Column {
+                        visible: home.wideLayout
+                        x: parent.width - 380; spacing: 12
+                        Repeater {
+                            model: home.columnWidgets
+                            ConsoleWidget { required property var modelData; required property int index; width: 380; height: index === 0 ? 176 : 120; kind: modelData; onOpenSheet: k => home.openSheet(k) }
+                        }
+                    }
+                }
+
+                // Jump back in: the focused cover grows wide and becomes the featured card.
+                Column {
+                    width: parent.width; spacing: 12
+                    visible: home.recent.length > 0
+                    SectionLabel { text: "Jump back in"; meta: "Recently played" }
+                    ListView {
+                        id: recentRow
+                        width: parent.width; height: 176; orientation: ListView.Horizontal; spacing: 14
+                        clip: false; boundsBehavior: Flickable.StopAtBounds
+                        model: home.recent
+                        delegate: ConsoleCover {
+                            required property var modelData
+                            height: 176; entry: modelData; running: home.running(modelData)
+                            kicker: modelData.lastPlayed ? "Played " + home.ago(modelData.lastPlayed) : ""
+                            onControllerFocusedChanged: if (controllerFocused) home.focusEntry = modelData
+                            onActivated: home.play(modelData)
+                            onAlternate: home.pin(modelData)
+                        }
+                    }
+                }
+                // The widget shelf.
+                Column {
+                    width: parent.width; spacing: 12
+                    SectionLabel { text: "Widgets"; meta: "A uses · X opens" }
+                    ListView {
+                        width: parent.width; height: 200; orientation: ListView.Horizontal; spacing: 16
+                        clip: false; boundsBehavior: Flickable.StopAtBounds
+                        model: home.shelfWidgets.concat(["edit"])
+                        delegate: Item {
+                            required property var modelData
+                            width: modelData === "edit" ? 120 : modelData === "next" || modelData === "toggles" ? 268 : modelData === "devices" ? 220 : 290; height: 200
+                            ConsoleWidget { anchors.fill: parent; visible: modelData !== "edit"; kind: modelData === "edit" ? "updates" : modelData; onOpenSheet: k => home.openSheet(k) }
+                            Rectangle {
+                                visible: modelData === "edit"; anchors.fill: parent; radius: 28; color: Theme.level(1)
+                                border.width: 2; border.color: Theme.alpha(Theme.primary, .25)
+                                Column { anchors.centerIn: parent; spacing: 8
+                                    Glyph { anchors.horizontalCenter: parent.horizontalCenter; name: "edit"; font.pixelSize: 26; color: Theme.primary }
+                                    MText { anchors.horizontalCenter: parent.horizontalCenter; text: "Edit"; role: "titleS" } }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: home.sheet = "edit" }
+                            }
+                        }
+                    }
+                }
+                Column {
+                    width: parent.width; spacing: 12
+                    visible: home.pinnedEntries.length > 0
+                    SectionLabel { text: "Pinned"; meta: String(home.pinnedEntries.length) }
+                    ListView {
+                        width: parent.width; height: 183; orientation: ListView.Horizontal; spacing: 14
+                        clip: false; boundsBehavior: Flickable.StopAtBounds
+                        model: home.pinnedEntries
+                        delegate: ConsoleCover {
+                            required property var modelData
+                            height: 183; portraitWidth: 122; wideWidth: 388; entry: modelData; running: home.running(modelData)
+                            onControllerFocusedChanged: if (controllerFocused) home.focusEntry = modelData
+                            onActivated: home.play(modelData)
+                            onAlternate: home.pin(modelData)
+                        }
+                    }
+                }
+                // Minecraft: each instance chip launches it; the cube opens the sheet.
+                Column {
+                    width: parent.width; spacing: 12
+                    visible: (GameState.widgets.instances || []).length > 0
+                    SectionLabel { text: "Minecraft"; meta: "Prism Launcher · " + (GameState.widgets.instances || []).length + " instances" }
+                    Rectangle {
+                        width: parent.width; height: 60; radius: 30; color: Theme.level(2)
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter; x: 8; spacing: 8
+                            Rectangle {
+                                width: 44; height: 44; radius: 22; color: Theme.tertiaryContainer
+                                Glyph { anchors.centerIn: parent; name: "deployed_code"; font.pixelSize: 24; color: Theme.onTertiaryContainer }
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: home.sheet = "minecraft" }
+                            }
+                            Repeater {
+                                model: (GameState.widgets.instances || []).slice(0, 6)
+                                Chip { required property var modelData; required property int index; text: modelData.title + (modelData.version ? "  ·  " + modelData.version : ""); icon: "play_arrow"; selected: index === 0; onClicked: Hub.launchGame({id: modelData.id}) }
+                            }
+                        }
+                    }
+                }
+                Column {
+                    width: parent.width; spacing: 12
+                    visible: ((GameState.widgets.captures || {}).items || []).length > 0
+                    SectionLabel { text: "Captures"; meta: "Steam · " + ((GameState.widgets.captures || {}).total || 0) }
+                    ListView {
+                        width: parent.width; height: 96; orientation: ListView.Horizontal; spacing: 12
+                        clip: false; boundsBehavior: Flickable.StopAtBounds
+                        model: ((GameState.widgets.captures || {}).items || []).slice(0, 12)
+                        delegate: CaptureThumb { required property var modelData; width: 170; height: 96; shot: modelData }
+                    }
+                }
+            }
+        }
+
+        // Captures page.
+        GridView {
+            id: capturesGrid
+            visible: home.page === "captures"
+            x: home.contentX; y: 96; width: home.contentW; height: parent.height - y
+            cellWidth: width / Math.max(2, Math.floor(width / 280)); cellHeight: cellWidth * .62
+            clip: true; boundsBehavior: Flickable.StopAtBounds
+            model: (GameState.widgets.captures || {}).items || []
+            delegate: Item {
+                required property var modelData
+                width: capturesGrid.cellWidth; height: capturesGrid.cellHeight
+                CaptureThumb { anchors.fill: parent; anchors.margins: 7; shot: modelData; showTitle: true }
+            }
+            MText { anchors.centerIn: parent; visible: capturesGrid.count === 0; text: "Screenshots you take in Steam games show up here"; role: "title"; color: Theme.subtext }
         }
     }
 
-    ColumnLayout {
-        anchors {fill:parent;margins:Math.min(width*.035,48)}
-        spacing:18
-        // Top bar: title, tabs, status.
-        RowLayout {
-            visible:!c.searching
-            Layout.fillWidth:true;spacing:10
-            MText {text:"Play";role:"displayS";color:Theme.primary;Layout.rightMargin:12}
-            MButton {text:"LB";compact:true;implicitWidth:44;ink:Theme.subtext;tooltip:"Previous tab";onClicked:c.changeTab(-1)}
-            HorizontalScroller {Layout.fillWidth:true;Layout.preferredHeight:44;contentWidth:tabRow.width
-                Row {id:tabRow;spacing:4
-                    Repeater {model:c.tabs
-                        Rectangle {
-                            required property string modelData
-                            readonly property bool current:c.category===modelData
-                            width:tabText.implicitWidth+32;height:40;radius:20
-                            color:current ? Theme.secondaryContainer : "transparent"
-                            MText {id:tabText;anchors.centerIn:parent;text:modelData;role:"label";font.weight:parent.current ? Font.Bold : Font.Medium;color:parent.current ? Theme.onSecondaryContainer : Theme.subtext}
-                            MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:{c.category=modelData;c.query="";c.selection=0;}}
+    // Library page: the full grid, its own controller navigation.
+    ConsoleLibrary {
+        id: library
+        visible: home.page === "library"
+        x: home.contentX - 40; width: parent.width - x; height: parent.height
+        embedded: true
+        onLeave: home.openPage("home")
+    }
+    QtObject { id: libraryClaim; property int priority: 5 }
+    readonly property bool libraryActive: shown && page === "library" && !detailOpen
+    onLibraryActiveChanged: { if (libraryActive) ControllerNav.claim(libraryClaim); else ControllerNav.release(libraryClaim); }
+    Component.onDestruction: ControllerNav.release(libraryClaim)
+    Connections {
+        target: ControllerNav
+        function onKey(name) {
+            if (ControllerNav.top !== libraryClaim) return;
+            if (name === "previousTab" && !library.searching && library.category === library.tabs[0]) { home.cyclePage(-1); return; }
+            library.navigate(name);
+        }
+    }
+
+    // Sheets that widgets and the featured card open into.
+    Rectangle {
+        anchors.fill: parent; color: Theme.alpha("#000000", .55)
+        visible: opacity > 0; opacity: home.sheet !== "" ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
+        MouseArea { anchors.fill: parent; onClicked: home.sheet = "" }
+    }
+    Rectangle {
+        id: sheetCard
+        property bool controllerModal: home.sheet !== ""
+        visible: home.sheet !== ""
+        anchors.centerIn: parent
+        width: Math.min(820, parent.width - 64); height: Math.min(parent.height - 80, sheetLoader.item ? sheetLoader.item.implicitHeight + 52 : 200)
+        radius: 32; color: Theme.level(2); border.width: 1; border.color: Theme.outline
+        scale: home.sheet !== "" ? 1 : .96
+        Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasizedDecelerate } }
+        MouseArea { anchors.fill: parent }
+        Flickable {
+            anchors.fill: parent; anchors.margins: 26; contentHeight: sheetLoader.item ? sheetLoader.item.implicitHeight : 0; clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            Loader {
+                id: sheetLoader
+                width: parent.width
+                sourceComponent: home.sheet === "storage" ? storageSheet : home.sheet === "minecraft" ? minecraftSheet : home.sheet === "profile" ? profileSheet : home.sheet === "edit" ? editSheet : null
+            }
+        }
+    }
+    function openSheet(kind) {
+        if (kind === "storage" || kind === "minecraft" || kind === "edit") sheet = kind;
+        else if (kind === "captures") openPage("captures");
+        else if (kind === "updates") Hub.command({action: "steam-downloads"});
+        else if (kind === "devices") Hub.settings("bluetooth");
+        else if (kind === "next") sheet = "edit";
+        else if (kind === "music") Hub.media("next");
+        else if (kind === "claude") Hub.openAssistant();
+        else if (kind === "toggles") { Hub.targetScreen = Hub.chooseScreen(); Hub.toggle("controls"); }
+    }
+
+    component SheetTitle: Row {
+        property string g: ""
+        property string t: ""
+        property string d: ""
+        property color tint: Theme.primaryContainer
+        property color ink: Theme.onContainer
+        spacing: 12
+        Rectangle { width: 44; height: 44; radius: 22; color: parent.tint; Glyph { anchors.centerIn: parent; name: parent.parent.g; font.pixelSize: 22; color: parent.parent.ink } }
+        Column { anchors.verticalCenter: parent.verticalCenter
+            MText { text: parent.parent.t; role: "headline" }
+            MText { text: parent.parent.d; role: "label"; color: Theme.subtext } }
+    }
+    component SectionLabel: Row {
+        property string text: ""
+        property string meta: ""
+        spacing: 10
+        MText { text: parent.text; role: "title"; anchors.verticalCenter: parent.verticalCenter }
+        MText { visible: parent.meta !== ""; text: parent.meta; role: "label"; color: Theme.subtext; anchors.verticalCenter: parent.verticalCenter }
+    }
+    component StatusIsland: Rectangle {
+        height: 40; width: islandRow.implicitWidth + 30; radius: 20; color: Theme.alpha(Theme.level(3), .9)
+        Row {
+            id: islandRow; anchors.centerIn: parent; spacing: 14
+            Repeater {
+                model: (GameState.perf.controllers || []).slice(0, 2)
+                Row { required property var modelData; spacing: 4; anchors.verticalCenter: parent.verticalCenter
+                    Glyph { name: "stadia_controller"; font.pixelSize: 18; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    MText { text: modelData.percent + "%"; role: "label"; font.weight: Font.Bold; anchors.verticalCenter: parent.verticalCenter } }
+            }
+            Row { visible: Hub.status.battery >= 0; spacing: 4; anchors.verticalCenter: parent.verticalCenter
+                Glyph { name: Hub.status.charging ? "battery_charging_full" : "battery_5_bar"; font.pixelSize: 18; color: Theme.subtext; anchors.verticalCenter: parent.verticalCenter }
+                MText { text: Hub.status.battery + "%"; role: "label"; color: Theme.subtext; anchors.verticalCenter: parent.verticalCenter } }
+            Glyph { visible: !!Hub.status.wifi; name: "wifi"; font.pixelSize: 18; color: Theme.subtext; anchors.verticalCenter: parent.verticalCenter }
+            MText { text: Qt.formatDateTime(Hub.now, "HH:mm"); role: "title"; font.features: {"tnum": 1}; anchors.verticalCenter: parent.verticalCenter }
+        }
+    }
+    component CaptureThumb: Item {
+        id: thumb
+        property var shot: null
+        property bool showTitle: false
+        property bool controllerFocused: false
+        function controllerActivate() { if (shot) Hub.command({action: "open-path", path: shot.path}); }
+        function controllerAlternate() { if (shot) Hub.command({action: "capture-copy", path: shot.path}); }
+        RoundedImage { anchors.fill: parent; radius: 16; source: thumb.shot ? "file://" + thumb.shot.path : ""; decodeSize: Qt.size(Math.round(thumb.width * 1.5), Math.round(thumb.height * 1.5)) }
+        Rectangle {
+            visible: thumb.showTitle; anchors.fill: parent; radius: 16
+            gradient: Gradient { GradientStop { position: .55; color: "transparent" } GradientStop { position: 1; color: Theme.alpha("#000000", .75) } }
+        }
+        MText {
+            visible: thumb.showTitle; x: 12; anchors.bottom: parent.bottom; anchors.bottomMargin: 10; width: parent.width - 24
+            text: thumb.shot ? ((Hub.games.find(g => g.id === thumb.shot.id) || {title: "Screenshot"}).title + " · " + Qt.formatDate(new Date(thumb.shot.time * 1000), "d MMM")) : ""
+            role: "label"; font.weight: Font.DemiBold; color: "#ffffff"
+        }
+        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: e => { if (e && e.button === Qt.RightButton) thumb.controllerAlternate(); else thumb.controllerActivate(); } }
+    }
+
+    Component {
+        id: storageSheet
+        Column {
+            readonly property var st: GameState.widgets.storage || ({})
+            readonly property var largest: st.largest || []
+            readonly property var playtime: (GameState.widgets.playtime || {})
+            spacing: 16
+            SheetTitle { g: "hard_drive"; t: "Storage"; d: home.bytesText(parent.st.free || 0) + " free of " + home.bytesText(parent.st.total || 0) + " · games use " + home.bytesText(parent.st.games || 0) }
+            StorageBar {
+                width: parent.width; barHeight: 22; total: parent.st.total || 1
+                parts: {
+                    const l = parent.largest, top = l.slice(0, 2).reduce((s, g) => s + g.bytes, 0);
+                    return [{v: l[0] ? l[0].bytes : 0, c: Theme.primary}, {v: l[1] ? l[1].bytes : 0, c: Theme.tertiary}, {v: Math.max(0, (parent.st.games || 0) - top), c: Theme.secondary},
+                            {v: Math.max(0, (parent.st.total || 0) - (parent.st.free || 0) - (parent.st.games || 0)), c: Theme.alpha(Theme.text, .35)}, {v: parent.st.free || 0, c: Theme.level(4)}];
+                }
+            }
+            MText { text: "Largest games"; role: "titleS"; topPadding: 4 }
+            Repeater {
+                model: parent.largest.slice(0, 6)
+                Rectangle {
+                    id: row
+                    required property var modelData
+                    readonly property var game: Hub.games.find(g => g.id === modelData.id) || null
+                    readonly property int minutes: (GameState.widgets.storage.playtime || {})[modelData.id] || -1
+                    width: parent.width; height: 58; radius: 20; color: Theme.level(3)
+                    RoundedImage { x: 9; y: 9; width: 40; height: 40; radius: 12; source: row.game ? row.game.cover || row.game.hero || "" : ""; decodeSize: Qt.size(80, 120) }
+                    Column {
+                        x: 62; anchors.verticalCenter: parent.verticalCenter
+                        Row { spacing: 8
+                            MText { text: row.modelData.title; role: "titleS" }
+                            Rectangle { visible: row.minutes >= 0 && row.minutes < 60 && row.modelData.bytes > 1073741824; width: hint.implicitWidth + 14; height: 20; radius: 10; color: Theme.tertiaryContainer; anchors.verticalCenter: parent.verticalCenter
+                                MText { id: hint; anchors.centerIn: parent; text: "Barely played"; role: "labelS"; font.weight: Font.Bold; color: Theme.onTertiaryContainer } } }
+                        MText { text: (row.minutes >= 0 ? home.minutesText(row.minutes) + " in total" : "") + (row.modelData.lastPlayed ? " · played " + home.ago(row.modelData.lastPlayed) : ""); role: "labelS"; color: Theme.subtext }
+                    }
+                    MText { anchors.right: uninstall.left; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: home.bytesText(row.modelData.bytes); role: "titleS"; font.features: {"tnum": 1} }
+                    MButton {
+                        id: uninstall
+                        anchors.right: parent.right; anchors.rightMargin: 9; anchors.verticalCenter: parent.verticalCenter
+                        text: home.confirmId === row.modelData.id ? "Press again" : "Uninstall"; icon: "delete"; tonal: true; compact: true
+                        onClicked: {
+                            if (home.confirmId !== row.modelData.id) { home.confirmId = row.modelData.id; return; }
+                            home.confirmId = ""; Hub.command({action: "game-uninstall", id: row.modelData.id});
                         }
                     }
                 }
             }
-            MButton {text:"RB";compact:true;implicitWidth:44;ink:Theme.subtext;tooltip:"Next tab";onClicked:c.changeTab(1)}
-            Rectangle {
-                visible:c.sortApplies;Layout.leftMargin:4;Layout.preferredHeight:36;Layout.preferredWidth:sortRow.implicitWidth+26;radius:18;color:Theme.level(3)
-                Row {id:sortRow;anchors.centerIn:parent;spacing:6
-                    Glyph {name:"sort";font.pixelSize:18;color:Theme.subtext;anchors.verticalCenter:parent.verticalCenter}
-                    MText {text:c.sortName;role:"label";anchors.verticalCenter:parent.verticalCenter}
-                    MText {text:"RT";role:"labelS";font.weight:Font.Bold;color:Theme.muted;anchors.verticalCenter:parent.verticalCenter}}
-                MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:c.cycleSort(1)}
-            }
-            MButton {icon:"search";compact:true;ink:Theme.subtext;tooltip:"Search";onClicked:c.searchToggle()}
-            MButton {icon:"menu";compact:true;ink:Theme.subtext;tooltip:"Play hub";onClicked:c.openMenu()}
-            Row {spacing:12;Layout.leftMargin:12
-                Glyph {visible:Hub.controller;name:"sports_esports";font.pixelSize:20;color:Theme.primary;anchors.verticalCenter:parent.verticalCenter}
-                Glyph {visible:Hub.status.battery>=0;name:Hub.status.charging ? "charging" : "battery";font.pixelSize:20;color:Theme.subtext;anchors.verticalCenter:parent.verticalCenter}
-                MText {text:Qt.formatDateTime(Hub.now,"HH:mm");role:"title";font.features:{"tnum":1};anchors.verticalCenter:parent.verticalCenter}
-            }
+            MText { text: "Steam asks for its own confirmation before it removes anything."; role: "labelS"; color: Theme.subtext }
         }
-        // Hero: the selected game. On Recent this starts as the last played game.
-        Rectangle {
-            id:banner
-            visible:!c.searching&&!!c.selected
-            Layout.fillWidth:true;Layout.preferredHeight:Math.max(150,Math.min(250,c.height*.27))
-            readonly property int tint:c.selected ? Math.abs(c.selected.title.split("").reduce((h,ch)=>(h*31+ch.charCodeAt(0))|0,7))%3 : 0
-            radius:Theme.shapeXl;color:bannerArt.ready ? Theme.level(3) : [Theme.primaryContainer,Theme.secondaryContainer,Theme.tertiaryContainer][tint]
-            Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durMedium)}}
-            Flower {visible:!bannerArt.ready;x:parent.width-width*.72;y:-height*.2;width:parent.height*1.7;height:width;lobes:8;depth:.12;fill:Theme.alpha(Theme.text,.07)}
-            RoundedImage {id:bannerArt;anchors.fill:parent;radius:banner.radius;source:c.selected ? c.selected.hero||"" : "";decodeSize:Qt.size(1280,420)}
-            Rectangle {
-                visible:bannerArt.ready
-                anchors.fill:parent;radius:banner.radius
-                gradient:Gradient {orientation:Gradient.Horizontal
-                    GradientStop {position:0;color:Theme.alpha(Theme.base,.94)}
-                    GradientStop {position:.55;color:Theme.alpha(Theme.base,.62)}
-                    GradientStop {position:1;color:Theme.alpha(Theme.base,.12)}}
-            }
-            RowLayout {
-                anchors {fill:parent;margins:22} spacing:20
+    }
+    Component {
+        id: minecraftSheet
+        Column {
+            readonly property var list: GameState.widgets.instances || []
+            spacing: 10
+            SheetTitle { g: "deployed_code"; t: "Minecraft"; tint: Theme.tertiaryContainer; ink: Theme.onTertiaryContainer
+                d: "Prism Launcher · " + parent.list.length + " instances · " + home.minutesText(Math.round(parent.list.reduce((s, i) => s + i.seconds, 0) / 60)) }
+            Repeater {
+                model: parent.list
                 Rectangle {
-                    visible:!!c.selected&&!c.selected.hero&&!!c.selected.cover
-                    Layout.preferredHeight:parent.height;Layout.preferredWidth:height*.667;radius:Theme.shapeMd;color:Theme.primaryContainer
-                    RoundedImage {anchors.fill:parent;radius:Theme.shapeMd;source:c.selected ? c.selected.cover||"" : "";decodeSize:Qt.size(300,450)}
-                }
-                ColumnLayout {Layout.fillWidth:true;Layout.fillHeight:true;spacing:4
-                    MText {text:c.heroKicker.toUpperCase();role:"labelS";font.letterSpacing:1.5;font.weight:Font.Bold;color:Theme.primary}
-                    MText {Layout.fillWidth:true;text:c.selected ? c.selected.title : "";role:"displayS";maximumLineCount:2;wrapMode:Text.Wrap}
-                    Flow {Layout.fillWidth:true;spacing:8
-                        Rectangle {height:26;width:sourceText.implicitWidth+20;radius:13;color:Theme.level(4)
-                            MText {id:sourceText;anchors.centerIn:parent;text:c.selected ? c.selected.source : "";role:"labelS"}}
-                        Rectangle {height:26;width:playedText.implicitWidth+20;radius:13;color:Theme.level(4);visible:!!c.selected
-                            MText {id:playedText;anchors.centerIn:parent;text:c.selected ? c.ago(c.facts.lastPlayed||c.selected.lastPlayed) : "";role:"labelS"}}
-                        Rectangle {height:26;width:timeText.implicitWidth+20;radius:13;color:Theme.secondaryContainer;visible:c.facts.playtimeMinutes!==undefined&&c.facts.playtimeMinutes!==null
-                            MText {id:timeText;anchors.centerIn:parent;text:c.facts.playtimeMinutes!==undefined&&c.facts.playtimeMinutes!==null ? c.minutesText(c.facts.playtimeMinutes)+" played" : "";role:"labelS";color:Theme.onSecondaryContainer}}
+                    id: inst
+                    required property var modelData
+                    required property int index
+                    width: parent.width; height: 76; radius: 24; color: Theme.level(3)
+                    Rectangle { x: 12; y: 12; width: 52; height: 52; radius: 16; color: [Theme.tertiaryContainer, Theme.primaryContainer, Theme.secondaryContainer][inst.index % 3]
+                        Glyph { anchors.centerIn: parent; name: "deployed_code"; font.pixelSize: 26 } }
+                    Column {
+                        x: 80; anchors.verticalCenter: parent.verticalCenter; spacing: 4; width: parent.width - 300
+                        MText { width: parent.width; text: inst.modelData.title; role: "title" }
+                        MText { width: parent.width; text: [inst.modelData.version ? "Minecraft " + inst.modelData.version : "", inst.modelData.loader, inst.modelData.mods + " mods", home.minutesText(Math.round(inst.modelData.seconds / 60)), inst.modelData.lastPlayed ? "last " + home.ago(inst.modelData.lastPlayed) : ""].filter(x => x).join("  ·  "); role: "labelS"; color: Theme.subtext }
                     }
-                    Item {Layout.fillHeight:true}
-                    RowLayout {spacing:10
-                        MButton {text:c.acceptButton+"  "+(c.selected&&c.running(c.selected) ? "Resume" : "Play");icon:"play";filled:true;onClicked:c.launch()}
-                        MButton {text:c.pinButton+"  "+(c.pinned(c.selected) ? "Unpin" : "Pin");icon:"pin";tonal:true;onClicked:c.pin()}
-                        MButton {visible:!!c.selected&&c.selected.kind==="game";text:"LT  Details";icon:"info";tonal:true;onClicked:{c.detailOpen=true;GameState.loadDetail(c.selected.id);}}
+                    Row {
+                        anchors.right: parent.right; anchors.rightMargin: 14; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                        MButton { icon: "folder_open"; tooltip: "Mods folder"; tonal: true; onClicked: Hub.command({action: "open-path", path: inst.modelData.modsPath}) }
+                        MButton { text: "Play"; icon: "play_arrow"; filled: inst.index === 0; tonal: inst.index !== 0; onClicked: { home.sheet = ""; Hub.launchGame({id: inst.modelData.id}); } }
                     }
                 }
             }
         }
-        RowLayout {visible:c.searching;Layout.fillWidth:true
-            MText {text:"Search";role:"displayS";Layout.fillWidth:true}
-            MButton {icon:"close";tooltip:"Back to library";onClicked:{c.searching=false;c.forceActiveFocus();}}
-        }
-        TextField {
-            id:search;visible:c.searching||c.query!==""
-            Layout.fillWidth:true;Layout.preferredHeight:56;leftPadding:22;rightPadding:22
-            onTextEdited:c.query=text
-            color:Theme.text;placeholderTextColor:Theme.muted;font.family:Theme.font;font.pixelSize:19
-            placeholderText:"Search games and apps"
-            background:Rectangle {radius:28;color:Theme.level(3)}
-            onAccepted:{c.searching=false;c.forceActiveFocus();}
-            Keys.onEscapePressed:{c.searching=false;c.forceActiveFocus();}
-        }
-        // Cover grid.
-        GridView {
-            id:grid
-            visible:!c.searching
-            Layout.fillWidth:true;Layout.fillHeight:true
-            clip:true;model:c.library
-            cellWidth:width/c.columns;cellHeight:cellWidth*1.5
-            boundsBehavior:Flickable.StopAtBounds;currentIndex:c.selection;flickDeceleration:3000;maximumFlickVelocity:5000
-            highlightFollowsCurrentItem:false
-            // The grid can shrink or refill after the hero appears. Keep the selected row in view.
-            onHeightChanged:Qt.callLater(()=>{if(c.selection<c.columns)grid.positionViewAtBeginning();else c.revealSelection();})
-            onCountChanged:Qt.callLater(()=>{if(c.selection<c.columns)grid.positionViewAtBeginning();})
-            ScrollBar.vertical:ScrollBar {}
-            delegate:Item {
-                required property var modelData;required property int index
-                width:grid.cellWidth;height:grid.cellHeight
-                GameCover {
-                    anchors.fill:parent;anchors.margins:8
-                    entry:modelData;selected:c.selection===index;running:c.running(modelData)
-                    onActivated:{if(c.selection===index)c.launch();else c.selection=index;}
+    }
+    Component {
+        id: profileSheet
+        Column {
+            readonly property var f: home.featured
+            readonly property var own: f ? GameState.ownProfile(f.id) : null
+            readonly property var p: f ? GameState.profileFor(f.id) : ({})
+            spacing: 16
+            SheetTitle { g: "tune"; t: "Performance profile"; d: parent.f ? parent.f.title + " · applied when it starts, undone when it quits" : "" }
+            ChoiceGroup {
+                width: parent.width; icon: "speed"; title: "Profile"; detail: parent.own ? "Only for this game" : "Uses the next-game setting"
+                options: [{id: "next", name: "Next-game setting"}, {id: "saver", name: "Saver · 40", icon: "eco"}, {id: "balanced", name: "Balanced · 60", icon: "balance"}, {id: "max", name: "Max", icon: "rocket_launch"}, {id: "custom", name: "Custom", icon: "tune"}]
+                current: parent.own ? parent.own.preset : "next"
+                onPicked: id => {
+                    if (!home.featured) return;
+                    if (id === "next") GameState.setOwnProfile(home.featured.id, null);
+                    else if (id === "custom") GameState.setOwnProfile(home.featured.id, Object.assign({preset: "custom", power: "balanced", fpsLimit: 60}, parent.own && parent.own.preset === "custom" ? parent.own : {}));
+                    else GameState.setOwnProfile(home.featured.id, {preset: id});
                 }
             }
-            Column {
-                anchors.centerIn:parent;visible:c.library.length===0;spacing:10
-                Glyph {anchors.horizontalCenter:parent.horizontalCenter;name:c.category==="Pinned" ? "keep" : "sports_esports";font.pixelSize:44;color:Theme.muted}
-                MText {anchors.horizontalCenter:parent.horizontalCenter;role:"title"
-                    text:c.query ? "Nothing matches" : c.category==="Pinned" ? "Press "+c.pinButton+" on a game to pin it" : c.category==="Recent" ? "Nothing played yet" : "No games found"}
+            ChoiceGroup {
+                visible: !!parent.own && parent.own.preset === "custom"; width: parent.width; icon: "speed"; title: "Frame limit"; detail: Compositor.gamescope ? "gamescope" : "MangoHud"
+                options: [0, 30, 40, 45, 60, 72, 90, 120, 144].map(v => ({id: v, name: v ? String(v) : "Off"}))
+                current: parent.own ? parent.own.fpsLimit || 0 : 0
+                onPicked: id => GameState.setOwnProfile(home.featured.id, Object.assign({}, GameState.ownProfile(home.featured.id), {fpsLimit: id}))
             }
+            ChoiceGroup {
+                visible: !!parent.own && parent.own.preset === "custom"; width: parent.width; icon: "bolt"; title: "Power profile"; detail: "powerprofilesctl"
+                options: [{id: "power-saver", name: "Saver", icon: "eco"}, {id: "balanced", name: "Balanced", icon: "balance"}, {id: "performance", name: "Performance", icon: "rocket_launch"}]
+                current: parent.own ? parent.own.power || "balanced" : "balanced"
+                onPicked: id => GameState.setOwnProfile(home.featured.id, Object.assign({}, GameState.ownProfile(home.featured.id), {power: id}))
+            }
+            MText { width: parent.width; wrapMode: Text.Wrap; text: "Now: " + (parent.p.name || "") + " · " + (parent.p.fpsLimit ? parent.p.fpsLimit + " FPS" : "no frame limit"); role: "label"; color: Theme.subtext }
         }
-        SearchKeyboard {id:keyboard;visible:c.searching;Layout.fillWidth:true;Layout.preferredHeight:Math.min(implicitHeight,c.height*.40);controllerMode:true
-            inputTarget:search;contextLabel:"Search library";returnLabel:"Done"
-            onInsert:c.query=search.text
-            onErase:c.query=search.text
-            onAccept:{c.searching=false;c.forceActiveFocus();}
-            onDismiss:{c.searching=false;c.forceActiveFocus();}
-        }
-        // Button hints.
-        RowLayout {
-            visible:!c.searching&&!c.detailOpen
-            Layout.fillWidth:true;spacing:18
-            MText {text:c.library.length+" "+(c.category==="Apps" ? "apps" : "titles");role:"label";color:Theme.subtext}
-            Item {Layout.fillWidth:true}
-            ControllerHints {
-                items:{
-                    const list=[{b:c.acceptButton,t:"Play"},{b:c.pinButton,t:"Pin"},{b:c.searchButton,t:"Search"},{b:"LB RB",t:"Tabs"}];
-                    if(c.selected&&c.selected.kind==="game")list.push({b:"LT",t:"Details"});
-                    if(c.sortApplies)list.push({b:"RT",t:"Sort"});
-                    list.push({b:"☰",t:"Play hub"});
-                    if(!c.embedded)list.push({b:c.backButton,t:"Back"});
-                    return list;
+    }
+    Component {
+        id: editSheet
+        Column {
+            spacing: 14
+            SheetTitle { g: "widgets"; t: "Widgets"; d: "Pick what the home shows. The first two sit beside the featured game." }
+            Grid {
+                columns: 3; spacing: 10; width: parent.width
+                Repeater {
+                    model: [{id: "updates", g: "download", t: "Updates", d: "Steam queue, update all"}, {id: "devices", g: "devices", t: "Devices", d: "Batteries, pair a controller"},
+                            {id: "music", g: "music_note", t: "Music", d: "Play, skip, seek"}, {id: "storage", g: "hard_drive", t: "Storage", d: "Free space, uninstall"},
+                            {id: "captures", g: "photo_library", t: "Captures", d: "Newest screenshot, copy it"}, {id: "next", g: "tune", t: "Next game", d: "Saver, Balanced, Max"},
+                            {id: "minecraft", g: "deployed_code", t: "Minecraft", d: "Launch an instance"}, {id: "toggles", g: "toggle_on", t: "Toggles", d: "Wi-Fi, Bluetooth, DND"},
+                            {id: "claude", g: "auto_awesome", t: "Ask Claude", d: "Hold Guide to talk"}]
+                    Rectangle {
+                        id: tile
+                        required property var modelData
+                        readonly property bool on: home.widgetKinds.indexOf(modelData.id) >= 0
+                        width: (parent.width - 20) / 3; height: 96; radius: 24; color: Theme.level(3)
+                        Rectangle { x: 14; y: 14; width: 36; height: 36; radius: 18; color: tile.on ? Theme.secondaryContainer : Theme.alpha(Theme.primary, .16)
+                            Glyph { anchors.centerIn: parent; name: tile.on ? "check" : tile.modelData.g; font.pixelSize: 20; color: tile.on ? Theme.onSecondaryContainer : Theme.primary } }
+                        Column { x: 14; anchors.bottom: parent.bottom; anchors.bottomMargin: 10; width: parent.width - 28
+                            MText { text: tile.modelData.t; role: "titleS" }
+                            MText { width: parent.width; text: tile.modelData.d; role: "labelS"; color: Theme.subtext } }
+                        MouseArea {
+                            anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                const list = home.widgetKinds.slice(), i = list.indexOf(tile.modelData.id);
+                                if (i >= 0) list.splice(i, 1); else list.push(tile.modelData.id);
+                                Hub.set("consoleWidgets", list);
+                            }
+                        }
+                    }
                 }
             }
+            MButton { text: "Done"; icon: "check"; filled: true; onClicked: home.sheet = "" }
         }
     }
 
     GameDetail {
-        anchors.fill:parent
-        entry:c.selected&&c.selected.kind==="game" ? c.selected : null
-        open:c.detailOpen&&!!c.selected&&c.selected.kind==="game"
-        running:!!c.selected&&c.running(c.selected)
-        pinned:c.pinned(c.selected)
-        onDismissed:c.detailOpen=false
-        onPlay:{c.detailOpen=false;c.launch();}
-        onPin:c.pin()
-        onQuit:{c.windowsFor(c.selected).forEach(w=>Hub.closeWindow(w));c.detailOpen=false;}
-        onUninstall:{Hub.command({action:"game-uninstall",id:c.selected.id});c.detailOpen=false;}
+        anchors.fill: parent
+        entry: home.featured && !home.featured.group ? home.featured : null
+        open: home.detailOpen && !!home.featured && !home.featured.group
+        running: home.running(home.featured)
+        pinned: !!home.featured && (Hub.prefs.gamePins || []).indexOf(home.featured.id) >= 0
+        onDismissed: home.detailOpen = false
+        onPlay: { home.detailOpen = false; home.play(home.featured); }
+        onPin: home.pin(home.featured)
+        onQuit: { Hub.gameWindows(home.featured.data).forEach(w => Compositor.closeApp(w)); home.detailOpen = false; }
+        onUninstall: { Hub.command({action: "game-uninstall", id: home.featured.id}); home.detailOpen = false; }
     }
 
-    // Play hub: a side sheet with a section rail.
-    Rectangle {
-        anchors.fill:parent;color:Theme.alpha("#000000",.45)
-        opacity:c.menuOpen ? 1 : 0;visible:opacity>0
-        Behavior on opacity {NumberAnimation {duration:Theme.motion(Theme.durShort)}}
-        MouseArea {anchors.fill:parent;onClicked:c.menuOpen=false}
-    }
-    Rectangle {
-        id:hub
-        width:Math.min(560,c.width*.9);height:c.height
-        x:c.menuOpen ? c.width-width : c.width
-        visible:x<c.width
-        color:Theme.level(2)
-        topLeftRadius:Theme.shapeXl;bottomLeftRadius:Theme.shapeXl
-        Behavior on x {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}}
-        MouseArea {anchors.fill:parent}
-        RowLayout {
-            anchors.fill:parent;anchors.margins:24;spacing:16
-            // Section rail.
-            ColumnLayout {
-                Layout.fillHeight:true;Layout.preferredWidth:76;spacing:8
-                Repeater {model:c.menuTabs
-                    Item {
-                        required property var modelData;required property int index
-                        readonly property bool current:c.menuTab===index
-                        Layout.fillWidth:true;Layout.preferredHeight:60
-                        Rectangle {anchors.horizontalCenter:parent.horizontalCenter;y:2;width:56;height:32;radius:16;color:parent.current ? Theme.secondaryContainer : "transparent"
-                            Glyph {anchors.centerIn:parent;name:parent.parent.modelData.icon;font.pixelSize:22;color:parent.parent.current ? Theme.onSecondaryContainer : Theme.subtext}}
-                        MText {anchors.horizontalCenter:parent.horizontalCenter;y:38;text:parent.modelData.name;role:"labelS";font.weight:parent.current ? Font.Bold : Font.Medium;color:parent.current ? Theme.text : Theme.subtext}
-                        MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:{c.menuTab=parent.index;c.menuIndex=0;}}
-                    }
-                }
-                Item {Layout.fillHeight:true}
-            }
-            ColumnLayout {
-                Layout.fillWidth:true;Layout.fillHeight:true;spacing:8
-                MText {text:c.menuTabs[c.menuTab].name;role:"headline"}
-                MText {visible:c.menuTab===0&&c.liveEntries.length===0;text:"No game is running.";role:"bodyS";color:Theme.subtext;Layout.bottomMargin:4}
-                ListView {
-                    id:actionList
-                    Layout.fillWidth:true;Layout.fillHeight:true;clip:true;spacing:4
-                    model:c.actions;currentIndex:c.menuIndex
-                    onCurrentIndexChanged:positionViewAtIndex(currentIndex,ListView.Contain)
-                    delegate:Rectangle {
-                        id:row
-                        required property var modelData;required property int index
-                        readonly property bool current:index===c.menuIndex
-                        width:ListView.view.width;height:modelData.slider!==undefined ? 76 : 60
-                        radius:Theme.shapeLg
-                        color:current ? Theme.primaryContainer : Theme.level(3)
-                        RowLayout {
-                            anchors.fill:parent;anchors.leftMargin:18;anchors.rightMargin:18;spacing:14
-                            Glyph {name:row.modelData.icon;font.pixelSize:22;color:row.current ? Theme.onContainer : Theme.primary}
-                            ColumnLayout {Layout.fillWidth:true;spacing:4
-                                RowLayout {Layout.fillWidth:true
-                                    MText {text:row.modelData.text;role:"titleS";color:row.current ? Theme.onContainer : Theme.text;Layout.fillWidth:true}
-                                    MText {visible:!!row.modelData.detail&&row.modelData.slider!==undefined;text:row.modelData.detail||"";role:"label";color:row.current ? Theme.onContainer : Theme.subtext}
-                                }
-                                MText {visible:!!row.modelData.detail&&row.modelData.slider===undefined;text:row.modelData.detail||"";role:"labelS";color:row.current ? Theme.alpha(Theme.onContainer,.8) : Theme.subtext;Layout.fillWidth:true}
-                                Rectangle {
-                                    visible:row.modelData.slider!==undefined;Layout.fillWidth:true;height:6;radius:3
-                                    color:Theme.alpha(row.current ? Theme.onContainer : Theme.primary,.2)
-                                    Rectangle {width:parent.width*Math.max(0,Math.min(100,row.modelData.slider||0))/100;height:6;radius:3;color:row.current ? Theme.onContainer : Theme.primary}
-                                }
-                            }
-                            MSwitch {visible:row.modelData.on!==undefined;checked:!!row.modelData.on;onToggled:c.runAction(row.index)}
-                        }
-                        MouseArea {anchors.fill:parent;z:-1;cursorShape:row.modelData.info ? Qt.ArrowCursor : Qt.PointingHandCursor;onClicked:{c.menuIndex=row.index;c.runAction(row.index);}}
-                    }
-                }
-                MText {text:"LB / RB section · ↑ ↓ choose · ← → adjust · "+c.acceptButton+" select · "+c.backButton+" close";role:"labelS";color:Theme.subtext;wrapMode:Text.Wrap;Layout.fillWidth:true}
-            }
+    ControllerFocus {
+        id: padFocus
+        anchors.fill: parent
+        root: surface.parent
+        priority: 5
+        active: home.shown && home.page !== "library" && !home.detailOpen
+        closeOnBack: false
+        tabHints: true
+        extraHints: [{b: ControllerNav.altLabel, t: "Options"}, {b: "☰", t: "Quick Access"}]
+        onBack: {
+            if (home.sheet !== "") { home.sheet = ""; home.confirmId = ""; }
+            else if (home.page !== "home") home.openPage("home");
+            else flick.contentY = 0;
+        }
+        onTab: delta => home.cyclePage(delta)
+        onAction: name => {
+            if (name === "search") home.railPick("search");
+            else if (name === "menu") GameState.openQuickAccess(false);
         }
     }
 }

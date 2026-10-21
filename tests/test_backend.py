@@ -236,7 +236,7 @@ class WorkspaceEventTests(unittest.TestCase):
                 self.assertEqual(initial['workspace'], 1)
                 start = time.monotonic()
                 stream.sendall(b'workspacev2>>2,2\nactivewindow>>test,Title, with commas\n')
-                self.assertEqual(events.get(timeout=.2)['data'], {'workspace':2})
+                self.assertEqual(events.get(timeout=.2)['data'], {'workspace':2, 'workspaceName':'2'})
                 self.assertEqual(events.get(timeout=.2)['data']['title'], 'Title, with commas')
                 elapsed = (time.monotonic()-start)*1000
                 self.assertLess(elapsed, 150)

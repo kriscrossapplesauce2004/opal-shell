@@ -25,14 +25,15 @@ QtObject {
     }
     function release(surface) { claims = claims.filter(c => c && c !== surface); }
 
-    // Guide opens Quick Access. Console mode with no game running keeps its launcher toggle.
+    // Guide opens Quick Access: the glance over a game, then the sheet, then closed.
+    // In console mode with an app in front that is not a game, Guide goes back to the console home.
     function guide(force) {
         usingController = true;
-        if (GameState.quickAccess) { GameState.closeQuickAccess(); return; }
+        if (GameState.quickAccess) { if (GameState.stage === "glance") GameState.stage = "sheet"; else GameState.closeQuickAccess(); return; }
         if (Hub.locked) return;
         // Steam also reacts to Guide. This setting lets Steam keep it.
         if (Hub.prefs.quickAccessGuide === false && force !== true) return;
-        if (force !== true && Hub.prefs.mode === "console" && !GameState.gameActive) { Hub.toggle("launcher"); return; }
+        if (force !== true && Compositor.consoleRoles && !GameState.gameActive && !Compositor.homeShown) { Compositor.showHome(); return; }
         GameState.openQuickAccess(false);
     }
     // Every backend navigation event enters here. With nothing open the event is ignored.

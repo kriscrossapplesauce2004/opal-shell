@@ -83,7 +83,8 @@ ShellRoot {
                 exclusionMode:ExclusionMode.Ignore
                 WlrLayershell.layer:WlrLayer.Background
                 WlrLayershell.namespace:"opal-wallpaper"
-                WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
+                // The console home takes keys only while it is the thing on screen, and only when clicked or focused there.
+                WlrLayershell.keyboardFocus:Hub.prefs.mode==="console"&&output.homeShown&&Compositor.homeShown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
                 color:Theme.base
                 IdleInhibitor {window:desktop;enabled:Hub.keepAwake||Hub.gameSession}
                 // The morph swaps the layout between two short phases; reduced motion swaps at once.

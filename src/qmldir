@@ -3,6 +3,7 @@ singleton Hub 1.0 Hub.qml
 singleton Notifier 1.0 Notifier.qml
 singleton ControllerNav 1.0 ControllerNav.qml
 singleton GameState 1.0 GameState.qml
+singleton Compositor 1.0 Compositor.qml
 NotificationCard 1.0 NotificationCard.qml
 NotificationCenter 1.0 NotificationCenter.qml
 AppTile 1.0 AppTile.qml
@@ -12,6 +13,12 @@ ClipboardCard 1.0 ClipboardCard.qml
 ClipboardEntry 1.0 ClipboardEntry.qml
 ClipboardPanel 1.0 ClipboardPanel.qml
 ConsoleHome 1.0 ConsoleHome.qml
+ConsoleLibrary 1.0 ConsoleLibrary.qml
+ConsoleCover 1.0 ConsoleCover.qml
+ConsoleWidget 1.0 ConsoleWidget.qml
+StorageBar 1.0 StorageBar.qml
+SegmentGroup 1.0 SegmentGroup.qml
+FpsSteps 1.0 FpsSteps.qml
 Dashboard 1.0 Dashboard.qml
 ExpressiveSlider 1.0 ExpressiveSlider.qml
 Flower 1.0 Flower.qml

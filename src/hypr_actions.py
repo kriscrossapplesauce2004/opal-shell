@@ -147,6 +147,27 @@ class HyprActions:
         if self.is_lua():self._lua_window(address,'hl.dispatch(hl.dsp.window.alter_zorder({mode="top",window=w}))')
         else:self.runner(['hyprctl','dispatch','alterzorder','top,address:'+address])
 
+    def focus_named(self,name):
+        """Show a named workspace, such as console mode's Home."""
+        if not re.fullmatch(r'[A-Za-z]{1,32}',str(name)):raise ValueError('Invalid workspace name')
+        if self.is_lua():self.runner(['hyprctl','eval','hl.dispatch(hl.dsp.focus({workspace="name:'+name+'"}))'])
+        else:self.runner(['hyprctl','dispatch','workspace','name:'+name])
+
+    def console_release(self):
+        """Leaving console mode: apps on the Play workspace go back to workspace 1, out of fullscreen."""
+        if self.is_lua():
+            self.runner(['hyprctl','eval','for _,w in ipairs(hl.get_workspace_windows("name:Play") or {}) do '
+                         'hl.dispatch(hl.dsp.window.fullscreen({mode="fullscreen",action="unset",window=w})); '
+                         'hl.dispatch(hl.dsp.window.move({workspace="1",follow=false,window=w})) end; '
+                         'hl.dispatch(hl.dsp.focus({workspace="1"}))'])
+        else:
+            clients=json.loads(self.runner(['hyprctl','-j','clients']) or '[]')
+            for w in clients:
+                if w.get('workspace',{}).get('name')=='Play':
+                    if w.get('fullscreen'):self.runner(['hyprctl','dispatch','fullscreenstate','0 0,address:'+w['address']])
+                    self.runner(['hyprctl','dispatch','movetoworkspacesilent','1,address:'+w['address']])
+            self.runner(['hyprctl','dispatch','workspace','1'])
+
     def workspace_empty(self):
         """Go to the first empty workspace."""
         if self.is_lua():self.runner(['hyprctl','eval','hl.dispatch(hl.dsp.focus({workspace="empty"}))'])
