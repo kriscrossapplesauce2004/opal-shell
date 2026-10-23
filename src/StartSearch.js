@@ -61,7 +61,7 @@ function search(query, scope, apps, windows, actions, pins, recent) {
             "window:" + (win.address || index), win.className, 10);
     });
     if (kind === "all" || kind === "action") (actions || []).forEach(function(action) {
-        add("action", action.name, action.detail, action.icon, action, "action:" + action.id, action.keywords, -20);
+        add("action", action.name, action.detail, action.icon, action, "action:" + action.id, action.keywords, -20 + (action.boost || 0));
     });
     results.sort(function(a, b) { return b.score - a.score || a.title.localeCompare(b.title) || a.key.localeCompare(b.key); });
     return results.slice(0, 60);

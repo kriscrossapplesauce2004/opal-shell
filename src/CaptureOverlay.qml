@@ -1,170 +1,98 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 
-// Interactive Capture Studio overlay: Region, Window, Full Screen, OCR and Screen Recording.
-PanelWindow {
-    id: cap
-    screen: Hub.targetScreen || Hub.chooseScreen()
-    visible: Hub.captureOpen
-    property string scopeMode: "region" // "region", "window", "screen"
-    property bool videoMode: false
-    property bool recordAudio: true
-    property bool ocrMode: false
-    property real dragX0: 0
-    property real dragY0: 0
-    property real dragX1: 0
-    property real dragY1: 0
-    property bool dragging: false
+// Capture Studio: select on a frozen frame (region, window, screen or one pixel's colour), then copy, save, mark up, read text, ask Claude or record.
+// The same scope holds the delay countdown and the frame around a region recording.
+Scope {
+    id: studio
 
-    readonly property int rx: Math.round(Math.min(dragX0, dragX1))
-    readonly property int ry: Math.round(Math.min(dragY0, dragY1))
-    readonly property int rw: Math.round(Math.abs(dragX1 - dragX0))
-    readonly property int rh: Math.round(Math.abs(dragY1 - dragY0))
-
-    anchors { top: true; bottom: true; left: true; right: true }
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "opal-capture"
-    WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    color: Theme.alpha("#000000", scopeMode === "region" ? .32 : .18)
-
-    function triggerScreen() {
-        const out = cap.screen ? cap.screen.name : "";
-        Hub.captureOpen = false;
-        if (cap.videoMode) Hub.command({action: "capture-record-start", output: out, audio: cap.recordAudio});
-        else Hub.command({action: "capture-take", mode: "screen", output: out, ocr: cap.ocrMode});
-    }
-    function triggerWindow(addr) {
-        Hub.captureOpen = false;
-        Hub.command({action: "capture-take", mode: "window", address: addr || "", ocr: cap.ocrMode});
-    }
-    function triggerRegion() {
-        if (cap.rw < 16 || cap.rh < 16) return;
-        const mon = (Hub.monitors || []).find(m => cap.screen && m.name === cap.screen.name);
-        const ox = mon ? Math.round(mon.x || 0) : 0;
-        const oy = mon ? Math.round(mon.y || 0) : 0;
-        const geom = (ox + cap.rx) + "," + (oy + cap.ry) + " " + cap.rw + "x" + cap.rh;
-        Hub.captureOpen = false;
-        if (cap.videoMode) Hub.command({action: "capture-record-start", geometry: geom, audio: cap.recordAudio});
-        else Hub.command({action: "capture-take", mode: "region", geometry: geom, ocr: cap.ocrMode});
+    // ---------- the studio ----------
+    PanelWindow {
+        id: cap
+        screen: Hub.captureScreen || Hub.chooseScreen()
+        visible: Hub.captureOpen
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "opal-capture"
+        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        color: "transparent"
+        Loader { anchors.fill: parent; active: cap.visible; sourceComponent: Component { CaptureStudio { screenObj: cap.screen; onDelayed: (seconds, request) => countdown.start(seconds, request) } } }
     }
 
-    Shortcut { sequence: "Escape"; enabled: cap.visible; onActivated: Hub.captureOpen = false }
-    Shortcut { sequence: "Return"; enabled: cap.visible && cap.scopeMode === "screen"; onActivated: cap.triggerScreen() }
-
-    // Region drag canvas
-    MouseArea {
-        anchors.fill: parent
-        cursorShape: cap.scopeMode === "region" ? Qt.CrossCursor : Qt.PointingHandCursor
-        onPressed: e => {
-            if (cap.scopeMode === "screen") { cap.triggerScreen(); return; }
-            if (cap.scopeMode === "window") { cap.triggerWindow(""); return; }
-            cap.dragX0 = e.x; cap.dragY0 = e.y;
-            cap.dragX1 = e.x; cap.dragY1 = e.y;
-            cap.dragging = true;
-        }
-        onPositionChanged: e => {
-            if (cap.dragging) { cap.dragX1 = e.x; cap.dragY1 = e.y; }
-        }
-        onReleased: {
-            if (cap.dragging) {
-                cap.dragging = false;
-                cap.triggerRegion();
-            }
+    // ---------- delay countdown ----------
+    QtObject {
+        id: countdown
+        property var pending: null
+        function start(seconds, request) { pending = request; Hub.captureCountdown = seconds; tick.restart(); }
+    }
+    Timer {
+        id: tick; interval: 1000; repeat: true
+        onTriggered: {
+            Hub.captureCountdown = Hub.captureCountdown - 1;
+            if (Hub.captureCountdown > 0) return;
+            stop();
+            // The chip must be gone before the screen is read.
+            fire.request = countdown.pending; countdown.pending = null;
+            if (fire.request) fire.restart();
         }
     }
+    Timer { id: fire; property var request: null; interval: 150; onTriggered: if (request) Hub.command(request) }
+    PanelWindow {
+        screen: Hub.captureScreen || Hub.chooseScreen()
+        visible: Hub.captureCountdown > 0
+        anchors { top: true }
+        margins.top: 24
+        implicitWidth: 120; implicitHeight: 120
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "opal-capture-countdown"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        color: "transparent"
+        MorphShape {
+            anchors.fill: parent; shape: Hub.captureCountdown % 2 ? 2 : 5; fill: Theme.primary; spinMs: 6000
+            MText { anchors.centerIn: parent; text: Hub.captureCountdown; role: "displayM"; color: Theme.onPrimary }
+        }
+        // A click on the countdown cancels the shot.
+        MouseArea { anchors.fill: parent; onClicked: { tick.stop(); countdown.pending = null; Hub.captureCountdown = 0; } }
+    }
 
-    // Selected region frame
-    Rectangle {
-        visible: cap.scopeMode === "region" && (cap.dragging || (cap.rw >= 16 && cap.rh >= 16))
-        x: cap.rx; y: cap.ry; width: cap.rw; height: cap.rh
-        radius: 12
-        color: Theme.alpha(Theme.primary, .14)
-        border.width: 2; border.color: Theme.primary
+    // ---------- frame around a region recording ----------
+    PanelWindow {
+        id: recFrame
+        readonly property var r: Hub.recordingRect
+        screen: r && r.screen ? r.screen : Hub.chooseScreen()
+        visible: Hub.recordingActive && !!r
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "opal-capture-frame"
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        color: "transparent"
+        // Only the stop pill takes input; the frame never blocks what is being recorded.
+        mask: Region { item: stopPill }
+        property int now: 0
+        Timer { interval: 1000; repeat: true; running: recFrame.visible; triggeredOnStart: true; onTriggered: recFrame.now = Math.floor(Date.now() / 1000) }
+        // The frame sits just outside the recorded area, so it is never in the video.
         Rectangle {
-            visible: cap.rw > 80 && cap.rh > 36
-            anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.margins: 8
-            width: sizeLabel.implicitWidth + 16; height: 24; radius: 12
-            color: Theme.alpha(Theme.base, .88)
-            MText { id: sizeLabel; anchors.centerIn: parent; text: cap.rw + " × " + cap.rh; role: "labelS" }
+            visible: !!recFrame.r
+            x: recFrame.r ? recFrame.r.x - 4 : 0; y: recFrame.r ? recFrame.r.y - 4 : 0
+            width: recFrame.r ? recFrame.r.w + 8 : 0; height: recFrame.r ? recFrame.r.h + 8 : 0
+            color: "transparent"; border.width: 2; border.color: Theme.error; radius: 4
         }
-    }
-
-    // Top Floating Capture Bar
-    Surface {
-        id: bar
-        anchors.top: parent.top; anchors.topMargin: 28
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: barRow.implicitWidth + 24; height: 56; radius: 28
-        kind: "menus"
-        translucency: Math.max(.82, Hub.prefs.glass + .18)
-        border.color: Theme.outline
-
-        RowLayout {
-            id: barRow
-            anchors.centerIn: parent
-            spacing: 6
-
-            Repeater {
-                model: [
-                    {id: "region", icon: "crop_free", label: "Region"},
-                    {id: "window", icon: "select_window", label: "Window"},
-                    {id: "screen", icon: "fullscreen", label: "Screen"}
-                ]
-                MButton {
-                    required property var modelData
-                    icon: modelData.icon; text: modelData.label; compact: true
-                    filled: cap.scopeMode === modelData.id
-                    tonal: cap.scopeMode !== modelData.id
-                    onClicked: {
-                        cap.scopeMode = modelData.id;
-                        if (modelData.id === "screen" && !cap.videoMode) cap.triggerScreen();
-                        else if (modelData.id === "window" && !cap.videoMode) cap.triggerWindow("");
-                    }
-                }
-            }
-
-            Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 24; color: Theme.outline }
-
-            MButton {
-                icon: cap.videoMode ? "videocam" : "photo_camera"
-                text: cap.videoMode ? "Video" : "Photo"
-                compact: true; tonal: true
-                tooltip: "Switch between screenshot and screen recording"
-                onClicked: cap.videoMode = !cap.videoMode
-            }
-
-            MButton {
-                visible: !cap.videoMode
-                icon: "text_fields"; text: "OCR"
-                compact: true; filled: cap.ocrMode; tonal: !cap.ocrMode
-                tooltip: "Extract text from the captured area to the clipboard"
-                onClicked: cap.ocrMode = !cap.ocrMode
-            }
-
-            MButton {
-                visible: cap.videoMode
-                icon: cap.recordAudio ? "volume_up" : "volume_off"
-                text: cap.recordAudio ? "Audio on" : "Muted"
-                compact: true; filled: cap.recordAudio; tonal: !cap.recordAudio
-                onClicked: cap.recordAudio = !cap.recordAudio
-            }
-
-            MButton {
-                visible: cap.videoMode && cap.scopeMode === "screen"
-                icon: "fiber_manual_record"; text: "Start"
-                compact: true; filled: true
-                onClicked: cap.triggerScreen()
-            }
-
-            MButton {
-                icon: "close"; compact: true; implicitWidth: 36; implicitHeight: 36
-                tooltip: "Cancel · Escape"
-                onClicked: Hub.captureOpen = false
-            }
+        Rectangle {
+            id: stopPill
+            readonly property int secs: Hub.recordingStarted > 0 ? Math.max(0, recFrame.now - Hub.recordingStarted) : 0
+            x: recFrame.r ? Math.max(8, Math.min(recFrame.width - width - 8, recFrame.r.x + recFrame.r.w - width)) : 0
+            y: recFrame.r ? (recFrame.r.y > 52 ? recFrame.r.y - 48 : Math.min(recFrame.height - height - 8, recFrame.r.y + recFrame.r.h + 10)) : 0
+            width: stopRow.implicitWidth + 24; height: 38; radius: 19; color: Theme.error
+            Row { id: stopRow; anchors.centerIn: parent; spacing: 8
+                Rectangle { width: 10; height: 10; radius: 2; color: Theme.base; anchors.verticalCenter: parent.verticalCenter }
+                MText { text: Math.floor(stopPill.secs / 60) + ":" + String(stopPill.secs % 60).padStart(2, "0") + " · Stop"; role: "label"; font.features: {"tnum": 1}; color: Theme.base; anchors.verticalCenter: parent.verticalCenter } }
+            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Hub.command({action: "capture-record-stop"}) }
+            Accessible.role: Accessible.Button; Accessible.name: "Stop recording"
         }
     }
 }

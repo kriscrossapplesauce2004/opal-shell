@@ -12,7 +12,7 @@ FocusScope {
     property bool touch: false
     // When false, the host draws the field and forwards keys to accept(), move() and ask().
     property bool ownField: true
-    property string placeholder: "Search apps, files, settings or ask Claude"
+    property string placeholder: Hub.aiEnabled !== false ? "Search apps, files, settings or ask Claude" : "Search apps, files and settings"
     readonly property string query: Hub.query.trim()
     readonly property bool searching: query !== ""
     readonly property bool math: searching && (query.startsWith("=") || Hub.looksLikeMath(query))
@@ -20,22 +20,31 @@ FocusScope {
     // The user asked Claude on purpose (Tab, the spark button, or Enter on a question).
     property string askedFor: ""
     readonly property bool question: searching && !math && !conversion && Model.isQuestion(query)
-    readonly property bool claude: searching && (askedFor === query || question)
+    // With AI features off there is no inline Claude answer at all.
+    readonly property bool claude: Hub.aiEnabled !== false && searching && (askedFor === query || question)
     property string sentQuery: ""
     // Space around the content. Hosts with their own padding set 0.
     property real inset: 16
     readonly property real fitHeight: layout.implicitHeight + inset * 2 + (ownField ? fieldBox.height + 12 : 0)
     implicitHeight: fitHeight
 
-    readonly property var actions: [
+    readonly property var actions: allActions.filter(a => Hub.aiEnabled !== false || a.id !== "assistant")
+    readonly property var allActions: [
         {id:"controls",name:"Quick settings",detail:"Wi-Fi, sound and display",icon:"tune",keywords:"control center volume brightness"},
         {id:"wallpaper",name:"Wallpaper",detail:"Choose a background image",icon:"wallpaper",keywords:"background photo picture"},
         {id:"windows",name:"App switcher",detail:"Every open window",icon:"desktop",keywords:"tasks windows switch"},
         {id:"clipboard",name:"Clipboard history",detail:"Things you copied this session",icon:"clipboard",keywords:"copy paste"},
-        {id:"screenshot",name:"Screenshot",detail:"Capture the screen",icon:"capture",keywords:"screen capture image"},
+        {id:"capture",name:"Screenshot",detail:"Region, window or screen · Print",icon:"capture",keywords:"screen capture image snip snipping ocr text grab capture studio",boost:20},
+        {id:"record",name:Hub.recordingActive ? "Stop recording" : "Record screen",detail:"Video of the screen · Super+Shift+R",icon:Hub.recordingActive ? "stop_circle" : "screen_record",keywords:"video record screencast recording capture"},
         {id:"lock",name:"Lock",detail:"Lock this session",icon:"lock",keywords:"secure screen"},
         {id:"focus",name:"Focus timer",detail:"25 minutes, no distractions",icon:"timer",keywords:"pomodoro concentrate"},
-        {id:"assistant",name:"Assistant",detail:"Ask Claude in the panel",icon:"auto_awesome",keywords:"claude ai chat help"}
+        {id:"assistant",name:"Assistant",detail:"Ask Claude in the panel",icon:"auto_awesome",keywords:"claude ai chat help"},
+        // Opal's own Settings outranks other desktops' Settings apps with the same name.
+        {id:"settings",name:"Settings",detail:"Opal settings",icon:"settings",keywords:"preferences configure options control panel opal",boost:60},
+        {id:"android-store",name:"Android apps",detail:Hub.waydroid.installed&&Hub.waydroid.initialized ? "Get apps from F-Droid" : "Set up Android, then get apps",icon:"android",keywords:"app store apps waydroid android apk play store fdroid f-droid install aurora",boost:30},
+        {id:"android-setup",name:Hub.waydroid.installed&&Hub.waydroid.initialized ? "Manage Android" : "Set up Android",detail:"Waydroid installer",icon:"install_mobile",keywords:"waydroid android install setup play store gapps",boost:10},
+        {id:"setup",name:"Set up Opal",detail:Hub.aiEnabled !== false ? "Wi-Fi, look, layout, apps and Claude" : "Wi-Fi, look, layout and apps",icon:"auto_awesome",keywords:"setup onboarding welcome tour first run oobe"},
+        {id:"workspaces",name:"Workspaces",detail:"Every workspace as tiles",icon:"space_dashboard",keywords:"workspace desktops overview switch virtual"}
     ]
     // Settings index. Entries with get and set show an inline switch; the others open their Settings page.
     readonly property var settingsIndex: [
@@ -78,6 +87,8 @@ FocusScope {
         {id:"s-profiles",title:"Profiles",path:"Settings",icon:"style",keywords:"setups save switch",open:"profiles"},
         {id:"s-a11y",title:"Accessibility",path:"Settings",icon:"accessibility_new",keywords:"motion readable contrast",open:"accessibility"},
         {id:"s-system",title:"Updates & health",path:"Settings",icon:"system_update",keywords:"updates storage temperatures disk",open:"system"},
+        {id:"s-android",title:"Android (Waydroid)",path:"Settings › Apps & windows",icon:"android",keywords:"waydroid android apps apk play store",open:"apps"},
+        {id:"s-setup",title:"Set up Opal again",path:"Settings › About",icon:"auto_awesome",keywords:"setup onboarding welcome tour first run",open:"about"},
         {id:"s-about",title:"About this device",path:"Settings",icon:"info",keywords:"system version hardware usage",open:"about"}
     ]
     readonly property var core: searching && !math ? Search.search(query, "all", Hub.appSearchIndex, Hub.windows, actions, Hub.favoriteApps.map(a => a.id), Hub.prefs.recent || []) : []
@@ -119,8 +130,8 @@ FocusScope {
         else if (p.y + item.height > scroller.contentY + scroller.height) scroller.contentY = p.y + item.height - scroller.height + 8;
     }
     function move(delta) { selection = Math.max(0, Math.min(flat.length - 1, selection + delta)); }
-    function ask() { if (!searching) return; askedFor = query; sendClaude(); }
-    function sendClaude() { if (sentQuery === query) return; sentQuery = query; Hub.askClaude(query); }
+    function ask() { if (!searching || Hub.aiEnabled === false) return; askedFor = query; sendClaude(); }
+    function sendClaude() { if (sentQuery === query || Hub.aiEnabled === false) return; sentQuery = query; Hub.askClaude(query); }
     function run(item, fresh) {
         if (!item) return;
         if (item.kind === "app") { if (fresh) Hub.launchNew(item.data); else Hub.launch(item.data); }
@@ -133,9 +144,16 @@ FocusScope {
         else {
             const id = item.data.id;
             if (id === "screenshot") Hub.screenShot();
+            else if (id === "capture") Hub.openCapture();
+            else if (id === "record") { Hub.close(); if (Hub.recordingActive) Hub.command({action: "capture-record-stop"}); else Hub.openCapture(); }
             else if (id === "lock") Hub.settings(id);
             else if (id === "focus") { Hub.focusSeconds = 25 * 60; Hub.focusRunning = true; Hub.close(); }
             else if (id === "assistant") Hub.openAssistant("");
+            else if (id === "settings") Hub.openSettings();
+            else if (id === "android-store") Hub.openAndroid("store");
+            else if (id === "android-setup") Hub.openAndroid("setup");
+            else if (id === "setup") Hub.openOobe();
+            else if (id === "workspaces") { Hub.close(); Hub.workspaceOverviewRequest(); }
             else Hub.page = id;
         }
     }
@@ -344,7 +362,7 @@ FocusScope {
         ResultRow { visible: s.searching && !s.math; item: s.flat.length ? s.flat[s.flat.length - 1] : null; web: true }
         MText {
             visible: s.searching && !s.math && !s.touch; Layout.fillWidth: true; horizontalAlignment: Text.AlignRight
-            text: "↑↓ choose   ·   Enter open   ·   Tab ask Claude   ·   Esc clear"; role: "labelS"; color: Theme.subtext
+            text: Hub.aiEnabled !== false ? "↑↓ choose   ·   Enter open   ·   Tab ask Claude   ·   Esc clear" : "↑↓ choose   ·   Enter open   ·   Esc clear"; role: "labelS"; color: Theme.subtext
         }
     }
     }

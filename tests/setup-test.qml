@@ -58,7 +58,9 @@ ShellRoot {
             {name: "android-store-light", view: "android", av: "store", installed: true, light: true},
             {name: "pill-collapsed", view: "pill", expand: false},
             {name: "pill-expanded", view: "pill", expand: true},
-            {name: "pill-light", view: "pill", expand: false, light: true}]
+            {name: "pill-light", view: "pill", expand: false, light: true},
+            {name: "shelf-pill", view: "shelf"},
+            {name: "shelf-pill-light", view: "shelf", light: true}]
         function fixtures(late) {
             const c = cases[step];
             Opal.Hub.status = Object.assign({}, Opal.Hub.status, {hypr: true, workspace: 2, workspaces: [1, 2, 4], windows: fixtureWindows, activeAddress: "w1", urgent: ["w6"], network: "Home Wi-Fi",
@@ -88,7 +90,7 @@ ShellRoot {
             Opal.Hub.androidView = c.av || "store";
             fixtures();
             loader.sourceComponent = null;
-            loader.sourceComponent = c.view === "oobe" ? oobeView : c.view === "android" ? androidView : pillView;
+            loader.sourceComponent = c.view === "oobe" ? oobeView : c.view === "android" ? androidView : c.view === "shelf" ? shelfView : pillView;
             settle.restart();
         }
         Timer { id: settle; interval: 900; onTriggered: { win.fixtures(false); const c = win.cases[win.step]; if (c.view === "oobe" && loader.item) { loader.item.step = c.oobe; loader.item.androidOpen = !!c.android; }
@@ -102,6 +104,13 @@ ShellRoot {
         Component { id: androidView; Item {
             Opal.Surface { anchors.centerIn: parent; width: 1120; height: 780; radius: 36; kind: "panels"
                 Opal.AndroidHub { anchors.fill: parent } } } }
+        Component { id: shelfView; Item {
+            Image { anchors.fill: parent; source: "file://" + Quickshell.env("HOME") + "/Ocean.png"; fillMode: Image.PreserveAspectCrop }
+            Column { x: 60; y: 60; spacing: 24
+                Opal.WorkspaceShelfPill { height: 44; output: null }
+                Opal.WorkspaceShelfPill { height: 44; output: null; Component.onCompleted: { seen = 1; flashing = true; } }
+                Opal.WorkspaceShelfPill { height: 44; output: null; color: Opal.Theme.primaryContainer }
+                Opal.WorkspaceShelfPill { height: 40; output: null; framed: false } } } }
         Component { id: pillView; Item {
             property bool pillExpand: false
             Image { anchors.fill: parent; source: "file://" + Quickshell.env("HOME") + "/Ocean.png"; fillMode: Image.PreserveAspectCrop }

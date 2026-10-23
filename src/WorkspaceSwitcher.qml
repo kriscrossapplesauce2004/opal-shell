@@ -10,6 +10,7 @@ Item {
     function toggle() {
         if (open) { PhoneState.spacesOpen = false; return; }
         PhoneState.spacesScreen = screenObj;
+        PhoneState.spacesBottom = -1;
         PhoneState.spacesX = chip.mapToItem(null, 0, 0).x;
         PhoneState.spacesOpen = true;
     }

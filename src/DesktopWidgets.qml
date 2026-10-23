@@ -98,7 +98,7 @@ Column {
         RowLayout {
             anchors.fill: parent; anchors.margins: 8; spacing: 6
             ActionKey { lead: true; icon: "spark"; label: "Start"; onActivated: Hub.openStart(false) }
-            ActionKey { icon: "capture"; label: "Screenshot"; onActivated: Hub.screenShot() }
+            ActionKey { icon: "capture"; label: "Screenshot"; onActivated: Hub.openCapture() }
             ActionKey { icon: "clipboard"; label: "Clipboard"; onActivated: Hub.toggleClipboard() }
             ActionKey { icon: "timer"; label: Hub.focusRunning ? Math.ceil(Hub.focusSeconds / 60) + " min focus" : "Focus timer"; active: Hub.focusRunning; onActivated: Hub.timerToggle() }
             ActionKey { icon: "palette"; label: "Personalize"; onActivated: Hub.page = "appearance" }

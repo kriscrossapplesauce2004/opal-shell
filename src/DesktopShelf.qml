@@ -25,25 +25,12 @@ Item {
     readonly property real rightWidth:rightGroup.width
     readonly property real islandHeight:style==="edge" ? 40 : 44
     readonly property bool startOpen:Hub.page==="launcher"&&Hub.targetScreen===output
-    // In-bar transient feedback replaces the separate volume and workspace popups.
+    // In-bar volume feedback replaces the separate volume popup. Workspaces have their own pill.
     readonly property bool osdHere:Hub.osd!==""&&(!Hub.osdScreen||Hub.osdScreen===output)
-    property int flashWorkspace:0
-    property int workspaceBaseline:-1
     function show(page) {Hub.targetScreen=output;Hub.toggle(page);}
     function apps() {Hub.targetScreen=output;Hub.openStart(false);}
     implicitHeight:64
 
-    Connections {
-        target:Hub
-        function onStatusChanged() {
-            const w=Hub.status.workspace||0;
-            if(!Hub.status.hypr||w<=0)return;
-            if(shelf.workspaceBaseline<0){shelf.workspaceBaseline=w;return;}
-            if(w===shelf.workspaceBaseline)return;
-            shelf.workspaceBaseline=w;shelf.flashWorkspace=w;flashTimer.restart();
-        }
-    }
-    Timer {id:flashTimer;interval:1400;onTriggered:shelf.flashWorkspace=0}
 
     // Container backgrounds. Islands frame the app group only; dock and edge frame everything.
     Rectangle {
@@ -123,6 +110,8 @@ Item {
         anchors.verticalCenter:parent.verticalCenter
         spacing:shelf.framedParts ? 8 : 4;height:shelf.islandHeight
 
+        // Workspaces: their own contextual pill. A switch shows the new workspace's apps here; a click pops the workspace card up.
+        WorkspaceShelfPill {output:shelf.output;panelHeight:shelf.panelHeight;framed:shelf.framedParts;height:parent.height}
         // Submap chip: shows the active key mode, such as resize, until it resets.
         Rectangle {
             id:submapChip
@@ -214,26 +203,20 @@ Item {
             Accessible.name:"Quick settings · "+(Hub.status.wifi ? Hub.status.network : "Offline")+(Hub.unread>0 ? " · "+Hub.unread+" notifications" : "")
         }
 
-        // Clock: the solid anchor of the bar. A workspace switch shows its number here.
+        // Clock: the solid anchor of the bar.
         Rectangle {
             id:clock
             readonly property bool withDate:Hub.prefs.taskbarClockDate!==false&&shelf.width>=900
-            readonly property bool flashing:shelf.flashWorkspace>0
             height:parent.height;radius:height/2
             color:Theme.primaryContainer
-            width:(flashing ? flashRow.implicitWidth : withDate ? dateRow.implicitWidth : timeOnly.implicitWidth)+32
+            width:(withDate ? dateRow.implicitWidth : timeOnly.implicitWidth)+32
             Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
             Rectangle {anchors.fill:parent;radius:parent.radius;color:Theme.onContainer;opacity:clockMouse.pressed ? .12 : clockMouse.containsMouse ? .08 : 0}
-            MText {id:timeOnly;anchors.centerIn:parent;visible:!clock.withDate&&!clock.flashing;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:Theme.onContainer}
+            MText {id:timeOnly;anchors.centerIn:parent;visible:!clock.withDate;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:Theme.onContainer}
             Row {
-                id:dateRow;visible:clock.withDate&&!clock.flashing;anchors.centerIn:parent;spacing:8
+                id:dateRow;visible:clock.withDate;anchors.centerIn:parent;spacing:8
                 MText {anchors.verticalCenter:parent.verticalCenter;text:Qt.formatDateTime(Hub.now,"ddd d");role:"label";color:Theme.alpha(Theme.onContainer,.75)}
                 MText {anchors.verticalCenter:parent.verticalCenter;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:Theme.onContainer}
-            }
-            Row {
-                id:flashRow;visible:clock.flashing;anchors.centerIn:parent;spacing:6
-                MText {anchors.verticalCenter:parent.verticalCenter;text:"Workspace";role:"label";color:Theme.alpha(Theme.onContainer,.75)}
-                MText {anchors.verticalCenter:parent.verticalCenter;text:String(shelf.flashWorkspace);role:"title";color:Theme.onContainer}
             }
             MouseArea {id:clockMouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;onClicked:shelf.show("notifications")}
             Accessible.role:Accessible.Button

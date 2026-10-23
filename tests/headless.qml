@@ -474,7 +474,7 @@ ShellRoot {
             Opal.Wallpaper {anchors.fill:parent;imagePath:"file://"+Quickshell.env("HOME")+"/Ocean.png";dim:0;showWidgets:false}
             Opal.WorkspacePill {visible:!!fixture.cases[fixture.step].pill;anchors.horizontalCenter:parent.horizontalCenter;y:10;shown:2}
             Opal.DesktopShelf {visible:Opal.Hub.prefs.barStyle==="split"&&!fixture.cases[fixture.step].pill;part:"top";anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:56}
-            Opal.DesktopShelf {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:Opal.Hub.prefs.barStyle==="edge" ? 52 : 64;flashWorkspace:fixture.cases[fixture.step].flash ? 3 : 0}
+            Opal.DesktopShelf {anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:Opal.Hub.prefs.barStyle==="edge" ? 52 : 64}
         }}
         Component {id:workspaceView;Item {
             property alias shelf:workspaceShelf

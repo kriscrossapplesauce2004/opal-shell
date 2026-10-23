@@ -27,6 +27,8 @@ Scope {
     property bool spacesOpen: false
     property var spacesScreen: null
     property real spacesX: 12
+    // Bottom margin of the card. -1 means the tablet bar; the desktop Shelf sets its own height.
+    property real spacesBottom: -1
     // An app carried from the tablet launcher onto the home: {app, x, y} in screen coordinates, or null.
     property var homeDrag: null
     signal homeDrop(string appId, real x, real y)
@@ -150,7 +152,9 @@ Scope {
 
     // Edge back swipe from the left or right edge.
     // Edge gestures. Each edge has an upper and a lower half, and each half has a swipe and a swipe-and-hold, all assignable in Settings.
-    readonly property var gestureActions: [
+    // The assistant action is left out while AI features are off.
+    readonly property var gestureActions: allGestureActions.filter(a => Hub.aiEnabled !== false || a.id !== "assistant")
+    readonly property var allGestureActions: [
         {id: "back", label: "Back", icon: "arrow_back"}, {id: "home", label: "Home", icon: "home"}, {id: "recents", label: "Recent apps", icon: "view_carousel"},
         {id: "previous", label: "Last app", icon: "swap_horiz"}, {id: "drawer", label: "App drawer", icon: "apps"}, {id: "search", label: "Search", icon: "search"},
         {id: "notifications", label: "Notifications", icon: "notifications"}, {id: "controls", label: "Quick settings", icon: "tune"},
@@ -213,7 +217,7 @@ Scope {
     }
     // Back closes one shell layer first, then delegates to Smart Back (Waydroid KEYCODE_BACK -> transient Escape -> browser Alt+Left -> MRU app).
     function back() {
-        if (Hub.captureOpen) Hub.captureOpen = false;
+        if (Hub.captureOpen) Hub.captureClosed();
         else if (recentsOpen) closeRecents();
         else if (spacesOpen) spacesOpen = false;
         else if (Hub.audioOpen) Hub.closeAudio();

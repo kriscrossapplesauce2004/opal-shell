@@ -246,11 +246,31 @@ Scope {
     property var lastCapture: null
     property bool recordingActive: false
     property var activeRoutines: []
+    // Capture Studio freezes the screen first, then opens on top of the still frame.
+    property string captureFrozen: ""
+    property bool captureWanted: false
+    property var captureScreen: null
+    property string captureEditPath: ""
+    property int captureCountdown: 0
     function openCapture() {
+        if (recordingActive) { close(); command({action: "capture-record-stop"}); return; }
+        if (captureOpen || captureWanted) return;
+        const hadPage = page !== "" || audioOpen;
         close();
-        if (recordingActive) command({action: "capture-record-stop"});
-        else { lastCapture = null; captureOpen = true; }
+        lastCapture = null; captureFrozen = ""; captureWanted = true;
+        captureScreen = targetScreen || chooseScreen();
+        // A closing panel is given time to leave, so it is not in the frozen frame.
+        captureFreezeTimer.interval = hadPage ? 280 : 1;
+        captureFreezeTimer.restart();
     }
+    // A cancel deletes the frozen frame; a capture keeps it until the backend has cut from it.
+    function captureClosed(keepFrame) { captureOpen = false; captureWanted = false; if (!keepFrame) command({action: "capture-thaw"}); }
+    // A region recording draws a thin frame around what it records: {screen, x, y, w, h}.
+    property var recordingRect: null
+    property int recordingStarted: 0
+    Timer { id: captureFreezeTimer; onTriggered: { Hub.command({action: "capture-freeze", output: Hub.captureScreen ? Hub.captureScreen.name : ""}); captureFallback.restart(); } }
+    // Without grim or a quick answer the studio still opens, over the live screen.
+    Timer { id: captureFallback; interval: 900; onTriggered: if (Hub.captureWanted) { Hub.captureWanted = false; Hub.captureOpen = true; } }
     property string osd: ""
     property var osdScreen:null
     property bool osdHovered:false
@@ -882,8 +902,13 @@ Scope {
                     else if(e.event === "snapPreview") h.snapPreview=e;
                     else if(e.event === "snapGroups") h.snapGroups=e.groups||[];
                     else if(e.event === "snapAssist") h.snapAssistRequested(e);
-                    else if(e.event === "captureDone") { h.lastCapture=e; captureToastTimer.restart(); }
-                    else if(e.event === "recordingState") { h.recordingActive=!!e.active; }
+                    else if(e.event === "captureFrozen") { if(h.captureWanted){h.captureFrozen=e.ok ? e.path : "";h.captureWanted=false;h.captureOpen=true;} }
+                    else if(e.event === "captureDone") {
+                        if(e.intent==="edit"){h.captureEditPath=e.path;}
+                        else if(e.intent==="ask"){h.openAssistant("");AssistantState.ctxScreenshot=e.path;AssistantState.useScreenshot=true;}
+                        else {h.lastCapture=e;captureToastTimer.restart();}
+                    }
+                    else if(e.event === "recordingState") { h.recordingActive=!!e.active; if(!e.active)h.recordingRect=null; h.recordingStarted=e.startedAt||0; }
                     else if(e.event === "routinesState") { h.activeRoutines=e.active||[]; }
 
                     // Power key: key edges the backend let through, the power+volume-down chord, and device state.
@@ -917,6 +942,9 @@ Scope {
         onExited: (code,status) => { h.message("System bridge stopped. Restart Opal to reconnect."); }
     }
     Timer { id: toastTimer; interval: 4500; onTriggered: h.toast="" }
+    // The preview stays while the pointer is on it.
+    property bool captureToastHeld: false
+    onCaptureToastHeldChanged: if(captureToastHeld) captureToastTimer.stop(); else if(lastCapture) captureToastTimer.restart()
     Timer { id: captureToastTimer; interval: 8000; onTriggered: h.lastCapture=null }
     Timer { id: osdTimer; interval: 1800; onTriggered: {if(h.osdHovered)restart();else h.osd="";} }
     Timer { interval:1000; running:h.focusRunning; repeat:true; onTriggered: { h.focusSeconds--; if(h.focusSeconds<=0) { h.focusRunning=false; h.message("Focus complete. Time to take a breath."); Quickshell.execDetached(["notify-send","-a","Opal","Focus complete","Time to take a break."]); } } }

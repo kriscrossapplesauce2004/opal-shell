@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 
-// The workspace card window: it sits just above the tablet bar and grows up out of the workspace chip. A tap outside closes it.
+// The workspace card window: it sits just above the tablet bar or the desktop Shelf and grows up out of the workspace chip. A tap outside closes it.
 Scope {
     id: scope
     property real reveal: 0
@@ -19,8 +19,8 @@ Scope {
         easing.type: Easing.BezierSpline; easing.bezierCurve: grow.to > 0 ? Theme.emphasizedDecelerate : Theme.emphasizedAccelerate
         onFinished: if (!PhoneState.spacesOpen) scope.presenting = false
     }
-    // Leaving the tablet posture or switching workspace closes the card.
-    Connections { target: Hub; function onStatusChanged() { if (PhoneState.spacesOpen && !PhoneState.isTablet(PhoneState.spacesScreen)) PhoneState.spacesOpen = false; } }
+    // Leaving the tablet posture closes a card that a tablet chip opened.
+    Connections { target: Hub; function onStatusChanged() { if (PhoneState.spacesOpen && PhoneState.spacesBottom < 0 && !PhoneState.isTablet(PhoneState.spacesScreen)) PhoneState.spacesOpen = false; } }
     PanelWindow {
         id: dismiss
         screen: PhoneState.spacesScreen || Quickshell.screens[0]
@@ -39,7 +39,7 @@ Scope {
         screen: PhoneState.spacesScreen || Quickshell.screens[0]
         visible: scope.presenting
         anchors { bottom: true; left: true }
-        margins { bottom: PhoneState.tabletNavHeight - 6; left: Math.max(8, Math.min(PhoneState.spacesX - 10, (win.screen ? win.screen.width : 1920) - implicitWidth - 8)) }
+        margins { bottom: PhoneState.spacesBottom >= 0 ? PhoneState.spacesBottom : PhoneState.tabletNavHeight - 6; left: Math.max(8, Math.min(PhoneState.spacesX - 10, (win.screen ? win.screen.width : 1920) - implicitWidth - 8)) }
         implicitWidth: card.implicitWidth + 16
         implicitHeight: card.implicitHeight + 16
         exclusionMode: ExclusionMode.Ignore

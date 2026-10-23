@@ -20,7 +20,7 @@ Item {
     property var filteredCommands:commands.filter(c=>c.name.toLowerCase().indexOf(commandQuery)>=0)
     onSectionChanged:if(section!=="apps")keyboardOpen=false
     function invokeCommand(c) {
-        if(c.action==="screenshot")Hub.screenShot();
+        if(c.action==="screenshot")Hub.openCapture();
         else if(c.action==="lock")Hub.settings("lock");
         else if(c.action==="controls")Hub.page="controls";
         else if(c.action==="focus") {Hub.focusSeconds=25*60;Hub.focusRunning=true;Hub.message("25 minutes. One thing at a time.");Hub.close();}

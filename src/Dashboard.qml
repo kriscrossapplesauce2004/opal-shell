@@ -58,7 +58,7 @@ spacing:18
                     }
                     Item {Layout.fillHeight:true}
                     MText {text:"Uptime  "+Hub.status.uptime+"  ·  "+(Hub.status.profile||"Default power profile");color:Theme.subtext;font.pixelSize:11;Layout.fillWidth:true}
-                    MButton {text:"Take a screenshot";icon:"capture";tonal:true;Layout.fillWidth:true;onClicked:Hub.screenShot()}
+                    MButton {text:"Take a screenshot";icon:"capture";tonal:true;Layout.fillWidth:true;onClicked:Hub.openCapture()}
                 }
             }
         }

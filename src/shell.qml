@@ -34,6 +34,9 @@ ShellRoot {
         function themeExport(name:string):void {Hub.command({action:"omarchy-export",name:name||"opal",light:Theme.light,roles:Theme.roles()});}
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
         function setup():void {Hub.openOobe();}
+        function capture():void {Hub.targetScreen=Hub.chooseScreen();Hub.openCapture();}
+        function screenshot():void {Hub.screenShot();}
+        function record():void {if(Hub.recordingActive)Hub.command({action:"capture-record-stop"});else Hub.command({action:"capture-record-start",output:Hub.chooseScreen() ? Hub.chooseScreen().name : "",audio:true});}
         function workspaces():void {Hub.workspaceOverviewRequest();}
         function android(view:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openAndroid(view);}
         function convergence():void {root.show("convergence");}
@@ -296,6 +299,7 @@ ShellRoot {
     TaskHoverCard {}
     CaptureOverlay {}
     CapturePreviewToast {}
+    CaptureEditor {}
 
     Connections {target:Hub;function onSnapAssistRequested(event) {snapAssist.show(event);}}
     ShadeWindow {}

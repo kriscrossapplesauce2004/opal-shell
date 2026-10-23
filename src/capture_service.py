@@ -1,8 +1,9 @@
-"""Capture Studio & Screen Recorder for Opal: region/window/screen screenshots, local OCR, and PipeWire screen recording with Live Activities."""
+"""Capture Studio & Screen Recorder for Opal: a frozen frame to select on, region/window/screen crops, colour pick, local OCR, markup hand-off, and screen recording with Live Activities."""
 import os, pathlib, re, shutil, signal, subprocess, time
 import hypr_actions
 
 GEOM_RE = re.compile(r'^-?\d+,-?\d+ \d+x\d+$')
+INTENTS = ('copy', 'save', 'ocr', 'edit', 'ask')
 OUTPUT_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
 
 
@@ -38,15 +39,96 @@ class CaptureService:
         self.rec_path = None
         self.rec_started = 0
 
-    def screenshot(self, mode='screen', geometry='', output='', address='', copy=True, ocr=False, delay=0.18):
+    # ---------- frozen frame ----------
+    def freeze_dir(self):
+        base = pathlib.Path(os.environ.get('XDG_RUNTIME_DIR') or ('/run/user/%d' % os.getuid())) / 'opal-capture'
+        base.mkdir(mode=0o700, parents=True, exist_ok=True)
+        return base
+
+    def frozen_path(self, raw):
+        """Return the path when raw is a frame this service froze, else None."""
+        try:
+            path = pathlib.Path(str(raw or '')).resolve()
+            base = self.freeze_dir().resolve()
+        except OSError:
+            return None
+        return path if path.parent == base and path.name.startswith('frozen-') and path.is_file() else None
+
+    def freeze(self, output=''):
+        """Grab the output before the overlay maps, so the user selects on a still frame."""
+        out = str(output or '').strip()
+        if not self.which('grim') or (out and not OUTPUT_RE.fullmatch(out)):
+            self.emit({'event': 'captureFrozen', 'ok': False, 'output': out, 'path': ''})
+            return None
+        # Only one frame is kept: an older one is from a studio that already closed.
+        self.thaw()
+        dest = self.freeze_dir() / ('frozen-%s-%d.png' % (out or 'all', int(time.time() * 1000)))
+        cmd = ['grim'] + (['-o', out] if out else []) + [str(dest)]
+        try:
+            ok = self.run(cmd, capture_output=True, timeout=5).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            ok = False
+        self.emit({'event': 'captureFrozen', 'ok': ok, 'output': out, 'path': str(dest) if ok else ''})
+        return str(dest) if ok else None
+
+    def thaw(self):
+        try:
+            for f in self.freeze_dir().glob('frozen-*.png'):
+                f.unlink()
+        except OSError:
+            pass
+
+    def color(self, frozen, x, y):
+        """Copy the colour of one pixel of the frozen frame as #RRGGBB."""
+        path = self.frozen_path(frozen)
+        if not path or not self.which('magick') or not all(type(v) is int and 0 <= v < 100000 for v in (x, y)):
+            return None
+        try:
+            res = self.run(['magick', str(path), '-format', '%%[hex:p{%d,%d}]' % (x, y), 'info:'], capture_output=True, text=True, timeout=5)
+            hexv = '#' + (res.stdout or '').strip()[:6].upper()
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if not re.fullmatch(r'#[0-9A-F]{6}', hexv):
+            return None
+        if self.which('wl-copy'):
+            self.run(['wl-copy', '--', hexv], capture_output=True, timeout=2)
+        self.emit({'event': 'captureColor', 'hex': hexv})
+        self.emit({'event': 'message', 'text': f'Colour {hexv} copied'})
+        return hexv
+
+    def crop(self, frozen, rect, dest):
+        """Cut rect [x, y, w, h] in image pixels out of the frozen frame."""
+        path = self.frozen_path(frozen)
+        if not path or not self.which('magick'):
+            return False
+        if not (isinstance(rect, (list, tuple)) and len(rect) == 4 and all(type(v) is int for v in rect)):
+            return False
+        x, y, w, h = rect
+        if w < 2 or h < 2 or x < 0 or y < 0 or w > 32768 or h > 32768:
+            return False
+        try:
+            return self.run(['magick', str(path), '-crop', '%dx%d+%d+%d' % (w, h, x, y), '+repage', str(dest)], capture_output=True, timeout=10).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def screenshot(self, mode='screen', geometry='', output='', address='', copy=True, ocr=False, delay=0.18, frozen='', rect=None, intent=''):
+        intent = intent if intent in INTENTS else ('ocr' if ocr else 'copy' if copy else 'save')
+        ocr = intent == 'ocr'
+        copy = intent in ('copy', 'ocr')
+        folder = self.home / 'Pictures/Screenshots'
+        folder.mkdir(parents=True, exist_ok=True)
+        dest = folder / time.strftime('Opal-%Y%m%d-%H%M%S.png')
+        # A selection on the frozen frame is cut from that frame, so what was chosen is exactly what is saved.
+        if frozen and rect is not None:
+            if not self.crop(frozen, rect, dest):
+                self.emit({'event': 'message', 'text': 'Screenshot failed'})
+                return None
+            return self.finish(dest, mode, copy, ocr, intent)
         if not self.which('grim'):
             self.emit({'event': 'message', 'text': 'grim is not installed'})
             return None
         if delay > 0:
             self.sleep(delay)
-        folder = self.home / 'Pictures/Screenshots'
-        folder.mkdir(parents=True, exist_ok=True)
-        dest = folder / time.strftime('Opal-%Y%m%d-%H%M%S.png')
         cmd = ['grim']
         geom = str(geometry or '').strip()
         out = str(output or '').strip()
@@ -75,6 +157,9 @@ class CaptureService:
             self.emit({'event': 'message', 'text': 'Screenshot failed'})
             return None
 
+        return self.finish(dest, mode, copy, ocr, intent)
+
+    def finish(self, dest, mode, copy, ocr, intent='copy'):
         ocr_text = ''
         if ocr and self.which('tesseract'):
             try:
@@ -95,11 +180,12 @@ class CaptureService:
             'event': 'captureDone',
             'path': str(dest),
             'mode': mode,
-            'copied': bool(copy),
+            'copied': bool(copy) and not (ocr and not ocr_text),
             'ocr': ocr_text[:1000],
+            'intent': intent,
         })
-        if ocr and ocr_text:
-            self.emit({'event': 'message', 'text': 'Text extracted from screen and copied'})
+        if ocr:
+            self.emit({'event': 'message', 'text': 'Text copied' if ocr_text else 'No text found in that area'})
         return str(dest)
 
     def recording_active(self):
@@ -192,7 +278,19 @@ class CaptureService:
                 address=str(c.get('address') or ''),
                 copy=c.get('copy') is not False,
                 ocr=c.get('ocr') is True,
+                frozen=str(c.get('frozen') or ''),
+                rect=c.get('rect') if isinstance(c.get('rect'), list) else None,
+                intent=str(c.get('intent') or ''),
             )
+            return True
+        if action == 'capture-freeze':
+            self.freeze(str(c.get('output') or ''))
+            return True
+        if action == 'capture-thaw':
+            self.thaw()
+            return True
+        if action == 'capture-color':
+            self.color(str(c.get('frozen') or ''), c.get('x'), c.get('y'))
             return True
         if action == 'capture-record-start':
             self.start_recording(
