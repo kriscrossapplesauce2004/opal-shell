@@ -486,7 +486,7 @@ Scope {
         if(m==="console"&&prefs.mode!=="console") consoleEnter.restart();
         else if(m!=="console"&&prefs.mode==="console") command({action:"console-release"});
         if(m==="phone") {const screen=targetScreen||chooseScreen();if(screen)set("phoneDisplay",screen.name);} set("mode",m); page=""; query=""; mobileTab="home"; launcherSection="apps"; category=m==="console" ? "Games" : "All apps"; }
-    function close() { page="";closeAudio();closePowerProfile(); }
+    function close() { page="";settingsSection="";settingsFound="";closeAudio();closePowerProfile(); }
     property int startSearchRequest:0
     // Search surface that grows from the shelf pill. It is separate from Start.
     function openSearch() { if(page==="search"){close();return;} query="";calculation="";page="search";startSearchRequest++; }

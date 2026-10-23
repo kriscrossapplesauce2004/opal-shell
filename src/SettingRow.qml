@@ -37,7 +37,14 @@ Rectangle {
     readonly property color ink:current ? Theme.onSecondaryContainer : found ? Theme.onContainer : Theme.text
     readonly property color softInk:current ? Theme.alpha(Theme.onSecondaryContainer,.75) : found ? Theme.alpha(Theme.onContainer,.8) : Theme.subtext
     Rectangle {anchors.fill:parent;topLeftRadius:row.topLeftRadius;topRightRadius:row.topRightRadius;bottomLeftRadius:row.bottomLeftRadius;bottomRightRadius:row.bottomRightRadius;color:Theme.stateLayer;opacity:mouse.pressed ? .12 : mouse.containsMouse ? .06 : 0}
-    MouseArea {id:mouse;anchors.fill:parent;hoverEnabled:true;enabled:row.enabled;cursorShape:Qt.PointingHandCursor;onClicked:row.activated()}
+    MouseArea {
+        id:mouse;anchors.fill:parent;hoverEnabled:true;enabled:row.enabled;cursorShape:Qt.PointingHandCursor
+        onClicked:{row.activated();fresh()}
+        // A click can flip the row's state mid-press, which can leave the press or
+        // hover state layer behind. Recreating the hover state clears both.
+        function fresh() { hoverEnabled=false; rowFresh.restart(); }
+        Timer { id:rowFresh; interval:1; onTriggered:mouse.hoverEnabled=true }
+    }
     RowLayout {
         anchors.fill:parent;anchors.leftMargin:16;anchors.rightMargin:16;spacing:16
         Image {visible:row.iconSource!=="";Layout.preferredWidth:32;Layout.preferredHeight:32;Layout.leftMargin:4;Layout.rightMargin:4;sourceSize:Qt.size(64,64);asynchronous:true;source:row.iconSource}
