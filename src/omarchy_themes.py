@@ -18,6 +18,8 @@ NAMED = ('red', 'yellow', 'orange', 'green', 'cyan', 'blue', 'magenta')
 # Legacy colors.toml and terminal palettes use color0..color15 in ANSI order.
 ANSI = ('black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white')
 BUNDLED = pathlib.Path(__file__).with_name('omarchy-themes.toml')
+# Full themes that ship with Opal: colours, a preview and wallpapers.
+BUNDLED_DIR = pathlib.Path(__file__).with_name('themes')
 # Material tones (CIE L*) for each role, per mode.
 TONES = {
     'dark': dict(primary=80, on_primary=20, primary_container=30, on_primary_container=90, secondary=80, tertiary=80,
@@ -40,7 +42,7 @@ def roots(home=None):
     found = [home/'.config/opal/themes', home/'.config/omarchy/themes']
     if os.environ.get('OMARCHY_PATH'):
         found.append(pathlib.Path(os.environ['OMARCHY_PATH'])/'themes')
-    found += [home/'.local/share/omarchy/themes', pathlib.Path('/usr/share/omarchy/themes')]
+    found += [home/'.local/share/omarchy/themes', pathlib.Path('/usr/share/omarchy/themes'), BUNDLED_DIR]
     return found
 
 
@@ -234,7 +236,7 @@ def discover(home=None):
             theme = read_dir(folder)
             if theme:
                 seen.add(name)
-                themes.append(dict(theme, id=name, name=title(name), path=str(folder), source='installed'))
+                themes.append(dict(theme, id=name, name=title(name), path=str(folder), source='bundled' if root == BUNDLED_DIR else 'installed'))
     for name, colors in bundled().items():
         if colors and name not in seen:
             seen.add(name)
@@ -300,17 +302,29 @@ def _subtle(fg, bg):
     return fg
 
 
+def _readable(fg, dark, *fills):
+    """Text that reads on every fill: the theme's own foreground, moved toward white or black only as far as needed."""
+    target = '#ffffff' if dark else '#000000'
+    for amount in (0, .1, .2, .3, .45, .6, .8, 1):
+        ink = mix(fg, target, amount) if amount else fg
+        if all(contrast(ink, f) >= 4.6 for f in fills):
+            return ink
+    return target
+
+
 def native(colors):
     """The theme's own mode, with its real colours."""
     bg, fg, accent = colors['background'], colors['foreground'], colors['accent']
     dark = colors['mode'] == 'dark'
     container = mix(bg, accent, .3 if dark else .34)
     surface = colors.get('lighter_background') if dark and colors.get('lighter_background') else mix(bg, fg, .06 if dark else .045)
+    high = mix(surface, fg, .05 if dark else .04)
+    fg = _readable(fg, dark, bg, surface, high)
     return dict(primary=accent, on_primary=_ink(accent, bg, colors.get('dark_background')),
                 primary_container=container, on_primary_container=_ink(container, mix(accent, fg, .45), fg),
                 secondary=_distinct(colors, accent, 50), tertiary=_distinct(colors, accent, 150),
                 background=bg, on_surface=fg, on_surface_variant=_subtle(fg, bg),
-                surface_container=surface, surface_container_high=mix(surface, fg, .05 if dark else .04),
+                surface_container=surface, surface_container_high=high,
                 outline_variant=colors['selection'], error=colors.get('red') or ('#ffb4ab' if dark else '#ba1a1a'))
 
 

@@ -178,6 +178,10 @@ trap cleanup EXIT
 while IFS= read -r -d '' file; do
     install -m 0644 "$file" "$tmp_dir/$(basename -- "$file")"
 done < <(find "$source_dir" -maxdepth 1 -type f ! -name '*.pyc' -print0)
+# Bundled themes keep their folders: colours, a preview and wallpapers.
+if [[ -d "$source_dir/themes" ]]; then
+    cp -a -- "$source_dir/themes" "$tmp_dir/themes"
+fi
 
 if [[ -e "$config_dir" ]]; then
     mkdir -p "$backup_dir"
@@ -270,8 +274,8 @@ case "${1:-on}" in
         hypr_reload
         ;;
     login)
-        # Called by the Hyprland start hook; does nothing unless autostart is on.
-        [[ -e "$autostart_flag" ]] && exec "$0" on
+        # Called by the Hyprland start hook; does nothing unless autostart is on or this is the Opal login session.
+        [[ -e "$autostart_flag" || "${OPAL_SESSION:-}" == 1 ]] && exec "$0" on
         exit 0
         ;;
     autostart)
@@ -340,11 +344,16 @@ case "${1:-on}" in
         shift
         exec python3 "$config/opal_activity.py" "$@"
         ;;
+    switch)
+        # The switch assistant: checks, the Opal login session and undo. --gui opens it as a window.
+        shift
+        exec bash "@OPAL_TOOLS@/switch/opal-switch" "$@"
+        ;;
     launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect|lock)
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|portal [on|off|touch|always|never]|activity …|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|portal [on|off|touch|always|never]|activity …|switch [--gui|--check|--undo]|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

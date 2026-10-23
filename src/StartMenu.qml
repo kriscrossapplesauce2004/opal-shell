@@ -34,7 +34,7 @@ FocusScope {
         {id:"controls",name:"Quick settings",detail:"Connectivity, sound and display",icon:"settings",keywords:"control center volume brightness wifi"},
         {id:"network",name:"Wi-Fi settings",detail:"Choose a network",icon:"wifi",keywords:"internet wireless network"},
         {id:"bluetooth",name:"Bluetooth settings",detail:"Pair and connect devices",icon:"bluetooth",keywords:"headphones pairing wireless"},
-        {id:"appearance",name:"Personalize desktop",detail:"Colors, glass and appearance",icon:"palette",keywords:"theme dark light style"},
+        {id:"appearance",name:"Wallpaper & style",detail:"Settings: colours, themes and the Look",icon:"palette",keywords:"theme dark light style personalize colors wallpaper omarchy"},
         {id:"wallpaper",name:"Change wallpaper",detail:"Choose a local image",icon:"palette",keywords:"background photo picture"},
         {id:"windows",name:"Running windows",detail:"Switch to an open application",icon:"desktop",keywords:"tasks switcher"},
         {id:"clipboard",name:"Clipboard history",detail:"Your session clipboard",icon:"clipboard",keywords:"copy paste text"},

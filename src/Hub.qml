@@ -105,6 +105,8 @@ Scope {
     property string page: ""
     // The old convergence page now lives in Settings → Displays.
     onPageChanged:{if(page==="convergence"){settingsSection="displays";page="settings";return;}
+        // The old "Make it yours" panel repeated Settings, so its callers land on Wallpaper & style.
+        if(page==="appearance"){settingsSection="style";page="settings";return;}
         // The old tour page opens the full-screen setup instead.
         if(page==="welcome"){page="";openOobe();return;}
         // The old open-windows page is the console switcher only; elsewhere the strip or recents take over.
@@ -775,8 +777,8 @@ Scope {
                 {text:"Hide automatically",icon:"vertical_align_bottom",checked:!!prefs.taskbarAutoHide,run:()=>set("taskbarAutoHide",!prefs.taskbarAutoHide)},
                 {text:"Center apps",icon:"format_align_center",checked:!!prefs.taskbarCenter,run:()=>set("taskbarCenter",!prefs.taskbarCenter)},
                 {text:"Window labels",icon:"label",checked:!!prefs.taskbarLabels,run:()=>set("taskbarLabels",!prefs.taskbarLabels)},
-                {text:"Displays & convergence",icon:"convergence",run:()=>page="convergence"},
-                {text:"Wallpaper & style",icon:"palette",run:()=>page="appearance"}];
+                {text:"Displays",icon:"monitor",run:()=>openSettings("displays")},
+                {text:"Wallpaper & style",icon:"palette",run:()=>openSettings("style")}];
     }
     function message(s) { toast=s; toastTimer.restart(); }
     function screenShot() { close(); command({action:"screenshot"}); }

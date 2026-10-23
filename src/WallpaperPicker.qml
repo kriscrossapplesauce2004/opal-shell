@@ -34,7 +34,7 @@ Item {
                 MText {text:"Find your backdrop";font.pixelSize:w.small ? 23 : 30;font.weight:Font.DemiBold}
             }
             Item {Layout.fillWidth:true}
-            MButton {icon:"close";tooltip:"Leave without applying preview";onClicked:Hub.page="appearance"}
+            MButton {icon:"close";tooltip:"Leave without applying preview";onClicked:Hub.openSettings("style")}
         }
         Rectangle {Layout.fillWidth:true;Layout.preferredHeight:w.small ? 144 : 220;radius:24;color:Theme.base;clip:true
             Wallpaper {id:wallpaperPreview;anchors.fill:parent;showWidgets:false;imagePath:w.draftPath;fit:w.draftFit;dim:w.draftDim}
