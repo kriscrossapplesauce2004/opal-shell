@@ -100,6 +100,27 @@ class FloatingModeTests(unittest.TestCase):
             fm.save({'before': ['0x1'], 'memory': {}}, path)
             self.assertEqual(fm.load(path)['before'], ['0x1'])
 
+    def test_snap_groups_and_coupled_resize(self):
+        mon = {'name': 'eDP-1', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'scale': 1, 'reserved': [0, 0, 0, 72]}
+        snapped = {
+            '0xa': {'cell': [0.0, 0.0, 0.5, 1.0], 'monitor': 'eDP-1', 'workspace': 1, 'rect': [10, 10, 800, 600]},
+            '0xb': {'cell': [0.5, 0.0, 0.5, 1.0], 'monitor': 'eDP-1', 'workspace': 1, 'rect': [20, 20, 800, 600]},
+        }
+        groups = fm.snap_groups(snapped, [mon])
+        self.assertEqual(len(groups), 1)
+        self.assertAlmostEqual(groups[0]['ratio'], 0.5)
+        self.assertEqual(fm.group_addresses(snapped, '0xa'), ['0xa', '0xb'])
+        updated, ops = fm.plan_resize_group(snapped, mon, 1, 0.65)
+        self.assertEqual(len(ops), 2)
+        self.assertAlmostEqual(updated['0xa']['cell'][2], 0.65)
+        self.assertAlmostEqual(updated['0xb']['cell'][0], 0.65)
+        self.assertAlmostEqual(updated['0xb']['cell'][2], 0.35)
+        # Left window right edge + GAP == Right window left edge
+        left_rect = next(o['rect'] for o in ops if o['address'] == '0xa')
+        right_rect = next(o['rect'] for o in ops if o['address'] == '0xb')
+        self.assertEqual(left_rect[0] + left_rect[2] + fm.GAP, right_rect[0])
+
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -37,7 +37,19 @@ FocusScope {
 
     property bool revealed: greeter
     property string confirmPower: ""
-    function reveal() { revealed = true; field.forceActiveFocus(); idle.restart(); }
+    property bool pinMode: false
+    property var pinDigits: ["1","2","3","4","5","6","7","8","9","0"]
+    function shufflePin() {
+        const base = ["1","2","3","4","5","6","7","8","9","0"];
+        if (Hub.prefs.lockScramblePin) {
+            for (let i = base.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const tmp = base[i]; base[i] = base[j]; base[j] = tmp;
+            }
+        }
+        pinDigits = base;
+    }
+    function reveal() { revealed = true; shufflePin(); field.forceActiveFocus(); idle.restart(); }
     function clear() { field.text = ""; }
     onErrorChanged: if (error !== "") { field.text = ""; reveal(); }
     // An unlocked-looking idle screen returns to the clock hero after a while.
@@ -219,6 +231,82 @@ FocusScope {
             width: parent.width; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
             visible: text !== "" && field.text === ""; text: scene.error
             role: "bodyS"; color: "#ffb4ab"
+        }
+        // Biometric status & Touch PIN pad toggle row
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter; spacing: 8
+            Rectangle {
+                visible: /finger|fprint|biometric|touch/i.test(scene.prompt + " " + scene.error)
+                height: 34; width: bioRow.implicitWidth + 20; radius: 17; color: Theme.alpha(Theme.level(3), .85)
+                Row {
+                    id: bioRow; anchors.centerIn: parent; spacing: 6
+                    Glyph { name: "fingerprint"; font.pixelSize: 18; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                    MText { text: "Touch fingerprint sensor"; role: "labelS"; anchors.verticalCenter: parent.verticalCenter }
+                }
+            }
+            MButton {
+                icon: scene.pinMode ? "keyboard" : "dialpad"
+                text: scene.pinMode ? "Hide PIN pad" : "PIN pad"
+                compact: true; tonal: true; implicitHeight: 34
+                onClicked: { scene.pinMode = !scene.pinMode; if (scene.pinMode) scene.shufflePin(); idle.restart(); }
+            }
+            MButton {
+                visible: scene.pinMode && !scene.greeter
+                icon: "shuffle"
+                text: Hub.prefs.lockScramblePin ? "Scrambled" : "Ordered"
+                compact: true; filled: !!Hub.prefs.lockScramblePin; tonal: !Hub.prefs.lockScramblePin; implicitHeight: 34
+                tooltip: "Scramble keypad numbers each time to prevent shoulder surfing"
+                onClicked: { Hub.set("lockScramblePin", !Hub.prefs.lockScramblePin); Qt.callLater(() => scene.shufflePin()); idle.restart(); }
+            }
+        }
+        // Touch PIN Keypad (3x4 Material 3 round buttons)
+        Grid {
+            visible: scene.pinMode
+            anchors.horizontalCenter: parent.horizontalCenter
+            columns: 3; spacing: 10
+            Repeater {
+                model: 9
+                Rectangle {
+                    required property int index
+                    readonly property string digit: scene.pinDigits[index] || String(index + 1)
+                    width: 68; height: 52; radius: 26
+                    color: digMouse.pressed ? Theme.primary : digMouse.containsMouse ? Theme.level(4) : Theme.alpha(Theme.level(3), .9)
+                    MText { anchors.centerIn: parent; text: parent.digit; role: "title"; font.pixelSize: 22; color: digMouse.pressed ? Theme.onPrimary : Theme.text }
+                    MouseArea {
+                        id: digMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: { if (!scene.busy && scene.needsResponse) { field.text += parent.digit; idle.restart(); } }
+                    }
+                }
+            }
+            Rectangle {
+                width: 68; height: 52; radius: 26
+                color: bkMouse.pressed ? Theme.level(4) : Theme.alpha(Theme.level(3), .65)
+                Glyph { anchors.centerIn: parent; name: "backspace"; font.pixelSize: 20; color: Theme.subtext }
+                MouseArea {
+                    id: bkMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: { if (field.text.length > 0) field.text = field.text.slice(0, -1); idle.restart(); }
+                    onPressAndHold: { field.text = ""; idle.restart(); }
+                }
+            }
+            Rectangle {
+                readonly property string digit: scene.pinDigits[9] || "0"
+                width: 68; height: 52; radius: 26
+                color: zeroMouse.pressed ? Theme.primary : zeroMouse.containsMouse ? Theme.level(4) : Theme.alpha(Theme.level(3), .9)
+                MText { anchors.centerIn: parent; text: parent.digit; role: "title"; font.pixelSize: 22; color: zeroMouse.pressed ? Theme.onPrimary : Theme.text }
+                MouseArea {
+                    id: zeroMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: { if (!scene.busy && scene.needsResponse) { field.text += parent.digit; idle.restart(); } }
+                }
+            }
+            Rectangle {
+                width: 68; height: 52; radius: 26
+                color: field.text !== "" ? Theme.primary : Theme.alpha(Theme.level(3), .65)
+                Glyph { anchors.centerIn: parent; name: "check"; font.pixelSize: 22; color: field.text !== "" ? Theme.onPrimary : Theme.subtext }
+                MouseArea {
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor; enabled: !scene.busy && field.text !== ""
+                    onClicked: field.accepted()
+                }
+            }
         }
     }
 

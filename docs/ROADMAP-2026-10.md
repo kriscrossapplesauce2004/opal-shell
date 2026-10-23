@@ -7,7 +7,8 @@ Decided in the grilling session on 2026-10-07. Every workstream follows these ru
 - Design: Pixel-level Material 3 Expressive polish is the base. New ideas must be useful in daily use. Do not add novelty or generic filler.
 - Targets: OnePlus 7 (Determination guest), generic Linux phones (pmOS/Mobian), tablets, phone-as-dock input, and this desktop.
 - Quickshell can wrap any compositor. Keep Hyprland optional (see `../../agents.md` invariants).
-- Desktop control and assistant "computer use" go through AT-SPI (Jev), **never screenshots**.
+- Desktop control and assistant actions go through Opal's native MCP (`opal_mcp.py`) and built-in tools with in-panel user confirmation.
+
 - Telephony (calls/SMS/cellular) is out of scope for now.
 - Verify with offscreen renders and unit tests on every change. Deploy to the live shell at milestones, with a backup.
 
@@ -42,7 +43,8 @@ Tablet is part of phone mode. When the output is wide, phone mode becomes a tabl
 - A dedicated panel with conversation, markdown, follow-ups and stop/retry. It is a real assistant, not only Start `!`.
 - Hotkeys: Super+A and the Copilot/Assistant key; long-press Home on phone; hold Guide on console.
 - Automatic context: the focused app and title, the selection or clipboard.
-- Agentic actions through a larger Opal MCP (apps, windows, settings, files) and AT-SPI computer use through Jev. Risky actions need confirmation.
+- Agentic actions through Opal MCP (apps, windows, settings, screen capture, clipboard, shortcuts, files) and Claude built-in tools. Risky actions need confirmation.
+
 
 ### F. Qt/GTK integration
 - Full theme parity: a Kvantum theme generated from the palette, a GTK3/GTK4/libadwaita theme with shapes as well as colors, and a KDE color scheme for KDE apps.

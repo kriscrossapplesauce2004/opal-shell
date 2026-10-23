@@ -3,10 +3,11 @@ import threading
 
 import battery_stats
 import recent_activity
+import smart_back
 import torch
 from phone_windows import PhoneWindows, MODES
 
-ACTIONS = ('torch', 'torch-status', 'battery-stats', 'recent-activity', 'phone-fit', 'phone-split', 'phone-slideover', 'phone-home', 'phone-unsplit', 'phone-lift', 'phone-release')
+ACTIONS = ('torch', 'torch-status', 'battery-stats', 'recent-activity', 'phone-fit', 'phone-split', 'phone-slideover', 'phone-home', 'phone-unsplit', 'phone-lift', 'phone-release', 'phone-back')
 _windows = PhoneWindows()
 
 
@@ -41,6 +42,8 @@ def handle(c, emit, games=None):
                                                        c.get('workspace') if type(c.get('workspace')) is int else 0), daemon=True).start()
     elif action == 'phone-home':
         threading.Thread(target=_windows.go_home, daemon=True).start()
+    elif action == 'phone-back':
+        threading.Thread(target=smart_back.execute_back, daemon=True).start()
     elif action == 'phone-unsplit':
         outputs = c.get('outputs') if isinstance(c.get('outputs'), list) else []
         threading.Thread(target=lambda: _windows.unsplit(c.get('addresses') if isinstance(c.get('addresses'), list) else [], outputs), daemon=True).start()

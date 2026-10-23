@@ -211,12 +211,18 @@ Scope {
         const w = step < 0 ? previousWindow() : neighbour(step);
         if (w) Hub.focusWindow(w);
     }
-    // Back closes one shell layer. With an app in front it returns to the previous app, as apps own their keys.
+    // Back closes one shell layer first, then delegates to Smart Back (Waydroid KEYCODE_BACK -> transient Escape -> browser Alt+Left -> MRU app).
     function back() {
-        if (Hub.page === "settings" && Hub.settingsSection !== "") Hub.settingsSection = "";
+        if (Hub.captureOpen) Hub.captureOpen = false;
+        else if (recentsOpen) closeRecents();
+        else if (spacesOpen) spacesOpen = false;
+        else if (Hub.audioOpen) Hub.closeAudio();
+        else if (Hub.systemOskVisible) Hub.systemOsk("hide");
+        else if (Hub.page === "settings" && Hub.settingsSection !== "") Hub.settingsSection = "";
         else if (Hub.controlDetail !== "" && (Hub.page === "controls" || Hub.page === "notifications")) Hub.controlDetail = "";
         else if (Hub.page === "launcher" && Hub.mobileTab !== "home") { Hub.mobileTab = "home"; }
         else if (Hub.page !== "") Hub.close();
+        else if (Hub.status.hypr && appInFront) Hub.command({action: "phone-back"});
         else { const w = previousWindow(); if (w) Hub.focusWindow(w); }
     }
 
@@ -275,6 +281,37 @@ Scope {
         Hub.command({action: "phone-unsplit", addresses: [splitLeft, splitRight], outputs: phoneScreens().map(sc => sc.name)});
         splitActive = false; splitLeft = ""; splitRight = "";
     }
+    function swapSplit() {
+        if (!splitActive) return;
+        const left = splitLeft;
+        splitLeft = splitRight;
+        splitRight = left;
+        splitRatio = Math.max(.25, Math.min(.75, 1 - splitRatio));
+        applySplit();
+    }
+    function saveSplitPair() {
+        if (!splitActive) return;
+        const a = Hub.windows.find(w => w.address === splitLeft), b = Hub.windows.find(w => w.address === splitRight);
+        const appA = a ? Hub.appForWindow(a) : null, appB = b ? Hub.appForWindow(b) : null;
+        if (appA && appB) Hub.addAppPairToHome(appA, appB, splitRatio);
+        else Hub.message("Could not identify both apps to save pair");
+    }
+    property var pendingPair: null
+    function launchAppPair(screen, leftId, rightId, ratio) {
+        const sc = screen || homeScreen();
+        const appA = Hub.apps.find(a => a.id === leftId), appB = Hub.apps.find(a => a.id === rightId);
+        if (!appA || !appB) return;
+        const winA = Hub.windows.find(w => Hub.appForWindow(w) === appA), winB = Hub.windows.find(w => Hub.appForWindow(w) === appB);
+        if (winA && winB && sc) {
+            splitRatio = ratio || .5;
+            startSplit(sc, winA.address, winB.address);
+            Hub.close();
+            return;
+        }
+        pendingPair = {screen: sc, leftId: leftId, rightId: rightId, ratio: ratio || .5, until: Date.now() + 15000};
+        if (!winA) Hub.launchNew(appA);
+        if (!winB) Hub.launchNew(appB);
+    }
     function slideOver(screen, address) {
         if (!address || !Hub.status.hypr || !screen) return;
         slideAddress = address;
@@ -290,6 +327,19 @@ Scope {
         Hub.launch(app);
     }
     function catchSlide() {
+        const pair = pendingPair;
+        if (pair) {
+            if (Date.now() > pair.until) pendingPair = null;
+            else {
+                const winA = Hub.windows.find(x => Hub.appForWindow(x) && Hub.appForWindow(x).id === pair.leftId);
+                const winB = Hub.windows.find(x => Hub.appForWindow(x) && Hub.appForWindow(x).id === pair.rightId);
+                if (winA && winB) {
+                    pendingPair = null;
+                    splitRatio = pair.ratio || .5;
+                    startSplit(pair.screen || homeScreen(), winA.address, winB.address);
+                }
+            }
+        }
         const p = pendingSlide;
         if (!p) return;
         if (Date.now() > p.until) { pendingSlide = null; return; }

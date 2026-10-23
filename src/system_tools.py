@@ -224,3 +224,18 @@ class NightLight:
             try: os.killpg(self.process.pid, signal.SIGTERM)
             except OSError: pass
         self.process = None
+
+# ---------- Per-app audio stream routing ----------
+
+SINK_TARGET = re.compile(r'[A-Za-z0-9._:-]{1,128}')
+
+def route_audio_stream(stream_id, sink_target='', runner=run):
+    """Move a PipeWire playback stream node to a specific sink via pw-metadata."""
+    if type(stream_id) is not int or not 1 <= stream_id <= 999999:
+        raise ValueError('Invalid audio stream id')
+    target = str(sink_target or '').strip()
+    if not target or not SINK_TARGET.fullmatch(target):
+        raise ValueError('Invalid audio sink target')
+    out = runner(['pw-metadata', '-n', 'default', str(stream_id), 'target.object', target])
+    return out is not None and out.returncode == 0
+

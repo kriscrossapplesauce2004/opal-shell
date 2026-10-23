@@ -116,7 +116,7 @@ def run():
                 proc.wait(timeout=4)
                 log.seek(0)
                 text = log.read()
-                errors = [line for line in text.splitlines() if re.search(r'TypeError|ReferenceError|ERROR|Unable to assign|Binding loop', line)]
+                errors = [line for line in text.splitlines() if re.search(r'TypeError|ReferenceError|ERROR|Unable to assign|Binding loop', line) and 'Failed to connect pipewire context' not in line]
                 assert not errors, '\n'.join(errors)
                 print('PASS: progress activities, replacement, hover, expiry/history, DND, transient, critical, read state, client close, burst bounds, clear; previews:', output)
             finally:

@@ -9,8 +9,25 @@ Item {
     id:s
     property string layoutMode:"desktop"
     property bool active:visible
+    property string query:""
+    property int selection:0
+    readonly property bool touchCarousel:false
     readonly property bool gaming:layoutMode==="console"
-    readonly property var windows:Hub.recentWindows.filter(w=>!(w.workspaceName||"").startsWith("special:")||Hub.minimized(w))
+    readonly property var allWindows:Hub.recentWindows.filter(w=>!(w.workspaceName||"").startsWith("special:")||Hub.minimized(w))
+    readonly property var windows:{
+        const q=query.toLowerCase().trim();
+        if(!q)return allWindows;
+        return allWindows.filter(w=>String(w.title||"").toLowerCase().indexOf(q)>=0||String(w.className||"").toLowerCase().indexOf(q)>=0);
+    }
+    function navigate(key) {
+        const n=windows.length;
+        if(!n)return;
+        if(key==="right"||key==="down")selection=(selection+1)%n;
+        else if(key==="left"||key==="up")selection=(selection-1+n)%n;
+        else if(key==="accept"&&windows[selection])Hub.focusWindow(windows[selection]);
+        else if(key==="back")Hub.close();
+        Hub.navigate(key);
+    }
     Loader {anchors.fill:parent;sourceComponent:s.gaming ? heroView : gridView}
 
     // Live preview clipped to a rounded shape.

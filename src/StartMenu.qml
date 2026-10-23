@@ -10,7 +10,12 @@ FocusScope {
     property string section:"pinned"
     readonly property bool allApps:section!=="pinned"
     readonly property string appCategory:section==="all"||section==="pinned" ? "All apps" : section
-    readonly property var rail:[{id:"pinned",name:"Pinned",icon:"keep"},{id:"all",name:"All apps",icon:"apps"},{id:"Games",name:"Games",icon:"sports_esports"},{id:"Create",name:"Create",icon:"brush"},{id:"Work",name:"Work",icon:"work"},{id:"Internet",name:"Internet",icon:"language"},{id:"System",name:"System",icon:"settings"}]
+    readonly property var rail:{
+        const list=[{id:"pinned",name:"Pinned",icon:"keep"},{id:"all",name:"All apps",icon:"apps"},{id:"Games",name:"Games",icon:"sports_esports"},{id:"Create",name:"Create",icon:"brush"},{id:"Work",name:"Work",icon:"work"},{id:"Internet",name:"Internet",icon:"language"},{id:"System",name:"System",icon:"settings"}];
+        if(Hub.hasAndroidApps||Hub.waydroid.installed)list.push({id:"Android",name:"Android",icon:"smartphone"});
+        return list;
+    }
+
     property string letter:""
     readonly property var library:Hub.searchApps("",appCategory).filter(app=>!letter||app.name.toUpperCase().startsWith(letter))
     property string scope:"all"

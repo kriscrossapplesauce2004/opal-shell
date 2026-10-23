@@ -316,6 +316,11 @@ ShellRoot {
     SnapLayouts {id:snapLayouts}
     SnapPreview {target:Hub.snapPreview}
     SnapAssist {id:snapAssist}
+    DesktopSplitDivider {}
+    TaskHoverCard {}
+    CaptureOverlay {}
+    CapturePreviewToast {}
+
     Connections {target:Hub;function onSnapAssistRequested(event) {snapAssist.show(event);}}
     ShadeWindow {}
     AssistantWindow {}

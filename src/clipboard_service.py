@@ -25,7 +25,13 @@ COLOR_PATTERN = re.compile(r'#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0
 PATH_PATTERN = re.compile(r'(?:~|/)[^\n\0]*\Z')
 IMAGE_TYPES = ('image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/bmp')
 TEXT_TYPES = ('text/plain;charset=utf-8', 'text/plain', 'utf8_string', 'string', 'text')
-SENSITIVE_HINTS = ('passwordmanagerhint', 'keepass', 'sensitive', 'secret')
+SENSITIVE_HINTS = ('passwordmanagerhint', 'keepass', 'sensitive', 'secret', 'concealedtype', 'confidential', 'bitwarden', '1password')
+
+
+def is_sensitive_mime_list(types_text):
+    """Return True if the offered MIME type list carries a password-manager or confidential hint."""
+    lowered = str(types_text or '').lower()
+    return any(hint in lowered for hint in SENSITIVE_HINTS)
 
 
 def _detach_with_parent():
@@ -103,7 +109,7 @@ def capture():
     try:
         types = subprocess.check_output(['wl-paste', '--list-types'],
                                         stderr=subprocess.DEVNULL, timeout=1).decode().lower()
-        if any(hint in types for hint in SENSITIVE_HINTS):
+        if is_sensitive_mime_list(types):
             return
         offered = [line.strip() for line in types.splitlines() if line.strip()]
         mime = next((t for t in IMAGE_TYPES if t in offered), None)

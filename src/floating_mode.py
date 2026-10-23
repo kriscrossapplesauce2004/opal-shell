@@ -267,3 +267,85 @@ def snap_frame(monitor, cell, titlebar=0, shelf=SHELF):
     """Where a snapped window will be drawn, titlebar included, relative to the monitor's top left corner. The shell draws previews there."""
     x, y, w, h = snap_rect(monitor, cell, titlebar=titlebar, shelf=shelf)
     return [x - monitor.get('x', 0), y - titlebar - monitor.get('y', 0), w, h + titlebar]
+
+
+def snap_groups(snapped, monitors=None, shelf=SHELF, gap=GAP):
+    """Group non-full snapped windows by (monitor, workspace) and compute their shared vertical split seam."""
+    by_space = {}
+    for address, entry in (snapped or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        cell = entry.get('cell')
+        if not valid_cell(cell) or same_cell(cell, FULL):
+            continue
+        key = (str(entry.get('monitor') or ''), int(entry.get('workspace') or 0))
+        by_space.setdefault(key, []).append({'address': address, 'cell': [float(v) for v in cell]})
+    mon_map = {m.get('name'): m for m in (monitors or []) if isinstance(m, dict) and m.get('name')}
+    groups = []
+    for (mon_name, ws), members in sorted(by_space.items()):
+        if len(members) < 2:
+            continue
+        # Find a shared vertical seam x in (0.15..0.85) where left cells end and right cells begin.
+        seam = None
+        for m in members:
+            edge = round(m['cell'][0] + m['cell'][2], 4)
+            if 0.15 <= edge <= 0.85 and any(abs(o['cell'][0] - edge) < 0.03 for o in members if o is not m):
+                seam = edge
+                break
+        if seam is None:
+            seam = 0.5
+        divider = None
+        mon = mon_map.get(mon_name)
+        if mon:
+            ax, ay, aw, ah = usable_area(mon, shelf)
+            dx = int(round(ax - mon.get('x', 0) + gap + seam * (aw - gap) - gap / 2))
+            dy = int(round(ay - mon.get('y', 0) + gap))
+            dh = max(80, int(round(ah - 2 * gap)))
+            divider = [dx, dy, gap, dh]
+        groups.append({
+            'id': f'{mon_name}:{ws}',
+            'monitor': mon_name,
+            'workspace': ws,
+            'ratio': seam,
+            'divider': divider,
+            'members': members,
+        })
+    return groups
+
+
+def plan_resize_group(snapped, monitor, workspace, ratio, titlebar=0, shelf=SHELF, gap=GAP):
+    """Resize all snapped windows sharing the vertical seam on (monitor['name'], workspace) to the new ratio (0.25..0.75)."""
+    ratio = max(0.25, min(0.75, float(ratio)))
+    mon_name = str((monitor or {}).get('name') or '')
+    ws = int(workspace or 0)
+    groups = [g for g in snap_groups(snapped, [monitor] if monitor else [], shelf=shelf, gap=gap)
+              if g['monitor'] == mon_name and g['workspace'] == ws]
+    if not groups:
+        return dict(snapped or {}), []
+    old_seam = groups[0]['ratio']
+    updated = {k: dict(v) for k, v in (snapped or {}).items() if isinstance(v, dict)}
+    ops = []
+    for member in groups[0]['members']:
+        addr = member['address']
+        fx, fy, fw, fh = member['cell']
+        right_edge = fx + fw
+        if abs(right_edge - old_seam) < 0.04 and fx < ratio - 0.1:
+            new_cell = [fx, fy, round(ratio - fx, 4), fh]
+        elif abs(fx - old_seam) < 0.04 and right_edge > ratio + 0.1:
+            new_cell = [round(ratio, 4), fy, round(right_edge - ratio, 4), fh]
+        else:
+            continue
+        updated[addr]['cell'] = new_cell
+        rect = snap_rect(monitor, new_cell, gap=gap, titlebar=titlebar, shelf=shelf)
+        ops.append({'op': 'geometry', 'address': addr, 'rect': rect})
+    return updated, ops
+
+
+def group_addresses(snapped, address):
+    """Return all addresses in the same Snap Group as address (including address), or [] if not in a multi-window group."""
+    for group in snap_groups(snapped):
+        addrs = [m['address'] for m in group['members']]
+        if address in addrs:
+            return addrs
+    return []
+

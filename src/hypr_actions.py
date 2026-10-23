@@ -250,3 +250,18 @@ class HyprActions:
         if mode:self.runner(['hyprctl','dispatch','fullscreen','0' if mode==2 else '1'])
         else:self.runner(['hyprctl','dispatch','fullscreenstate','0 0'])
         if restore_focus and restore_focus!=address:self.focus(restore_focus)
+
+    _MODS=re.compile(r'[A-Za-z_ ]{0,32}')
+    _KEY=re.compile(r'[A-Za-z0-9_]{1,32}')
+    def send_shortcut(self,mods,key,address=''):
+        """Send a key chord (e.g. mods='ALT', key='Left' or mods='', key='Escape') to the focused or given window."""
+        mods_str=str(mods or '').strip()
+        key_str=str(key or '').strip()
+        if self._MODS.fullmatch(mods_str) is None or self._KEY.fullmatch(key_str) is None:
+            raise ValueError('Invalid shortcut')
+        target=''
+        if address:
+            self._validate_address(address)
+            target=',address:'+address
+        self.runner(['hyprctl','dispatch','sendshortcut',f'{mods_str},{key_str}{target}'])
+

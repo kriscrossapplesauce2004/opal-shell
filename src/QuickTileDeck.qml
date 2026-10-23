@@ -31,6 +31,7 @@ ColumnLayout {
         case "mic":return !Hub.status.micMuted;
         case "keyboard":return Hub.systemOskVisible;
         case "motion":return Theme.reduceMotion;
+        case "capture":return Hub.recordingActive;
         case "autohide":return !!Hub.prefs.taskbarAutoHide;
         case "focus":return Hub.focusRunning;
         default:return false;
@@ -41,7 +42,7 @@ ColumnLayout {
         if(id==="bluetooth") {const device=Hub.connectivity.bluetooth.items.find(d=>d.active);return device ? device.name : state(id) ? "On" : "Off";}
         if(id==="keyboard")return Hub.systemOskAvailable ? state(id) ? "Visible" : "Ready" : "Unavailable";
         if(id==="saver"&&!Hub.status.profile)return "Unavailable";
-        if(id==="capture")return "Capture screen";
+        if(id==="capture")return Hub.recordingActive ? "Recording · Stop" : "Studio & recorder";
         if(id==="clipboard")return Hub.clipboardItems.length+" items";
         if(id==="convergence")return "Layout & docking";
         if(id==="focus")return Math.ceil(Hub.focusSeconds/60)+" minutes";
@@ -58,7 +59,7 @@ ColumnLayout {
         case "mic":Hub.command({action:"mic"});break;
         case "keyboard":if(Hub.systemOskAvailable)Hub.systemOsk("toggle");break;
         case "motion":Hub.set("reduceMotion",!Theme.reduceMotion);break;
-        case "capture":Hub.screenShot();break;
+        case "capture":Hub.openCapture();break;
         case "autohide":Hub.set("taskbarAutoHide",!Hub.prefs.taskbarAutoHide);break;
         case "clipboard":Hub.toggleClipboard();break;
         case "focus":Hub.timerToggle();break;

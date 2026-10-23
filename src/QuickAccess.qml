@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 
 // Quick Access: three sizes of one thing over the game. Guide shows the glance pill, Guide again opens the sheet, and a tile grows into its own sheet.
 // The sheet's Home button hands the screen back to the console home through the compositor; Resume brings the game back.
@@ -172,6 +173,7 @@ Item {
                     items: {
                         const list = [{b: ControllerNav.acceptLabel, t: "Select"}, {b: ControllerNav.backLabel, t: qa.tabIndex === 0 ? "Close" : "Back"}, {b: "LB RB", t: "Sheets"}];
                         if (qa.tabIndex === 2) list.push({b: ControllerNav.altLabel, t: "Dismiss"});
+                        else if (qa.tabIndex === 0 && padFocus.current && padFocus.current.runningTile === true) list.push({b: ControllerNav.altLabel, t: "Close app"});
                         return list;
                     }
                 }
@@ -262,52 +264,81 @@ Item {
                     }
                 }
             }
-            // Running apps: the one in front is a card with its actions, the others are rows. A switches, the card's Close quits.
-            MText { visible: Compositor.apps.length > 0; text: "Running"; role: "title"; Layout.topMargin: 4 }
+            // Other running apps as rows. The game itself is the card above, so it is left out here.
+            // A (or a click) switches; X, a middle click or the row's × closes the window.
+            MText { visible: runList.windows.length > 0; text: "Running"; role: "title"; Layout.topMargin: 4 }
             Repeater {
-                model: Hub.recentWindows.filter(w => !Hub.minimized(w)).slice(0, 6)
+                id: runList
+                readonly property var windows: {
+                    const game = GameState.gameWindows.map(w => w.address);
+                    return Hub.recentWindows.filter(w => !Hub.minimized(w) && game.indexOf(w.address) < 0).slice(0, 6);
+                }
+                readonly property bool previews: Hub.prefs.switcherPreviews !== false
+                model: windows
                 Rectangle {
                     id: runRow
                     required property var modelData
-                    required property int index
-                    readonly property bool lead: index === 0
                     readonly property var app: Hub.appForWindow(modelData)
+                    readonly property string name: app ? app.name : String(modelData.className || modelData.title || "App")
+                    readonly property bool controllerFocusable: true
+                    readonly property bool controllerLeaf: true
+                    readonly property bool runningTile: true
+                    property bool controllerFocused: false
+                    function controllerActivate() { qa.leave(); Hub.focusWindow(modelData); }
+                    function controllerAlternate() { Hub.closeWindow(modelData); }
+                    readonly property bool hot: controllerFocused || hover.containsMouse
                     Layout.fillWidth: true
-                    implicitHeight: lead ? leadColumn.implicitHeight + 24 : 72
-                    radius: lead ? Theme.shapeLg : 20
-                    color: lead ? Theme.primaryContainer : Theme.alpha(Theme.level(4), .86)
-                    readonly property color ink: lead ? Theme.onContainer : Theme.text
+                    implicitHeight: 72
+                    radius: 20
+                    color: hot ? Theme.alpha(Theme.level(5), .95) : Theme.alpha(Theme.level(4), .86)
+                    Behavior on color { ColorAnimation { duration: Theme.motion(120) } }
                     Item {
                         id: thumb
-                        x: 12; y: 12
-                        width: runRow.lead ? runRow.width - 24 : 88; height: runRow.lead ? width * 9 / 16 : 48
-                        Rectangle { anchors.fill: parent; radius: runRow.lead ? 16 : 10; color: Theme.level(5) }
-                        Loader {
-                            anchors.fill: parent; anchors.margins: 2
-                            active: Hub.status.hypr && !!runRow.modelData.address && qa.sheetOpen
-                            source: "HyprWindowPreview.qml"
-                            onLoaded: item.address = Qt.binding(() => runRow.modelData.address || "")
+                        x: 12; y: 12; width: 88; height: 48
+                        Rectangle { anchors.fill: parent; radius: 10; color: Theme.level(5) }
+                        Item {
+                            anchors.fill: parent
+                            visible: runList.previews
+                            layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software
+                            layer.effect: MultiEffect { maskEnabled: true; maskSource: thumbMask; maskThresholdMin: .5; maskSpreadAtMin: 1 }
+                            Loader {
+                                anchors.fill: parent
+                                active: runList.previews && qa.sheetOpen
+                                source: Hub.status.hypr ? "HyprWindowPreview.qml" : "WindowPreview.qml"
+                                onLoaded: { if (Hub.status.hypr) item.address = Qt.binding(() => runRow.modelData.address || ""); else item.handle = Qt.binding(() => runRow.modelData.handle || null); }
+                            }
                         }
-                        Image { visible: !Hub.status.hypr; anchors.centerIn: parent; width: parent.height * .6; height: width; sourceSize: Qt.size(96, 96); source: Quickshell.iconPath(runRow.app ? runRow.app.icon : "application-x-executable", true) }
+                        Rectangle { id: thumbMask; anchors.fill: parent; radius: 10; visible: false; layer.enabled: true }
+                        Image {
+                            visible: !runList.previews; anchors.centerIn: parent
+                            width: parent.height * .6; height: width; sourceSize: Qt.size(96, 96)
+                            source: Quickshell.iconPath(runRow.app ? runRow.app.icon : "application-x-executable", true)
+                        }
                     }
                     Column {
-                        id: leadColumn
-                        x: runRow.lead ? 12 : thumb.x + thumb.width + 14
-                        y: runRow.lead ? thumb.y + thumb.height + 10 : (runRow.height - height) / 2
-                        width: runRow.width - x - 12; spacing: 2
-                        MText { width: parent.width; text: runRow.app ? runRow.app.name : runRow.modelData.title; role: runRow.lead ? "title" : "titleS"; color: runRow.ink }
-                        MText { width: parent.width; text: runRow.modelData.title || ""; role: "labelS"; color: Theme.alpha(runRow.ink, .75) }
-                        Row {
-                            visible: runRow.lead; spacing: 8; topPadding: 8
-                            MButton { text: "Switch"; icon: "open_in_new"; filled: true; compact: true; onClicked: { qa.leave(); Hub.focusWindow(runRow.modelData); } }
-                            MButton { text: "Close"; icon: "close"; tonal: true; compact: true; onClicked: Hub.closeWindow(runRow.modelData) }
+                        x: thumb.x + thumb.width + 14
+                        y: (runRow.height - height) / 2
+                        width: runRow.width - x - (hover.containsMouse ? 48 : 14)
+                        spacing: 2
+                        MText { width: parent.width; text: runRow.name; role: "titleS"; color: Theme.text }
+                        MText { width: parent.width; text: runRow.modelData.title || ""; role: "labelS"; color: Theme.alpha(Theme.text, .75) }
+                    }
+                    MouseArea {
+                        id: hover
+                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                        onClicked: e => { if (e && e.button === Qt.MiddleButton) runRow.controllerAlternate(); else runRow.controllerActivate(); }
+                        Rectangle {
+                            anchors.right: parent.right; anchors.rightMargin: 12; anchors.verticalCenter: parent.verticalCenter
+                            width: 30; height: 30; radius: 15
+                            visible: hover.containsMouse
+                            color: closeArea.containsMouse ? Theme.error : Theme.alpha(Theme.level(5), .9)
+                            Glyph { anchors.centerIn: parent; name: "close"; font.pixelSize: 16; color: closeArea.containsMouse ? Theme.base : Theme.text }
+                            MouseArea { id: closeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: runRow.controllerAlternate() }
                         }
                     }
-                    MouseArea { visible: !runRow.lead; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { qa.leave(); Hub.focusWindow(runRow.modelData); } }
-                    activeFocusOnTab: !lead
-                    Keys.onReturnPressed: { qa.leave(); Hub.focusWindow(modelData); }
-                    Accessible.role: Accessible.Button; Accessible.name: (app ? app.name : "") + " " + modelData.title
-                    Accessible.onPressAction: { qa.leave(); Hub.focusWindow(modelData); }
+                    Accessible.role: Accessible.Button; Accessible.name: name + " " + (modelData.title || "")
+                    Accessible.onPressAction: controllerActivate()
                 }
             }
             RowLayout {

@@ -10,7 +10,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'src'))
 import struct
 import tempfile
-from clipboard_service import ClipboardHistory, MAX_BYTES, MAX_IMAGES, MAX_ITEMS, MAX_PINS, capture, image_size, kind_of
+from clipboard_service import ClipboardHistory, MAX_BYTES, MAX_IMAGES, MAX_ITEMS, MAX_PINS, capture, image_size, is_sensitive_mime_list, kind_of
 
 
 class ClipboardTests(unittest.TestCase):
@@ -134,6 +134,9 @@ class ClipboardTests(unittest.TestCase):
             capture()
             self.assertEqual(stream.buffer.tell(), 0)
             self.assertEqual(output.getvalue(), '')
+        self.assertTrue(is_sensitive_mime_list('text/plain\norg.nspasteboard.ConcealedType'))
+        self.assertTrue(is_sensitive_mime_list('text/plain\nx-kde-passwordManagerHint'))
+        self.assertFalse(is_sensitive_mime_list('text/plain\ntext/html'))
 
     def test_no_wayland_no_clipboard_access(self):
         with patch.dict(os.environ, {}, clear=True), \

@@ -39,6 +39,7 @@ def valid_phone_home(value):
     def item(v):
         if v is None or app_id(v): return True
         if isinstance(v,dict) and set(v)=={'path'}: return isinstance(v['path'],str) and v['path'].startswith('/') and 1<len(v['path'])<4096
+        if isinstance(v,dict) and set(v)=={'pair','ratio'}: return isinstance(v['pair'],list) and len(v['pair'])==2 and all(map(app_id,v['pair'])) and type(v['ratio']) in (int,float) and .25<=v['ratio']<=.75
         return isinstance(v,dict) and set(v)=={'folder','apps'} and isinstance(v['folder'],str) and len(v['folder'])<=40 and isinstance(v['apps'],list) and 0<len(v['apps'])<=24 and all(map(app_id,v['apps']))
     if not isinstance(value,dict) or set(value)!={'pages'} or not isinstance(value['pages'],list) or not 0<len(value['pages'])<=8: return False
     for page in value['pages']:
@@ -61,6 +62,10 @@ import floating_mode
 import theme_export
 import omarchy_themes
 import file_browse
+import waydroid_bridge
+import capture_service
+import routines_engine
+
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
 PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets','look','lookSurfaces','lookBlur','lookEdges','lookShadows','lookAppTransparency')
 def valid_schedules(value):
@@ -116,12 +121,23 @@ def load():
     base['sheetSections'] = list(SHEET_SECTION_DEFAULT)
     base['quickTiles'] = list(QUICK_TILE_DEFAULT)
     base['phoneRows'] = 5
+    base['waydroidSyncTheme'] = True
+    base['waydroidAutoPosture'] = True
+    base['waydroidBadge'] = True
+    base['waydroidAspects'] = {}
+    base['lockScramblePin'] = False
+    base['routines'] = [dict(r) for r in routines_engine.DEFAULT_ROUTINES]
+    base['activeModes'] = []
     base.update(WALLPAPER_DEFAULTS)
+
     try: base.update(json.loads(STORE.read_text()))
     except (OSError, ValueError): pass
     return base
 prefs = load()
 night_light = system_tools.NightLight()
+WAYDROID = waydroid_bridge.WaydroidBridge(emit)
+CAPTURE = capture_service.CaptureService(emit)
+
 GREETER_CACHE = pathlib.Path(os.environ.get('OPAL_GREETER_CACHE', '/var/cache/opal-greeter'))
 GREETER_KEYS = ('light','palette','dynamicColors','dynamicPalette','colorScheme','wallpaperDim','reduceMotion')
 def sync_greeter_theme(values=None, cache=None):
@@ -473,11 +489,19 @@ def commands():
                 valid = valid or valid_look(key, value)
                 valid = valid or key=='switcherScope' and value in ('all','workspace') or key=='switcherPreviews' and type(value)==bool
                 valid = valid or game_profiles.valid_preference(key, value)
+                valid = valid or waydroid_bridge.valid_preference(key, value)
+                valid = valid or routines_engine.valid_preference(key, value)
+                valid = valid or key=='lockScramblePin' and type(value)==bool
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
                     if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
                     if key=='floatingMode': threading.Thread(target=floating_apply,args=(value,),daemon=True).start()
                     if key=='lookBlur': threading.Thread(target=floating_reload,daemon=True).start()
+                    if key=='light' and prefs.get('waydroidSyncTheme') is not False:
+                        threading.Thread(target=lambda v=value: WAYDROID.sync_theme(v), daemon=True).start()
+                    if key in ('routines','activeModes'):
+                        threading.Thread(target=evaluate_routines, daemon=True).start()
+
             elif action=='display-layouts':
                 from display_layouts import publish
                 runtime=os.environ.get('XDG_RUNTIME_DIR')
@@ -590,10 +614,15 @@ def commands():
             elif action in ('pointer','pointer-start','pointer-stop'): pointer_command(c)
             elif isinstance(action,str) and action.startswith('link-'):
                 threading.Thread(target=link_command,args=(c,),daemon=True).start()
+            elif isinstance(action,str) and action.startswith('waydroid-'):
+                threading.Thread(target=WAYDROID.handle,args=(c,prefs.copy()),daemon=True).start()
+
             elif action=='game-library': threading.Thread(target=publish_games,daemon=True).start()
             elif action=='game-widgets': threading.Thread(target=publish_game_widgets,daemon=True).start()
             elif action=='steam-downloads': spawn(['steam','steam://open/downloads'])
             elif action=='capture-copy' and search_files.openable(c.get('path')): threading.Thread(target=copy_image,args=(os.path.realpath(c['path']),),daemon=True).start()
+            elif isinstance(action,str) and action.startswith('capture-'):
+                threading.Thread(target=CAPTURE.handle,args=(c,),daemon=True).start()
             elif action=='game-profile-start' and isinstance(c.get('id'),str): threading.Thread(target=profile_start,args=(c['id'],),daemon=True).start()
             elif action=='game-profile-end': threading.Thread(target=profile_end,daemon=True).start()
             elif action in ('console-enter','console-home','console-release','console-focus','console-close','console-overlay-input'): threading.Thread(target=console_action,args=(c,),daemon=True).start()
@@ -607,6 +636,9 @@ def commands():
                 elif c.get('verb')=='toggle': system_osk.toggle()
                 else: system_osk.set_visible(c.get('verb')=='show')
             elif action=='volume': run('wpctl','set-volume','-l','1','@DEFAULT_AUDIO_SINK@',str(max(0,min(100,int(c['value']))))+'%')
+            elif action=='audio-route-stream':
+                try: system_tools.route_audio_stream(c.get('streamId'),c.get('sinkTarget',''))
+                except (ValueError,OSError) as error: emit({'event':'message','text':str(error)})
             elif action=='mute': run('wpctl','set-mute','@DEFAULT_AUDIO_SINK@','toggle')
             elif action=='mic': run('wpctl','set-mute','@DEFAULT_AUDIO_SOURCE@','toggle')
             elif action=='brightness': run('brightnessctl','set',str(max(1,min(100,int(c['value']))))+'%')
@@ -618,14 +650,7 @@ def commands():
             elif action=='screenshot' and GAMESCOPE[0]:
                 threading.Thread(target=lambda:emit({'event':'message','text':'Screenshot saved to Pictures/Screenshots' if GAMESCOPE[0].screenshot() else 'Screenshot failed'}),daemon=True).start()
             elif action=='screenshot':
-                time.sleep(.5)
-                folder=HOME/'Pictures/Screenshots'; folder.mkdir(parents=True,exist_ok=True)
-                dest=str(folder/time.strftime('Opal-%Y%m%d-%H%M%S.png'))
-                if shutil.which('grim'):
-                    try:
-                        subprocess.run(['grim',dest],check=True,timeout=5)
-                        emit({'event':'message','text':'Screenshot saved to Pictures/Screenshots'})
-                    except Exception: emit({'event':'message','text':'Screenshot failed'})
+                threading.Thread(target=lambda:CAPTURE.screenshot(mode='screen',delay=0.45),daemon=True).start()
             elif action=='power' and c.get('verb') in ('suspend','reboot','poweroff'): spawn(['systemctl',c['verb']])
             elif action=='power' and c.get('verb')=='logout':
                 if shutil.which('hyprctl'):
@@ -636,7 +661,13 @@ def commands():
                     spawn(['loginctl','terminate-session',sid] if sid else ['loginctl','terminate-user',os.environ.get('USER','')])
             elif action=='calculate': emit({'event':'calculation','query':c.get('text',''),'result':calculate(c.get('text',''))})
             elif action=='file-search' and isinstance(c.get('text'),str): emit({'event':'fileSearch','query':c['text'],'items':search_files.search(c['text'])})
-            elif action=='open-path' and search_files.openable(c.get('path')): spawn(['xdg-open',os.path.realpath(c['path'])])
+            elif action=='open-path' and search_files.openable(c.get('path')):
+                real=os.path.realpath(c['path'])
+                if real.lower().endswith('.apk') and WAYDROID.installed():
+                    threading.Thread(target=WAYDROID.install_apk,args=(real,bool(prefs.get('light'))),daemon=True).start()
+                else:
+                    spawn(['xdg-open',real])
+
             elif action=='desktop-open' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(home_data.launch_command(os.path.realpath(c['path'])))
             elif action=='desktop-trash' and home_data.inside(c.get('path'),home_data.desktop_dir()): run('gio','trash',os.path.realpath(c['path'])); home_state['desktop']=None
             elif action=='desktop-reveal' and home_data.inside(c.get('path'),home_data.desktop_dir()): spawn(['gdbus','call','--session','--dest','org.freedesktop.FileManager1','--object-path','/org/freedesktop/FileManager1','--method','org.freedesktop.FileManager1.ShowItems','["'+pathlib.Path(os.path.realpath(c['path'])).as_uri()+'"]',''])
@@ -646,7 +677,10 @@ def commands():
             elif action=='window-restore': threading.Thread(target=window_restore,args=(c.get('address'),),daemon=True).start()
             elif action=='window-snap' and floating_mode.valid_cell(c.get('cell')): threading.Thread(target=window_snap,args=(c.get('address'),c['cell'],c.get('monitor') if isinstance(c.get('monitor'),str) else '',c.get('assist') is True),daemon=True).start()
             elif action=='window-unsnap': threading.Thread(target=window_unsnap,args=(c.get('address'),),daemon=True).start()
+            elif action=='window-resize-group' and isinstance(c.get('ratio'),(int,float)): threading.Thread(target=window_resize_group,args=(str(c.get('monitor') or ''),int(c.get('workspace') or 0),float(c['ratio'])),daemon=True).start()
+            elif action=='window-focus-group' and isinstance(c.get('address'),str): threading.Thread(target=window_focus_group,args=(c['address'],),daemon=True).start()
             elif action=='window-maximize': threading.Thread(target=window_maximize,args=(c.get('address'),),daemon=True).start()
+
             elif action=='window-key-snap' and c.get('direction') in ('left','right','up','down'): threading.Thread(target=window_key_snap,args=(c.get('address'),c['direction']),daemon=True).start()
             elif action=='show-desktop': threading.Thread(target=show_desktop,daemon=True).start()
             elif action in ('desktop-new-folder','desktop-new-file'):
@@ -937,9 +971,44 @@ def window_snap(address,cell,monitor_name='',assist=False):
             floating_mode.save(state)
         hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell,titlebar=floating_titlebar() if prefs.get('floatingMode') else 0))
         if prefs.get('floatingMode'): hypr_actions.snap_restore_size(address,int(entry['rect'][2]),int(entry['rect'][3]))
+        publish_snap_groups(state,monitors)
         if assist and prefs.get('floatingMode'): snap_assist(address,cell,entry,snapped)
     except (ValueError,OSError,subprocess.SubprocessError): pass
+def publish_snap_groups(state=None,monitors=None):
+    try:
+        st=state if isinstance(state,dict) else floating_mode.load()
+        mons=monitors if isinstance(monitors,list) else hypr_actions.monitors()
+        emit({'event':'snapGroups','groups':floating_mode.snap_groups(st.get('snapped',{}),mons)})
+    except (ValueError,OSError,subprocess.SubprocessError): pass
+def window_resize_group(monitor_name,workspace,ratio):
+    try:
+        monitors=hypr_actions.monitors()
+        monitor=next((m for m in monitors if m.get('name')==monitor_name),None) if monitor_name else (monitors[0] if monitors else None)
+        if not monitor: return
+        bar=floating_titlebar() if prefs.get('floatingMode') else 0
+        with floating_lock:
+            state=floating_mode.load()
+            updated,ops=floating_mode.plan_resize_group(state.get('snapped',{}),monitor,workspace,ratio,titlebar=bar)
+            state['snapped']=updated
+            floating_mode.save(state)
+        floating_run(ops)
+        publish_snap_groups(state,monitors)
+    except (ValueError,OSError,subprocess.SubprocessError): pass
+def window_focus_group(address):
+    try:
+        state=floating_mode.load()
+        members=floating_mode.group_addresses(state.get('snapped',{}),address) or [address]
+        for addr in members:
+            if addr in (state.get('minimized') or {}): window_restore(addr)
+            else:
+                try: hypr_actions.focus(addr); hypr_actions.raise_window(addr)
+                except (ValueError,OSError,subprocess.SubprocessError): pass
+        if address in members:
+            try: hypr_actions.focus(address)
+            except (ValueError,OSError,subprocess.SubprocessError): pass
+    except (ValueError,OSError,subprocess.SubprocessError): pass
 def snap_assist(address,cell,entry,snapped):
+
     # Offer the other windows for the rest of the layout. Cells that another snapped window of the workspace already fills stay out.
     filled=[e.get('cell') for a,e in snapped.items() if a!=address and e.get('monitor')==entry.get('monitor') and e.get('workspace')==entry.get('workspace')]
     cells=floating_mode.assist_cells(cell,filled)
@@ -960,7 +1029,9 @@ def window_unsnap(address,move=True):
     try:
         hypr_actions.snap_restore_size(address,0,0)
         if move: hypr_actions.geometry(address,*[int(v) for v in entry['rect']])
+        publish_snap_groups(state)
     except (ValueError,OSError,KeyError,subprocess.SubprocessError): pass
+
 def snapped_cell(address):
     return (floating_mode.load().get('snapped',{}).get(address) or {}).get('cell')
 def window_maximize(address):
@@ -1183,6 +1254,36 @@ def _overlay_set(value):
     game_perf.write_config(overlay=value)
 PROFILES=game_profiles.Applier(_power_get,_power_set,_fps_get,_fps_set,_tdp_set,_overlay_set)
 PROFILE_LOCK=threading.Lock()
+
+def _routine_get(key):
+    if key in ('dnd','light'): return bool(prefs.get(key))
+    if key=='profile': return _power_get()
+    if key=='nightLight': return bool(night_light.process and night_light.process.poll() is None)
+    return None
+
+def _routine_set(key,value):
+    if key in ('dnd','light'):
+        with prefs_lock: prefs[key]=bool(value); save()
+    elif key=='profile' and value in ('power-saver','balanced','performance'):
+        _power_set(value)
+    elif key=='nightLight':
+        night_light.set(bool(value),4000)
+
+ROUTINES=routines_engine.RoutinesEngine(emit,_routine_get,_routine_set)
+ROUTINE_LOCK=threading.Lock()
+def evaluate_routines():
+    with ROUTINE_LOCK:
+        current=LINK.get('status') or {}
+        state=LINK.get('compositor') or {}
+        active=next((w for w in state.get('windows') or [] if w.get('address')==state.get('activeAddress')),{})
+        ctx={
+            'active_class':active.get('className',''),
+            'charging':bool(current.get('charging')),
+            'battery':int(current.get('battery',-1)),
+            'network':str(current.get('network') or ''),
+            'manual_ids':list(prefs.get('activeModes') or []),
+        }
+        ROUTINES.evaluate(prefs.get('routines'),ctx)
 def profile_start(game_id):
     """A game came to the front: apply its profile, or the next-game preset."""
     with PROFILE_LOCK:
@@ -1466,6 +1567,7 @@ def link_status(current):
     service=LINK['service']
     previous=LINK.get('status') or {}
     LINK['status']=current
+    evaluate_routines()
     if not service: return
     if current.get('battery')!=previous.get('battery') or current.get('charging')!=previous.get('charging'):
         service.broadcast('kdeconnect.battery',{'currentCharge':current.get('battery',-1),'isCharging':bool(current.get('charging')),'thresholdEvent':0})
@@ -1475,6 +1577,7 @@ def link_compositor(data):
     """Keep the latest window list and focus from compositor patches."""
     state=LINK.setdefault('compositor',{})
     state.update({k:v for k,v in data.items() if k in ('windows','activeAddress')})
+    evaluate_routines()
     link_session()
 
 def link_session():

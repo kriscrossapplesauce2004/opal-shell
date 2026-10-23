@@ -15,7 +15,8 @@ Item {
         if(!AssistantState.busy||!lastTurn||lastTurn.role!=="assistant")return null;
         const r=(lastTurn.tools||[]).filter(t=>t.status==="running");return r.length ? r[r.length-1] : null;
     }
-    readonly property bool hasContext:(AssistantState.ctxApp!==""&&AssistantState.useApp)||(AssistantState.ctxSelection!==""&&AssistantState.useSelection)||(AssistantState.ctxClipboard!==""&&AssistantState.useClipboard)
+    readonly property bool hasContext:(AssistantState.ctxApp!==""&&AssistantState.useApp)||(AssistantState.ctxSelection!==""&&AssistantState.useSelection)||(AssistantState.ctxClipboard!==""&&AssistantState.useClipboard)||(AssistantState.ctxScreenshot!==""&&AssistantState.useScreenshot)
+
     readonly property real pad:couch ? 28 : phone ? 16 : 20
     readonly property int bodySize:couch ? 17 : 14
     property int suggestIndex:0
@@ -250,7 +251,13 @@ Item {
                     text:"Clipboard · "+AssistantState.ctxClipboard.length+" characters"
                     onRemoved:AssistantState.useClipboard=false
                 }
+                AssistantChip {
+                    visible:AssistantState.ctxScreenshot!==""&&AssistantState.useScreenshot;icon:"photo_camera";removable:true;maxWidth:contextFlow.width
+                    text:"Window screenshot"
+                    onRemoved:AssistantState.useScreenshot=false
+                }
             }
+
             ScrollView {
                 id:fieldScroll
                 x:16;y:contextFlow.y+contextFlow.height+(contextFlow.visible ? 2 : 4);width:parent.width-32
@@ -295,6 +302,11 @@ Item {
                     visible:!panel.hasContext&&!AssistantState.busy;icon:"add_photo_alternate";compact:true;implicitWidth:34;implicitHeight:34
                     tooltip:"Add the focused window, selection and clipboard";onClicked:AssistantState.capture()
                 }
+                MButton {
+                    visible:!(AssistantState.ctxScreenshot!==""&&AssistantState.useScreenshot)&&!AssistantState.busy;icon:"photo_camera";compact:true;implicitWidth:34;implicitHeight:34
+                    tooltip:"Attach a screenshot of the focused window";onClicked:AssistantState.captureScreenshot("active")
+                }
+
                 Item {Layout.fillWidth:true}
                 MText {visible:panel.phone===false&&!AssistantState.busy&&field.text!=="";text:"Enter to send";role:"labelS";color:Theme.muted}
                 MButton {visible:AssistantState.busy;icon:"stop";filled:true;implicitWidth:40;implicitHeight:40;tooltip:"Stop";onClicked:AssistantState.stop()}

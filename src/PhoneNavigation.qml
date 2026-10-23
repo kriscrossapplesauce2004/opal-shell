@@ -10,7 +10,7 @@ Item {
     function go(tab) {if(output)Hub.targetScreen=output;if(tab==="recent"){PhoneState.showRecents(output,null);return;}Hub.mobileTab=tab;Hub.page="launcher";}
     // Home closes every Opal surface; the embedded home screen is then what remains.
     function home() {if(output)Hub.targetScreen=output;PhoneState.goHome();}
-    function back() {if(Hub.page==="settings"&&Hub.settingsSection!=="")Hub.settingsSection="";else if(Hub.controlDetail!==""&&(Hub.page==="controls"||Hub.page==="notifications"))Hub.controlDetail="";else if(Hub.page==="launcher"&&Hub.mobileTab!=="home")go("home");else if(Hub.page===""&&PhoneState.appInFront&&PhoneState.previousWindow())PhoneState.back();else Hub.close();}
+    function back() {if(PhoneState.recentsOpen){PhoneState.closeRecents();return;}if(Hub.page==="settings"&&Hub.settingsSection!=="")Hub.settingsSection="";else if(Hub.controlDetail!==""&&(Hub.page==="controls"||Hub.page==="notifications"))Hub.controlDetail="";else if(Hub.page==="launcher"&&Hub.mobileTab!=="home")go("home");else if(Hub.page===""&&PhoneState.appInFront)PhoneState.back();else Hub.close();}
     // No bar background: the navigation floats over the wallpaper or app, like a modern phone.
     Rectangle {anchors.fill:parent;color:Hub.page===""||Hub.page==="launcher" ? "transparent" : Theme.alpha(Theme.base,.6)}
     // Three buttons: back triangle, home circle and recents square, drawn as outlines.

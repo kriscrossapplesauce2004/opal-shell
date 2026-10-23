@@ -105,9 +105,10 @@ Item {
                 Row {
                     id:chipRow;spacing:6
                     Repeater {
-                        model:["All apps","Games","Create","Work","Internet","System"]
+                        model:(Hub.hasAndroidApps||Hub.waydroid.installed) ? ["All apps","Android","Games","Create","Work","Internet","System"] : ["All apps","Games","Create","Work","Internet","System"]
                         Chip {required property string modelData;text:modelData;implicitHeight:36;selected:drawer.category===modelData;glass:!selected;onClicked:drawer.category=modelData}
                     }
+
                 }
             }
             // While typing, the shared search in touch posture replaces the grid.

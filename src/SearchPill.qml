@@ -36,7 +36,7 @@ Island {
             Item { Layout.fillWidth: true }
             MButton { visible: pill.wide; icon: "calculate"; compact: true; implicitWidth: 30; implicitHeight: 30; hoverHalo: true; ink: Theme.subtext; tooltip: "Calculator"; onClicked: pill.open("= ") }
             MButton { visible: pill.wide; icon: "clipboard"; compact: true; implicitWidth: 30; implicitHeight: 30; hoverHalo: true; ink: Theme.subtext; tooltip: "Clipboard history"; onClicked: { Hub.targetScreen = pill.output; Hub.toggleClipboard(); } }
-            MButton { icon: "capture"; compact: true; implicitWidth: 30; implicitHeight: 30; hoverHalo: true; ink: Theme.subtext; tooltip: "Take a screenshot"; onClicked: Hub.screenShot() }
+            MButton { icon: "capture"; compact: true; implicitWidth: 30; implicitHeight: 30; hoverHalo: true; ink: Theme.subtext; tooltip: "Capture Studio & Screen Recorder"; onClicked: { Hub.targetScreen = pill.output; Hub.openCapture(); } }
         }
     }
     Accessible.role: Accessible.Button

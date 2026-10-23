@@ -39,4 +39,11 @@ Item {
         color: icon.style === "themed" ? Theme.onContainer : Theme.primary
         font.pixelSize: parent.width * .55
     }
+    Rectangle {
+        visible: Hub.isAndroidApp(icon.app) && Hub.prefs.waydroidBadge !== false && icon.width >= 32
+        anchors.right: parent.right; anchors.bottom: parent.bottom
+        width: Math.max(14, Math.round(icon.width * .32)); height: width; radius: width / 2
+        color: Theme.tertiaryContainer; border.width: 1.5; border.color: Theme.base
+        Glyph { anchors.centerIn: parent; name: "smartphone"; font.pixelSize: Math.round(parent.width * .65); color: Theme.onTertiaryContainer }
+    }
 }

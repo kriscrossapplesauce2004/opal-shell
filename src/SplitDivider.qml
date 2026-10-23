@@ -59,7 +59,16 @@ Scope {
             onPositionChanged: e => { if (pressed) PhoneState.setRatio(startRatio + (along(e) - start) / Math.max(1, divider.span - 8), false); }
             onReleased: { PhoneState.setRatio(PhoneState.splitRatio, true); divider.frozen = -1; }
             onCanceled: divider.frozen = -1
-            onDoubleClicked: PhoneState.setRatio(.5, true)
+            onDoubleClicked: PhoneState.swapSplit()
+            onPressAndHold: {
+                const p = area.mapToGlobal(area.width / 2, area.height / 2);
+                Hub.openTaskbarContext(divider.screen, p.x, p.y, [
+                    {text: "Swap sides", icon: "swap_horiz", quick: true, run: () => PhoneState.swapSplit()},
+                    {text: "Save App Pair to Home", icon: "add_to_home_screen", quick: true, run: () => PhoneState.saveSplitPair()},
+                    {text: "50 : 50 split", icon: "vertical_split", run: () => PhoneState.setRatio(.5, true)},
+                    {text: "End split view", icon: "close", danger: true, run: () => PhoneState.endSplit()}
+                ], true, "Split View", "vertical_split");
+            }
             Accessible.role: Accessible.Separator
             Accessible.name: "Split view divider"
         }

@@ -54,6 +54,14 @@ class SystemToolsTests(unittest.TestCase):
             (chip / 'name').write_text('k10temp\n'); (chip / 'temp1_input').write_text('54250\n'); (chip / 'temp2_input').write_text('61000\n')
             self.assertEqual(t.temperatures(pathlib.Path(root)), {'k10temp': 61})
 
+    def test_route_audio_stream(self):
+        calls = []
+        self.assertTrue(t.route_audio_stream(42, 'alsa_output.pci-0000', runner=lambda a: calls.append(a) or Result()))
+        self.assertEqual(calls[0], ['pw-metadata', '-n', 'default', '42', 'target.object', 'alsa_output.pci-0000'])
+        for bad_id, bad_target in ((0, 'sink'), ('42', 'sink'), (42, ''), (42, 'bad;rm')):
+            with self.assertRaises(ValueError):
+                t.route_audio_stream(bad_id, bad_target, runner=lambda a: Result())
+
 
 if __name__ == '__main__':
     unittest.main()

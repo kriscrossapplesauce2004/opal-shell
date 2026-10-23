@@ -238,7 +238,8 @@ ShellRoot {
         }}
         function assistantFixture(test) {
             const A=Opal.AssistantState;
-            A.busy=false;A.available=true;A.jev=true;A.approvals=[];A.turns=[];
+            A.busy=false;A.available=true;A.approvals=[];A.turns=[];
+
             Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{assistantMode:test.auto ? "auto" : "ask"});
             A.ctxApp="firefox";A.ctxTitle="Hyprland wiki - Configuring";A.ctxSelection="Lua config reload";A.ctxClipboard="";A.useApp=true;A.useSelection=true;A.useClipboard=true;
             if(!test.chat&&!test.confirm)return;
@@ -700,7 +701,10 @@ ShellRoot {
             }
             if(test.ui==="phonebars") {
                 view.item.navigation.go("recent");
-                if(Opal.Hub.mobileTab!=="recent")console.error("ASSERTION_FAILED: phone recents");
+                if(!Opal.PhoneState.recentsOpen)console.error("ASSERTION_FAILED: phone recents");
+                view.item.navigation.back();
+                if(Opal.PhoneState.recentsOpen)console.error("ASSERTION_FAILED: phone recents dismiss");
+                view.item.navigation.go("apps");
                 view.item.navigation.back();
                 if(Opal.Hub.mobileTab!=="home"||Opal.Hub.page!=="launcher")console.error("ASSERTION_FAILED: phone contextual back");
                 view.item.navigation.back();

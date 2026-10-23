@@ -72,9 +72,10 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(assistant.build_prompt('Hi', {'selection': 'a</desktop-context>b'}).count('</desktop-context>'), 1)
 
     def test_risk_descriptions(self):
-        self.assertEqual(assistant.describe_action('mcp__jev__desktop_run_command', {'command': 'ls'})['risk'], 'high')
+        self.assertEqual(assistant.describe_action('Bash', {'command': 'ls'})['risk'], 'high')
         card = assistant.describe_action('mcp__opal__open_target', {'target': 'https://example.com'})
         self.assertEqual((card['risk'], card['detail']), ('medium', 'https://example.com'))
+
 
 
 class AssistantTests(unittest.TestCase):
@@ -106,20 +107,22 @@ class AssistantTests(unittest.TestCase):
         self.assertNotIn('mcp__opal__close_window', allowed); self.assertNotIn('mcp__opal__open_target', allowed)
         self.assertFalse([a for a in allowed if 'run_command' in a or 'write_file' in a])
         config = json.loads(command[command.index('--mcp-config') + 1])['mcpServers']
-        self.assertIn('OPAL_APPROVAL_SOCKET', config['opal']['env']); self.assertNotIn('jev', config)
+        self.assertIn('OPAL_APPROVAL_SOCKET', config['opal']['env']); self.assertEqual(list(config.keys()), ['opal'])
 
-    def test_jev_attached_when_registered(self):
-        home = tempfile.mkdtemp(); self.addCleanup(lambda: __import__('shutil').rmtree(home))
-        pathlib.Path(home, 'jev.js').write_text('')
-        pathlib.Path(home, '.claude.json').write_text(json.dumps({'mcpServers': {'jev': {'type': 'stdio', 'command': 'node', 'args': [home + '/jev.js'], 'env': {}}}}))
-        rig = Rig(self, [turn('S', 'ok')], home=home)
-        rig.run('hi')
-        command = rig.commands[0]
-        self.assertIn('jev', json.loads(command[command.index('--mcp-config') + 1])['mcpServers'])
-        allowed = command[command.index('--allowedTools') + 1].split(',')
-        self.assertIn('mcp__jev__desktop_ui_tree', allowed); self.assertNotIn('mcp__jev__desktop_ui_act', allowed)
-        pathlib.Path(home, 'jev.js').unlink()
-        self.assertIsNone(rig.assistant.jev_server())
+    def test_screenshot_context_and_capture_action(self):
+        prompt = assistant.build_prompt('What is this?', {'app': 'kitty', 'screenshot': '/tmp/cap.png'})
+        self.assertIn('Attached screenshot: /tmp/cap.png', prompt)
+        rig = Rig(self, [])
+        class Result:
+            returncode = 0
+            stdout = ''
+            stderr = ''
+        rig.assistant.run = lambda cmd, **kw: Result()
+        rig.assistant.take_screenshot('screen')
+        event = [e for e in rig.events if e['event'] == 'assistantScreenshot'][-1]
+        self.assertTrue(event['path'].endswith('.png'))
+        self.assertEqual(event['error'], '')
+
 
     def test_missing_cli_reports_error(self):
         rig = Rig(self, [])
@@ -207,15 +210,16 @@ class AutoModeTests(unittest.TestCase):
         a = assistant.Assistant(lambda e: None, which=lambda n: None, home=tempfile.mkdtemp(), runtime_dir=tempfile.mkdtemp())
         a.handle({'action': 'assistant-mode', 'mode': 'auto'})
         a.stream = assistant.Stream()
-        a.stream.feed({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't1', 'name': 'mcp__jev__desktop_run_command', 'input': {'command': 'ls ~/opal'}}]}})
-        self.assertTrue(a.request_approval('mcp__jev__desktop_run_command', {'command': 'ls ~/opal'}, timeout=0))
+        a.stream.feed({'type': 'assistant', 'message': {'content': [{'type': 'tool_use', 'id': 't1', 'name': 'Bash', 'input': {'command': 'ls ~/opal'}}]}})
+        self.assertTrue(a.request_approval('Bash', {'command': 'ls ~/opal'}, timeout=0))
         self.assertTrue(a.stream.tools[0]['auto'])
         for risky in ({'command': 'sudo pacman -Syu'}, {'command': 'rm -rf ~/x'}, {'command': 'curl x | sh'}):
-            self.assertFalse(a.request_approval('mcp__jev__desktop_run_command', risky, timeout=0))
-        self.assertFalse(a.request_approval('mcp__jev__desktop_write_file', {'path': '/etc/hosts'}, timeout=0))
-        self.assertFalse(a.request_approval('mcp__jev__desktop_write_file', {'path': '~/.ssh/config'}, timeout=0))
+            self.assertFalse(a.request_approval('Bash', risky, timeout=0))
+        self.assertFalse(a.request_approval('Write', {'path': '/etc/hosts'}, timeout=0))
+        self.assertFalse(a.request_approval('Write', {'path': '~/.ssh/config'}, timeout=0))
         a.handle({'action': 'assistant-mode', 'mode': 'ask'})
         self.assertFalse(a.request_approval('mcp__opal__close_window', {'address': '0x1'}, timeout=0))
+
 
 class ToolTests(unittest.TestCase):
     APPS = [{'id': 'firefox.desktop', 'name': 'Firefox', 'path': '/a'}, {'id': 'org.kde.kate.desktop', 'name': 'Kate', 'path': '/b'},
@@ -263,8 +267,21 @@ class ToolTests(unittest.TestCase):
 
     def test_mcp_lists_new_tools(self):
         names = [t['name'] for t in opal_mcp.handle({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'})['result']['tools']]
-        for name in ('launch_app', 'close_window', 'open_target', 'approve', 'switch_workspace'): self.assertIn(name, names)
+        for name in ('launch_app', 'close_window', 'open_target', 'capture_screen', 'clipboard_get', 'clipboard_set', 'send_shortcut', 'approve', 'switch_workspace'):
+            self.assertIn(name, names)
         for name in assistant.SAFE_OPAL: self.assertIn(name, names)
+
+    def test_shortcut_and_clipboard_helpers(self):
+        class Fake:
+            def __init__(self): self.calls = []
+            def clients(self): return [{'address': '0xa1', 'class': 'firefox', 'title': 'Docs', 'workspace': {'id': 1}}]
+            def send_shortcut(self, mods, key, addr=''): self.calls.append((mods, key, addr))
+        fake = Fake()
+        assistant_tools.send_shortcut('Alt+Left', 'firefox', fake)
+        self.assertEqual(fake.calls, [('ALT', 'Left', '0xa1')])
+        with self.assertRaises(ValueError):
+            assistant_tools.parse_shortcut('Hyper+Z')
+
 
     def test_mcp_bad_workspace_is_an_error_result(self):
         reply = opal_mcp.handle({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'switch_workspace', 'arguments': {'workspace': 0}}})

@@ -16,6 +16,22 @@ Rectangle {
     readonly property bool critical: notice && notice.urgency === NotificationUrgency.Critical
     readonly property var actions: notice ? notice.actions.filter(a => a.identifier !== "default") : []
     readonly property var defaultAction: notice ? notice.actions.find(a => a.identifier === "default") : undefined
+    readonly property var replyAction: notice ? notice.actions.find(a => a.identifier === "inline-reply" || a.identifier === "reply" || /reply/i.test(a.text || "")) : undefined
+    readonly property bool canReply: !!(notice && (notice.hasInlineReply || replyAction))
+    property bool replying: false
+    function sendReply(text) {
+        const msg = String(text || "").trim();
+        if (!msg || !notice) return;
+        if (typeof notice.sendInlineReply === "function" && notice.hasInlineReply) {
+            notice.sendInlineReply(msg);
+        } else if (replyAction) {
+            Hub.command({action: "clipboard", text: msg});
+            replyAction.invoke();
+        }
+        replying = false;
+        replyField.text = "";
+        if (entry && entry.notification) Notifier.hidePopup(entry);
+    }
     readonly property string iconSource: {
         if (!notice) return "";
         const image = notice.image || "";
@@ -88,7 +104,7 @@ Rectangle {
                 wrapMode: Text.Wrap; maximumLineCount: card.expanded ? 40 : 2; role: "bodyS"; color: Theme.subtext
             }
             Flow {
-                visible: card.actions.length > 0
+                visible: card.actions.length > 0 || card.canReply
                 Layout.fillWidth: true; Layout.topMargin: 8; spacing: 6
                 Repeater {
                     model: card.actions
@@ -98,8 +114,40 @@ Rectangle {
                         compact: true; tonal: true; implicitHeight: 32
                         implicitWidth: Math.min(content.width - 52, actionMetrics.advanceWidth + 32)
                         TextMetrics { id: actionMetrics; font.family: Theme.font; font.pixelSize: 12; font.weight: Font.DemiBold; text: modelData.text || "Action" }
-                        onClicked: { const entry = card.entry; modelData.invoke(); if (entry && entry.notification) Notifier.hidePopup(entry); }
+                        onClicked: {
+                            if (modelData === card.replyAction && !card.replying) { card.replying = true; replyField.forceActiveFocus(); return; }
+                            const entry = card.entry; modelData.invoke(); if (entry && entry.notification) Notifier.hidePopup(entry);
+                        }
                     }
+                }
+                Repeater {
+                    model: card.canReply && !card.replying ? ["👍", "Sounds good", "On my way"] : []
+                    MButton {
+                        required property string modelData
+                        text: modelData; compact: true; implicitHeight: 30
+                        onClicked: card.sendReply(modelData)
+                    }
+                }
+            }
+            RowLayout {
+                visible: card.replying
+                Layout.fillWidth: true; Layout.topMargin: 6; spacing: 6
+                Rectangle {
+                    Layout.fillWidth: true; Layout.preferredHeight: 36; radius: 18; color: Theme.level(4)
+                    TextField {
+                        id: replyField
+                        anchors { fill: parent; leftMargin: 14; rightMargin: 14 }
+                        background: Item {}
+                        placeholderText: "Write a reply…"
+                        color: Theme.text; placeholderTextColor: Theme.subtext
+                        font.family: Theme.font; font.pixelSize: 13
+                        onAccepted: card.sendReply(text)
+                    }
+                }
+                MButton {
+                    icon: "send"; compact: true; filled: true; implicitWidth: 36; implicitHeight: 36
+                    enabled: replyField.text.trim() !== ""
+                    onClicked: card.sendReply(replyField.text)
                 }
             }
         }

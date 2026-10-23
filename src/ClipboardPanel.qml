@@ -18,7 +18,7 @@ Item {
     readonly property string normalizedFilter:filter.toLowerCase().trim()
     readonly property var counts:ClipKind.counts(Hub.clipboardItems)
     // Filter chips: All and Pinned stay; a kind chip appears only when that kind is in the history.
-    readonly property var chips:ClipKind.filters.filter(f=>f.id==="all"||f.id==="pinned"&&counts.pinned>0||counts[f.id]>0&&counts[f.id]<counts.all||f.id===kindFilter)
+    readonly property var chips:ClipKind.filters.filter(f=>f.id==="all"||f.id==="pinned"||counts[f.id]>0&&counts[f.id]<counts.all||f.id===kindFilter)
     readonly property var items: {
         const query=normalizedFilter;
         const source=Hub.clipboardItems;

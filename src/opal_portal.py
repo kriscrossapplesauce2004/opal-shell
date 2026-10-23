@@ -38,6 +38,11 @@ XML = '''<node>
     <method name="SaveFiles"><arg type="o" name="handle" direction="in"/><arg type="s" name="app_id" direction="in"/><arg type="s" name="parent_window" direction="in"/><arg type="s" name="title" direction="in"/><arg type="a{sv}" name="options" direction="in"/><arg type="u" name="response" direction="out"/><arg type="a{sv}" name="results" direction="out"/></method>
     <property name="version" type="u" access="read"/>
   </interface>
+  <interface name="org.freedesktop.impl.portal.Screenshot">
+    <method name="Screenshot"><arg type="o" name="handle" direction="in"/><arg type="s" name="app_id" direction="in"/><arg type="s" name="parent_window" direction="in"/><arg type="a{sv}" name="options" direction="in"/><arg type="u" name="response" direction="out"/><arg type="a{sv}" name="results" direction="out"/></method>
+    <method name="PickColor"><arg type="o" name="handle" direction="in"/><arg type="s" name="app_id" direction="in"/><arg type="s" name="parent_window" direction="in"/><arg type="a{sv}" name="options" direction="in"/><arg type="u" name="response" direction="out"/><arg type="a{sv}" name="results" direction="out"/></method>
+    <property name="version" type="u" access="read"/>
+  </interface>
 </node>'''
 REQUEST_XML = '''<node><interface name="org.freedesktop.impl.portal.Request"><method name="Close"/></interface></node>'''
 
@@ -82,10 +87,35 @@ class Portal:
         info = Gio.DBusNodeInfo.new_for_xml(XML)
         self.request_info = Gio.DBusNodeInfo.new_for_xml(REQUEST_XML).interfaces[0]
         connection.register_object(OBJECT, info.interfaces[0], self.method, self.get_property, None)
+        connection.register_object(OBJECT, info.interfaces[1], self.screenshot_method, self.get_property, None)
         threading.Thread(target=self.listen, daemon=True).start()
 
     def get_property(self, connection, sender, path, interface, name):
-        return GLib.Variant('u', 3) if name == 'version' else None
+        if name == 'version':
+            return GLib.Variant('u', 2 if interface.endswith('.Screenshot') else 3)
+        return None
+
+    def screenshot_method(self, connection, sender, path, interface, method, params, invocation):
+        if method == 'Screenshot':
+            def capture():
+                import time, shutil
+                folder = pathlib.Path.home() / 'Pictures/Screenshots'
+                folder.mkdir(parents=True, exist_ok=True)
+                dest = folder / time.strftime('Opal-Portal-%Y%m%d-%H%M%S.png')
+                ok = False
+                if shutil.which('grim'):
+                    try:
+                        res = subprocess.run(['grim', str(dest)], capture_output=True, timeout=5)
+                        ok = res.returncode == 0 and dest.is_file()
+                    except (OSError, subprocess.SubprocessError):
+                        ok = False
+                if ok:
+                    GLib.idle_add(lambda: (invocation.return_value(GLib.Variant('(ua{sv})', (0, {'uri': GLib.Variant('s', dest.as_uri())}))), False)[1])
+                else:
+                    GLib.idle_add(lambda: (invocation.return_value(GLib.Variant('(ua{sv})', (2, {}))), False)[1])
+            threading.Thread(target=capture, daemon=True).start()
+            return
+        invocation.return_value(GLib.Variant('(ua{sv})', (2, {})))
 
     def method(self, connection, sender, path, interface, method, params, invocation):
         handle, app_id, parent, title, options = params.unpack()

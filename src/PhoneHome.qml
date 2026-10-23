@@ -508,8 +508,11 @@ Item {
                             readonly property bool empty: home.isEmpty(modelData)
                             readonly property var file: home.fileFor(modelData)
                             readonly property bool isFile: !empty && typeof modelData === "object" && !!modelData.path
-                            readonly property bool folder: !empty && !isFile && typeof modelData !== "string"
-                            readonly property var app: folder || isFile ? null : home.appFor(modelData)
+                            readonly property bool isPair: !empty && typeof modelData === "object" && Array.isArray(modelData.pair) && modelData.pair.length === 2
+                            readonly property bool folder: !empty && !isFile && !isPair && typeof modelData !== "string"
+                            readonly property var app: folder || isFile || isPair ? null : home.appFor(modelData)
+                            readonly property var pairLeft: isPair ? home.appFor(modelData.pair[0]) : null
+                            readonly property var pairRight: isPair ? home.appFor(modelData.pair[1]) : null
                             // The long-press and right-click menu for this cell.
                             function openMenu() {
                                 const p = cell.mapToItem(home, 0, 0);
@@ -520,7 +523,7 @@ Item {
                             function restY() { return Math.floor(grid.shifted(index) / home.columns) * home.cellHeight; }
                             x: restX(); y: restY()
                             width: home.cellWidth; height: home.cellHeight
-                            visible: folder || app !== null || file !== null
+                            visible: folder || isPair || app !== null || file !== null
                             z: dragArea.drag.active || lifted ? 10 : 0
                             scale: dragArea.drag.active || lifted ? 1.12 : 1
                             Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durShort); easing.type: Easing.OutCubic } }
@@ -554,6 +557,13 @@ Item {
                                         }
                                     }
                                     Rectangle {
+                                        visible: cell.isPair; anchors.fill: parent; radius: width * .3; color: Theme.alpha(Theme.level(3), .92)
+                                        border.width: 1; border.color: Theme.alpha(Theme.primary, .45)
+                                        AppIcon { x: 6; y: 6; width: cell.iconSize * .44; height: width; app: cell.pairLeft; style: "raw" }
+                                        Rectangle { anchors.centerIn: parent; width: parent.width * .68; height: 2; rotation: -45; color: Theme.alpha(Theme.primary, .55) }
+                                        AppIcon { anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 6; width: cell.iconSize * .44; height: width; app: cell.pairRight; style: "raw" }
+                                    }
+                                    Rectangle {
                                         visible: !!cell.app && Hub.windows.some(w => Hub.appForWindow(w) === cell.app)
                                         anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.bottom; anchors.topMargin: 2
                                         width: 5; height: 5; radius: 2.5; color: Theme.primary
@@ -562,7 +572,7 @@ Item {
                                 MText {
                                     visible: !dragArea.drag.active && !cell.lifted
                                     anchors.horizontalCenter: parent.horizontalCenter; width: home.cellWidth - 6; horizontalAlignment: Text.AlignHCenter
-                                    text: cell.folder ? cell.modelData.folder : cell.app ? cell.app.name : cell.file ? cell.file.name : ""; role: "label"
+                                    text: cell.folder ? cell.modelData.folder : cell.isPair ? ((cell.pairLeft ? cell.pairLeft.name : "App") + " + " + (cell.pairRight ? cell.pairRight.name : "App")) : cell.app ? cell.app.name : cell.file ? cell.file.name : ""; role: "label"
                                     maximumLineCount: 2; wrapMode: Text.WrapAtWordBoundaryOrAnywhere; elide: Text.ElideRight
                                     // Labels on the wallpaper are white with a small dense shadow, the same as the desktop labels.
                                     font.weight: Font.DemiBold; color: "#ffffff"
@@ -627,6 +637,7 @@ Item {
                                     if (moved || home.editing) return;
                                     if (home.menuFor !== null) { home.menuFor = null; return; }
                                     if (cell.folder) { home.openFolder = cell.modelData; home.openFolderPage = page.number; home.openFolderIndex = cell.index; }
+                                    else if (cell.isPair) PhoneState.launchAppPair(PhoneState.homeScreen(), cell.modelData.pair[0], cell.modelData.pair[1], cell.modelData.ratio || .5);
                                     else if (cell.app) Hub.launch(cell.app);
                                     else if (cell.file) Hub.command({action: "desktop-open", path: cell.file.path});
                                 }

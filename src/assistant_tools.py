@@ -1,8 +1,11 @@
-"""Desktop actions for the Opal assistant: apps, windows, URLs and files. Pure helpers with injectable runners."""
-import configparser, os, pathlib, re, shutil, subprocess, urllib.parse
+"""Desktop actions for the Opal assistant: apps, windows, URLs, files, screen capture, clipboard and shortcuts. Pure helpers with injectable runners."""
+import configparser, os, pathlib, re, shutil, subprocess, tempfile, time, urllib.parse
 import hypr_actions
 
 OPEN_SCHEMES = ('http', 'https', 'mailto')
+SENSITIVE_MIMES = ('passwordmanagerhint', 'keepass', 'sensitive', 'secret')
+MOD_MAP = {'alt': 'ALT', 'ctrl': 'CTRL', 'control': 'CTRL', 'shift': 'SHIFT', 'super': 'SUPER', 'meta': 'SUPER', 'win': 'SUPER'}
+
 
 def desktop_dirs(env=None):
     env = os.environ if env is None else env
@@ -99,3 +102,78 @@ def move_window(query, workspace, follow=False, actions=None):
 def switch_workspace(number, actions=None):
     (actions or hypr_actions.HyprActions()).workspace(number)
     return 'Workspace %d' % number
+
+def capture_screen(mode='active', window='', actions=None, run=subprocess.run, runtime_dir=None):
+    """Capture the active window, a named window or the full screen with grim. Return the PNG path."""
+    folder = pathlib.Path(runtime_dir or os.environ.get('XDG_RUNTIME_DIR') or tempfile.gettempdir()) / 'opal-captures'
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / ('capture-%d.png' % int(time.time() * 1000))
+    cmd = ['grim']
+    if mode in ('active', 'window'):
+        actions = actions or hypr_actions.HyprActions()
+        try:
+            clients = actions.clients()
+            target = None
+            if window:
+                info = resolve_window(window, [{'address': c.get('address', ''), 'app': c.get('class', ''), 'title': c.get('title', ''), 'workspace': (c.get('workspace') or {}).get('id', 0)} for c in clients])
+                target = next((c for c in clients if c.get('address') == info['address']), None)
+            else:
+                focused = [c for c in clients if c.get('focusHistoryID') == 0]
+                target = focused[0] if focused else (clients[0] if clients else None)
+            if target:
+                at, size = target.get('at') or [0, 0], target.get('size') or [0, 0]
+                if len(at) == 2 and len(size) == 2 and int(size[0]) > 0 and int(size[1]) > 0:
+                    cmd += ['-g', '%d,%d %dx%d' % (int(at[0]), int(at[1]), int(size[0]), int(size[1]))]
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+            if mode == 'window' and window: raise
+    cmd.append(str(dest))
+    result = run(cmd, capture_output=True, text=True, timeout=5)
+    if getattr(result, 'returncode', 0) != 0:
+        raise RuntimeError((getattr(result, 'stderr', '') or 'Screen capture failed').strip())
+    return str(dest)
+
+def clipboard_get(primary=False, run=subprocess.run):
+    """Read text from the Wayland clipboard, refusing password-manager secrets."""
+    if not primary:
+        try:
+            mimes = run(['wl-paste', '--list-types'], capture_output=True, text=True, timeout=1.5)
+            if getattr(mimes, 'returncode', 0) == 0 and any(h in (mimes.stdout or '').lower() for h in SENSITIVE_MIMES):
+                raise ValueError('Clipboard contains sensitive password data')
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('Clipboard unavailable: %s' % error)
+    cmd = ['wl-paste', '--no-newline', '--type', 'text'] + (['--primary'] if primary else [])
+    result = run(cmd, capture_output=True, text=True, timeout=1.5)
+    if getattr(result, 'returncode', 0) != 0: return ''
+    return (result.stdout or '')[:4000]
+
+def clipboard_set(text, run=subprocess.run):
+    """Copy plain text to the Wayland clipboard."""
+    value = str(text or '')
+    if not value or len(value) > 65536: raise ValueError('Give non-empty text up to 64 KB')
+    result = run(['wl-copy', '--', value], input='', capture_output=True, text=True, timeout=2)
+    if getattr(result, 'returncode', 0) != 0:
+        raise RuntimeError((getattr(result, 'stderr', '') or 'Failed to set clipboard').strip())
+    return 'Copied %d characters' % len(value)
+
+def parse_shortcut(shortcut):
+    """Parse 'Alt+Left', 'Ctrl+Shift+T' or 'Escape' into (mods_string, key_name)."""
+    parts = [p.strip() for p in str(shortcut or '').replace('-', '+').split('+') if p.strip()]
+    if not parts: raise ValueError('Give a shortcut like "Alt+Left" or "Escape"')
+    mods, key = [], parts[-1]
+    for p in parts[:-1]:
+        mapped = MOD_MAP.get(p.lower())
+        if not mapped: raise ValueError('Unknown modifier "%s"' % p)
+        if mapped not in mods: mods.append(mapped)
+    if not re.fullmatch(r'[A-Za-z0-9_]{1,32}', key): raise ValueError('Invalid key "%s"' % key)
+    return ' '.join(mods), key
+
+def send_shortcut(shortcut, window='', actions=None):
+    """Send a keyboard shortcut to the focused or matched window."""
+    actions = actions or hypr_actions.HyprActions()
+    mods, key = parse_shortcut(shortcut)
+    address = ''
+    if window:
+        address = resolve_window(window, windows(actions))['address']
+    actions.send_shortcut(mods, key, address)
+    return 'Sent %s%s' % (shortcut, (' to ' + window) if window else '')
+

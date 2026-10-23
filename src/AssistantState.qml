@@ -17,15 +17,16 @@ Scope {
     // Switching to auto while a card waits also lets that action through.
     onModeChanged:if(mode==="auto")approvals.filter(a=>a.risk!=="high").forEach(a=>approve(a.id,true))
     property bool available:true
-    property bool jev:false
     // Context chips. The user can remove each one before sending.
     property string ctxApp:""
     property string ctxTitle:""
     property string ctxSelection:""
     property string ctxClipboard:""
+    property string ctxScreenshot:""
     property bool useApp:true
     property bool useSelection:true
     property bool useClipboard:true
+    property bool useScreenshot:true
     readonly property var suggestions:[
         {icon:"spark",text:"What can you do here?",prompt:"What can you do for me in this desktop? Give a short list."},
         {icon:"desktop",text:"Summarize what I have open",prompt:"List my open windows and say in two lines what I seem to be working on."},
@@ -39,8 +40,11 @@ Scope {
         ctxSelection="";ctxClipboard="";useApp=true;useSelection=true;useClipboard=true;
         Hub.command({action:"assistant-context"});
     }
+    function captureScreenshot(mode) {
+        Hub.command({action:"assistant-screenshot",mode:mode||"active",window:ctxApp});
+    }
     function contextPayload() {
-        return {app:useApp ? ctxApp : "",title:useApp ? ctxTitle : "",selection:useSelection ? ctxSelection : "",clipboard:useClipboard ? ctxClipboard : ""};
+        return {app:useApp ? ctxApp : "",title:useApp ? ctxTitle : "",selection:useSelection ? ctxSelection : "",clipboard:useClipboard ? ctxClipboard : "",screenshot:useScreenshot ? ctxScreenshot : ""};
     }
     function dispatch(text,context) {
         request++;lastText=text;lastContext=context;busy=true;
@@ -51,9 +55,10 @@ Scope {
         const t=(text||"").trim();if(!t||busy)return;
         const context=contextPayload();
         // Context goes once. The next question can add it again.
-        ctxSelection="";ctxClipboard="";ctxApp="";ctxTitle="";
+        ctxSelection="";ctxClipboard="";ctxApp="";ctxTitle="";ctxScreenshot="";
         dispatch(t,context);
     }
+
     function retry() {
         if(busy||turns.length<2||lastText==="")return;
         turns=turns.slice(0,turns.length-2);
@@ -77,7 +82,10 @@ Scope {
             if(e.done)busy=false;
         } else if(e.event==="assistantApprovals") approvals=e.items||[];
         else if(e.event==="assistantContext") {
-            ctxSelection=e.selection||"";ctxClipboard=e.clipboard||"";available=e.available!==false;jev=!!e.jev;
+            ctxSelection=e.selection||"";ctxClipboard=e.clipboard||"";available=e.available!==false;
+        } else if(e.event==="assistantScreenshot") {
+            if(e.path){ctxScreenshot=e.path;useScreenshot=true;}
+            else if(e.error)Hub.message(e.error);
         }
     }
 }

@@ -40,6 +40,44 @@ Scope {
         taskbarContextRequest++;
     }
     function closeTaskbarContext() {taskbarContextOpen=false;}
+    property var snapGroups:[]
+    readonly property var activeSnapGroup:snapGroups.find(g=>g.workspace===status.workspace&&(!status.activeMonitor||g.monitor===status.activeMonitor))||null
+    function snapGroupFor(address) {return address ? snapGroups.find(g=>(g.members||[]).some(m=>m.address===address))||null : null;}
+    function resizeSnapGroup(monitor,workspace,ratio) {command({action:"window-resize-group",monitor:monitor||"",workspace:Number(workspace||status.workspace||1),ratio:Number(ratio)});}
+    function focusSnapGroup(address) {close();command({action:"window-focus-group",address:address||""});}
+    property bool taskHoverOpen:false
+    property var taskHoverScreen:null
+    property var taskHoverGroup:null
+    property real taskHoverX:0
+    property real taskHoverBottom:64
+    property bool taskButtonHovered:false
+    property bool taskCardHovered:false
+    property Timer taskHoverOpenTimer: Timer {interval:320;onTriggered:if(h.taskButtonHovered&&h.taskHoverGroup&&h.taskHoverGroup.windows.length>0)h.taskHoverOpen=true}
+    property Timer taskHoverCloseTimer: Timer {interval:220;onTriggered:if(!h.taskButtonHovered&&!h.taskCardHovered)h.taskHoverOpen=false}
+    function hoverTask(screen,group,x,bottom) {
+        taskHoverScreen=screen||chooseScreen();
+        taskHoverGroup=group;
+        taskHoverX=x;
+        taskHoverBottom=bottom||64;
+        taskButtonHovered=true;
+        taskHoverCloseTimer.stop();
+        if(!taskHoverOpen)taskHoverOpenTimer.restart();
+    }
+    function leaveTask() {
+        taskButtonHovered=false;
+        taskHoverOpenTimer.stop();
+        taskHoverCloseTimer.restart();
+    }
+    function setTaskCardHovered(inside) {
+        taskCardHovered=!!inside;
+        if(inside)taskHoverCloseTimer.stop();
+        else taskHoverCloseTimer.restart();
+    }
+    function closeTaskHover() {
+        taskButtonHovered=false;taskCardHovered=false;taskHoverOpen=false;
+        taskHoverOpenTimer.stop();taskHoverCloseTimer.stop();
+    }
+
     property bool powerProfileOpen:false
     property var powerProfileScreen:null
     property real powerProfileX:0
@@ -199,6 +237,15 @@ Scope {
 
     }
     property string toast: ""
+    property bool captureOpen: false
+    property var lastCapture: null
+    property bool recordingActive: false
+    property var activeRoutines: []
+    function openCapture() {
+        close();
+        if (recordingActive) command({action: "capture-record-stop"});
+        else { lastCapture = null; captureOpen = true; }
+    }
     property string osd: ""
     property var osdScreen:null
     property bool osdHovered:false
@@ -212,6 +259,17 @@ Scope {
     property bool preferencesLoaded: false
     // Normalize desktop entries once; search, taskbar, and window cards all use
     // these indexes instead of scanning the complete application list.
+    property var waydroid: ({installed:false,initialized:false,session:"stopped",container:"stopped",ip:"",multiWindows:true,suspend:false,cursor:true,appCount:0,sharedFolder:""})
+    function isAndroidApp(app) { return !!app && String(app.id||"").toLowerCase().startsWith("waydroid."); }
+    function androidPackage(app) { return isAndroidApp(app) ? String(app.id||"").replace(/\.desktop$/i,"").slice(9) : ""; }
+    readonly property bool hasAndroidApps: apps.some(a => isAndroidApp(a))
+    function setAndroidAspect(pkg, aspect) {
+        if(!pkg)return;
+        const map=Object.assign({},prefs.waydroidAspects||{});
+        if(aspect==="freeform")delete map[pkg]; else map[pkg]=aspect;
+        set("waydroidAspects",map);
+        command({action:"waydroid-aspect",package:pkg,aspect:aspect});
+    }
     property var apps: polkitMode ? [] : DesktopEntries.applications.values.filter(a => !a.noDisplay).sort((a,b) => a.name.localeCompare(b.name))
     readonly property var appIndex: {
         const index=Object.create(null);
@@ -231,10 +289,11 @@ Scope {
     readonly property var appSearchIndex: apps.map(a => ({
         app:a,
         name:String(a.name||"").toLowerCase(),
-        hay:(String(a.name||"")+" "+String(a.genericName||"")+" "+(a.keywords||[]).join(" ")).toLowerCase(),
-        categories:(a.categories||[]).join(" ").toLowerCase()
+        hay:(String(a.name||"")+" "+String(a.genericName||"")+" "+(a.keywords||[]).join(" ")+(isAndroidApp(a) ? " android waydroid" : "")).toLowerCase(),
+        categories:((a.categories||[]).join(" ")+(isAndroidApp(a) ? " android" : "")).toLowerCase()
     }))
-    readonly property var searchCategories: ({Games:["game"], Create:["graphics","audiovideo","audio","video"], Work:["office","development","education"], System:["system","settings","utility"], Internet:["network"]})
+    readonly property var searchCategories: ({Games:["game"], Create:["graphics","audiovideo","audio","video"], Work:["office","development","education"], System:["system","settings","utility"], Internet:["network"], Android:["android","x-waydroid-app"]})
+
     property var favoriteApps: {
         let ids = prefs.favorites;
         if (prefs.pinsConfigured || ids.length) return ids.map(id => appIndex[String(id).toLowerCase()]).filter(Boolean);
@@ -508,7 +567,14 @@ Scope {
         if(running.length){command({action:"recent",id:app.id});activateGroup({app:app,windows:running});}
         else launchNew(app);
     }
-    function launchNew(app) {if(!app)return;command({action:"recent",id:app.id});app.execute();page="";}
+    function launchNew(app) {
+        if(!app)return;
+        command({action:"recent",id:app.id});
+        if(isAndroidApp(app))command({action:"waydroid-launch",package:androidPackage(app),name:app.name});
+        else app.execute();
+        page="";
+    }
+
     function pinned(app) { return prefs.favorites.indexOf(app.id)>=0; }
     function glyphForApp(app) {
         const words=app ? ((app.id||"")+" "+(app.name||"")+" "+(app.categories||[]).join(" ")).toLowerCase() : "";
@@ -609,6 +675,15 @@ Scope {
         if(hole>=0)last.items[hole]=app.id;else if(last.items.length>=24)layout.pages.push({widgets:[],items:[app.id]});else last.items.push(app.id);
         setPhoneHome(layout);message("Added to Home");
     }
+    function addAppPairToHome(leftApp, rightApp, ratio) {
+        if(!leftApp||!rightApp||leftApp.id===rightApp.id)return;
+        const entry={pair:[leftApp.id,rightApp.id],ratio:Math.max(.25,Math.min(.75,Number((ratio||.5).toFixed(2))))};
+        const layout=JSON.parse(JSON.stringify(phoneHome));
+        const last=layout.pages[layout.pages.length-1];
+        const hole=last.items.indexOf(null);
+        if(hole>=0)last.items[hole]=entry;else if(last.items.length>=24)layout.pages.push({widgets:[],items:[entry]});else last.items.push(entry);
+        setPhoneHome(layout);message("App pair saved to Home · "+leftApp.name+" + "+rightApp.name);
+    }
     function appMenu(app) {
         if(!app)return [];
         const matching=windows.filter(w=>appForWindow(w)===app);
@@ -616,10 +691,21 @@ Scope {
                      {text:pinned(app) ? "Unpin" : "Pin",icon:pinned(app) ? "keep_off" : "keep",quick:true,run:()=>pin(app)}];
         if(prefs.mode==="phone"||prefs.mode==="auto")entries.push({text:homeHas(app.id) ? "On Home" : "Add to Home",icon:"add_to_home_screen",run:()=>addToHome(app)});
         if(matching.length) entries.push({text:matching.length===1 ? "Close" : "Close all",icon:"close",quick:true,danger:true,run:()=>matching.forEach(w=>closeWindow(w))});
+        if(isAndroidApp(app)) {
+            const pkg=androidPackage(app);
+            const cur=(prefs.waydroidAspects||{})[pkg]||"freeform";
+            [{k:"phone",t:"Phone 9:16"},{k:"tablet",t:"Tablet"},{k:"freeform",t:"Freeform"}].forEach(p=>{
+                entries.push({text:p.t,chip:true,checked:cur===p.k,group:"Android window size",run:()=>setAndroidAspect(pkg,p.k)});
+            });
+            entries.push({text:"Android app info",icon:"info",run:()=>{command({action:"waydroid-app-info",package:pkg});close();}});
+            entries.push({text:"Force stop Android app",icon:"stop_circle",run:()=>{command({action:"waydroid-force-stop",package:pkg});close();}});
+            entries.push({text:"Uninstall Android app",icon:"delete",danger:true,run:()=>{command({action:"waydroid-uninstall",package:pkg});close();}});
+        }
         (app.actions||[]).forEach(a=>entries.push({text:a.name,icon:"bolt",run:()=>{a.execute();close();}}));
         matching.forEach(w=>entries.push({text:w.title||app.name,detail:w.workspace ? "Workspace "+w.workspace : "",icon:"desktop",run:()=>focusWindow(w)}));
         return entries;
     }
+
     function windowMenu(w) {
         let entries=[];
         if(w.handle) {
@@ -720,11 +806,20 @@ Scope {
                         if (e.data.windowTitle) h.compositorWindows=h.compositorWindows.map(w=>w.address===e.data.windowTitle.address ? Object.assign({},w,{title:e.data.windowTitle.title}) : w);
                         h.status=Object.assign({},h.status,e.data);
                     } else if(e.event === "preferences") {
+                        const first=!h.preferencesLoaded;
                         h.prefs=e.data;
                         // Startup/reload must NEVER open a keyboard-exclusive overlay.
                         // Only an explicit user action may open the drawer.
                         h.preferencesLoaded=true;
+                        if(first)h.command({action:"waydroid-status"});
+                    } else if(e.event === "waydroidStatus") {
+                        h.waydroid=Object.assign({},h.waydroid,e.data||{});
+                    } else if(e.event === "activity") {
+                        if(e.op==="end")Activities.end(String(e.id||""));
+                        else if(e.op==="update")Activities.updateJson(String(e.id||""),JSON.stringify(e.data||{}));
+                        else Activities.upsert(e.data||e);
                     } else if(e.event === "wallpapers" && e.request===h.wallpaperRequest) {
+
                         h.wallpaperLibrary=e.items;h.wallpaperLibraryError=e.error;h.wallpaperLibraryBusy=false;
                         if(!e.error){h.wallpaperFolders=e.folders||[];h.wallpaperFolder=e.folder||"";h.wallpaperParent=e.parent||"";}
                     } else if(e.event === "connectivity") {
@@ -751,7 +846,12 @@ Scope {
                     else if(e.event === "recentActivity"||e.event === "torch"||e.event === "batteryStats") PhoneState.ingest(e);
                     else if(e.event === "monitors") h.monitors=e.data;
                     else if(e.event === "snapPreview") h.snapPreview=e;
+                    else if(e.event === "snapGroups") h.snapGroups=e.groups||[];
                     else if(e.event === "snapAssist") h.snapAssistRequested(e);
+                    else if(e.event === "captureDone") { h.lastCapture=e; captureToastTimer.restart(); }
+                    else if(e.event === "recordingState") { h.recordingActive=!!e.active; }
+                    else if(e.event === "routinesState") { h.activeRoutines=e.active||[]; }
+
                     // Power key: key edges the backend let through, the power+volume-down chord, and device state.
                     else if(e.event === "powerKey") PowerKey.keyEdge(!!e.down);
                     else if(e.event === "powerKeyChord") PowerKey.chord();
@@ -782,6 +882,7 @@ Scope {
         onExited: (code,status) => { h.message("System bridge stopped. Restart Opal to reconnect."); }
     }
     Timer { id: toastTimer; interval: 4500; onTriggered: h.toast="" }
+    Timer { id: captureToastTimer; interval: 8000; onTriggered: h.lastCapture=null }
     Timer { id: osdTimer; interval: 1800; onTriggered: {if(h.osdHovered)restart();else h.osd="";} }
     Timer { interval:1000; running:h.focusRunning; repeat:true; onTriggered: { h.focusSeconds--; if(h.focusSeconds<=0) { h.focusRunning=false; h.message("Focus complete. Time to take a breath."); Quickshell.execDetached(["notify-send","-a","Opal","Focus complete","Time to take a break."]); } } }
 }

@@ -197,3 +197,9 @@ SettingsAccessibility 1.0 SettingsAccessibility.qml
 SettingsAbout 1.0 SettingsAbout.qml
 AppSwitcher 1.0 AppSwitcher.qml
 RecentsCarousel 1.0 RecentsCarousel.qml
+DesktopSplitDivider 1.0 DesktopSplitDivider.qml
+TaskHoverCard 1.0 TaskHoverCard.qml
+CaptureOverlay 1.0 CaptureOverlay.qml
+CapturePreviewToast 1.0 CapturePreviewToast.qml
+
+

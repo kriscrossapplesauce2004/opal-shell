@@ -74,6 +74,8 @@ class PhoneHomeValidationTests(unittest.TestCase):
 
     def test_accepts_desktop_files_as_home_items(self):
         self.assertTrue(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'path': '/home/u/Desktop/notes.md'}, 'firefox']}]}))
+        self.assertTrue(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'pair': ['firefox', 'kitty'], 'ratio': 0.5}]}]}))
+        self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'pair': ['firefox'], 'ratio': 0.5}]}]}))
         self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'path': 'relative.md'}]}]}))
         self.assertFalse(backend.valid_phone_home({'pages': [{'widgets': [], 'items': [{'path': '/x', 'run': 'rm'}]}]}))
 
