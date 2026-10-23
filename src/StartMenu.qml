@@ -41,7 +41,8 @@ FocusScope {
         {id:"screenshot",name:"Take a screenshot",detail:"Capture your screen",icon:"capture",keywords:"screen image capture"},
         {id:"lock",name:"Lock device",detail:"Lock your current session",icon:"lock",keywords:"secure screen"},
         {id:"focus",name:"Start focus timer",detail:"25 minutes without distractions",icon:"timer",keywords:"pomodoro concentrate"},
-        {id:"welcome",name:"Opal tour",detail:"Pick your bar, icons and theme",icon:"auto_awesome",keywords:"setup onboarding welcome tour"}
+        {id:"welcome",name:"Set up Opal",detail:"Wi-Fi, look, layout, apps and Claude",icon:"auto_awesome",keywords:"setup onboarding welcome tour oobe first run"},
+        {id:"android",name:"Android apps",detail:"Set up Android and get apps",icon:"android",keywords:"waydroid android apk play store fdroid apps install"}
     ]
     readonly property var recent:Hub.recentApps.slice(0,4)
     function move(delta) {startSearch.move(delta);}
@@ -60,6 +61,7 @@ FocusScope {
             if(id==="screenshot")Hub.screenShot();
             else if(id==="lock"||id==="network"||id==="bluetooth")Hub.settings(id);
             else if(id==="focus"){Hub.focusSeconds=25*60;Hub.focusRunning=true;Hub.close();}
+            else if(id==="android")Hub.openAndroid();
             else Hub.page=id;
         }
     }

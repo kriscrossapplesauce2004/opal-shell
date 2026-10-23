@@ -27,14 +27,24 @@ SettingsPage {
     SettingsGroup {title:"Android (Waydroid)"
         SettingRow {
             icon:"smartphone"
-            title:!Hub.waydroid.installed ? "Waydroid is not installed"
+            title:!Hub.waydroid.installed ? "Android apps are not set up"
                 : Hub.waydroid.session==="running" ? "Android session is running"
                 : "Android session is stopped"
-            description:!Hub.waydroid.installed ? "Install waydroid to run Android apps in native windows alongside Linux apps"
+            description:!Hub.waydroid.installed ? "Opal installs Waydroid and Android for you, then Android apps open in their own windows"
                 : Hub.waydroid.session==="running" ? ((Hub.waydroid.appCount||0)+" Android apps"+(Hub.waydroid.ip ? " · "+Hub.waydroid.ip : ""))
                 : "Apps start Android automatically when opened, or start the session below"
             Row {
                 spacing:6
+                MButton {
+                    visible:!Hub.waydroid.installed||!Hub.waydroid.initialized
+                    text:"Set up";icon:"download";filled:true;compact:true
+                    onClicked:{Hub.close();Hub.openAndroid("setup");}
+                }
+                MButton {
+                    visible:Hub.waydroid.installed&&Hub.waydroid.initialized
+                    text:"Get apps";icon:"storefront";tonal:true;compact:true
+                    onClicked:{Hub.close();Hub.openAndroid("store");}
+                }
                 MButton {
                     visible:Hub.waydroid.installed
                     text:Hub.waydroid.session==="running" ? "Stop" : "Start"

@@ -62,7 +62,7 @@ import floating_mode
 import theme_export
 import omarchy_themes
 import file_browse
-import waydroid_bridge
+import waydroid_bridge, waydroid_setup, android_store
 import capture_service
 import routines_engine
 
@@ -136,6 +136,8 @@ def load():
 prefs = load()
 night_light = system_tools.NightLight()
 WAYDROID = waydroid_bridge.WaydroidBridge(emit)
+WAYDROID_SETUP = waydroid_setup.Installer(emit, WAYDROID)
+ANDROID_STORE = android_store.Store(emit, WAYDROID)
 CAPTURE = capture_service.CaptureService(emit)
 
 GREETER_CACHE = pathlib.Path(os.environ.get('OPAL_GREETER_CACHE', '/var/cache/opal-greeter'))
@@ -597,6 +599,12 @@ def commands():
             elif action=='theme-discover': threading.Thread(target=lambda:emit({'event':'themeChoices','data':theme_export.discover()}),daemon=True).start()
             elif action=='updates': threading.Thread(target=lambda:emit(dict(system_tools.updates(),event='updates')),daemon=True).start()
             elif action=='health': emit(dict(system_tools.health(),event='health'))
+            elif action=='assistant-install':
+                # Runs the official installer in a visible terminal, so the user sees every step.
+                script='curl -fsSL https://claude.ai/install.sh | bash; echo; echo "Run claude once to sign in, then Opal can use it."; printf "Press Enter to close"; read _'
+                term=next(([t]+([f] if f else []) for t,f in (('kitty','-e'),('foot',''),('alacritty','-e'),('wezterm','start'),('konsole','-e'),('gnome-terminal','--')) if shutil.which(t)),None)
+                if term: spawn(term+['sh','-c',script])
+                else: emit({'event':'message','text':'No terminal found to install Claude Code'})
             elif action=='system-update':
                 command=system_tools.update_command()
                 if command: spawn(command)
@@ -614,6 +622,10 @@ def commands():
             elif action in ('pointer','pointer-start','pointer-stop'): pointer_command(c)
             elif isinstance(action,str) and action.startswith('link-'):
                 threading.Thread(target=link_command,args=(c,),daemon=True).start()
+            elif isinstance(action,str) and action.startswith('waydroid-setup-'):
+                threading.Thread(target=WAYDROID_SETUP.handle,args=(c,prefs.copy()),daemon=True).start()
+            elif isinstance(action,str) and action.startswith('android-store-'):
+                threading.Thread(target=ANDROID_STORE.handle,args=(c,prefs.copy()),daemon=True).start()
             elif isinstance(action,str) and action.startswith('waydroid-'):
                 threading.Thread(target=WAYDROID.handle,args=(c,prefs.copy()),daemon=True).start()
 

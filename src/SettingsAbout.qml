@@ -36,4 +36,10 @@ SettingsPage {
             SettingRow {required property var modelData;title:modelData.label;value:modelData.value}
         }
     }
+    SettingsGroup {title:"Setup"
+        SettingRow {
+            icon:"auto_awesome";title:"Set up Opal again";description:"Walk through Wi-Fi, look, layout, apps and Claude"
+            MButton {text:"Start";tonal:true;compact:true;onClicked:Hub.openOobe()}
+        }
+    }
 }

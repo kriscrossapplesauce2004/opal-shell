@@ -33,6 +33,9 @@ ShellRoot {
         function portalCancel(token:string):void {Hub.portalCancel(token);}
         function themeExport(name:string):void {Hub.command({action:"omarchy-export",name:name||"opal",light:Theme.light,roles:Theme.roles()});}
         function settings():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings();}
+        function setup():void {Hub.openOobe();}
+        function workspaces():void {Hub.workspaceOverviewRequest();}
+        function android(view:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openAndroid(view);}
         function convergence():void {root.show("convergence");}
         function assistant():void {if(Hub.page==="assistant")Hub.close();else Hub.openAssistant("");}
         function ask(text:string):void {Hub.openAssistant(text);}
@@ -222,36 +225,9 @@ ShellRoot {
             }
         }
     }
-    // First start: a quiet card offers the tour. It never takes the keyboard.
-    PanelWindow {
-        id:tourPrompt
-        property bool dismissed:false
-        screen:Hub.chooseScreen()
-        visible:Hub.preferencesLoaded&&Hub.prefs.onboarded!==true&&!dismissed&&Hub.page===""&&tourDelay.elapsed
-        anchors {bottom:true;right:true}
-        margins {bottom:90;right:18}
-        implicitWidth:360;implicitHeight:tourCard.implicitHeight
-        exclusionMode:ExclusionMode.Ignore
-        WlrLayershell.layer:WlrLayer.Overlay
-        WlrLayershell.namespace:"opal-toast"
-        WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
-        color:"transparent"
-        Timer {id:tourDelay;property bool elapsed:false;interval:4000;running:Hub.preferencesLoaded;onTriggered:elapsed=true}
-        Rectangle {
-            id:tourCard;anchors.fill:parent;implicitHeight:tourColumn.implicitHeight+32;radius:Theme.shapeXl;color:Theme.primaryContainer
-            ColumnLayout {id:tourColumn;anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;anchors.margins:16;spacing:6
-                RowLayout {spacing:10
-                    Glyph {name:"auto_awesome";font.pixelSize:22;color:Theme.onContainer}
-                    MText {text:"Opal has a new look";role:"titleS";color:Theme.onContainer}}
-                MText {Layout.fillWidth:true;wrapMode:Text.Wrap;text:"Take a one-minute tour to pick your bar, icons and theme.";role:"bodyS";color:Theme.alpha(Theme.onContainer,.85)}
-                RowLayout {Layout.fillWidth:true;Layout.topMargin:4
-                    Item {Layout.fillWidth:true}
-                    MButton {text:"Not now";compact:true;ink:Theme.onContainer;onClicked:{tourPrompt.dismissed=true;Hub.set("onboarded",true);}}
-                    MButton {text:"Take the tour";compact:true;filled:true;onClicked:{tourPrompt.dismissed=true;Hub.targetScreen=tourPrompt.screen;Hub.page="welcome";}}
-                }
-            }
-        }
-    }
+    // First start: the full-screen setup opens by itself once. It does not take the keyboard until the user clicks it.
+    Timer {interval:1200;running:Hub.preferencesLoaded&&Hub.prefs.onboarded!==true&&!Hub.oobeOpen&&!Hub.polkitMode;onTriggered:if(Hub.prefs.onboarded!==true){Hub.oobeExplicit=false;Hub.oobeOpen=true;}}
+    Oobe {}
     // Opal Link pairing request. It never takes the keyboard.
     PanelWindow {
         screen:Hub.chooseScreen()
@@ -424,12 +400,12 @@ ShellRoot {
             readonly property bool game:overlay.layoutMode==="console"
             readonly property bool launcher:overlay.pg==="launcher"
             readonly property bool full:phone||game&&(launcher||overlay.pg==="settings"||overlay.pg==="windows")
-            width:full ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : overlay.pg==="settings" ? 1120 : launcher ? 960 : overlay.pg==="windows" ? 1100 : overlay.pg==="convergence"||overlay.pg==="wallpaper" ? 800 : overlay.pg==="appearance"||overlay.pg==="welcome" ? 660 : 490)
+            width:full ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : overlay.pg==="settings"||overlay.pg==="android" ? 1120 : launcher ? 960 : overlay.pg==="windows" ? 1100 : overlay.pg==="convergence"||overlay.pg==="wallpaper" ? 800 : overlay.pg==="appearance"||overlay.pg==="welcome" ? 660 : 490)
             readonly property real contentFit:overlayContent.item&&overlayContent.item.fitHeight!==undefined ? overlayContent.item.fitHeight : 0
-            height:full ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : overlay.pg==="settings" ? 780 : overlay.pg==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
+            height:full ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : overlay.pg==="settings"||overlay.pg==="android" ? 780 : overlay.pg==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
             Behavior on height {enabled:overlay.visible;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            x:full ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||overlay.pg==="settings"||overlay.pg==="appearance"||overlay.pg==="welcome"||overlay.pg==="convergence"||overlay.pg==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
-            y:full ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||overlay.pg==="settings"||overlay.pg==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
+            x:full ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||overlay.pg==="settings"||overlay.pg==="android"||overlay.pg==="appearance"||overlay.pg==="welcome"||overlay.pg==="convergence"||overlay.pg==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
+            y:full ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||overlay.pg==="settings"||overlay.pg==="android"||overlay.pg==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
             radius:full ? 0 : overlay.desktopStart ? 28 : overlay.searchPanel ? 32 : 36
             kind:phone&&launcher ? "widgets" : "panels"
             translucency:phone&&launcher ? Math.min(.35,Hub.prefs.glass) : Hub.prefs.glass
@@ -440,7 +416,7 @@ ShellRoot {
                 anchors.fill:parent;anchors.topMargin:panel.phone ? PhoneState.statusFor(overlay.screen) : 0;anchors.bottomMargin:panel.phone ? PhoneState.navHeight : 0;active:overlay.visible&&!overlay.tabletLauncher
                 onLoaded:contentArrival.restart()
                 NumberAnimation {id:contentArrival;target:overlayContent;property:"opacity";from:0;to:1;duration:Theme.motion(180)}
-                sourceComponent:overlay.pg==="search" ? (panel.phone ? mobileComponent : searchComponent) : overlay.pg==="settings" ? settingsComponent : overlay.pg==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : overlay.pg==="clipboard" ? clipboardComponent : overlay.pg==="appearance" ? appearanceComponent : overlay.pg==="convergence" ? convergenceComponent : overlay.pg==="wallpaper" ? wallpaperComponent : overlay.pg==="windows" ? windowsComponent : overlay.pg==="welcome" ? welcomeComponent : controlsComponent
+                sourceComponent:overlay.pg==="search" ? (panel.phone ? mobileComponent : searchComponent) : overlay.pg==="settings" ? settingsComponent : overlay.pg==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : overlay.pg==="clipboard" ? clipboardComponent : overlay.pg==="appearance" ? appearanceComponent : overlay.pg==="convergence" ? convergenceComponent : overlay.pg==="wallpaper" ? wallpaperComponent : overlay.pg==="windows" ? windowsComponent : overlay.pg==="welcome" ? welcomeComponent : overlay.pg==="android" ? androidComponent : controlsComponent
             }
             PhoneStatus {visible:panel.phone;anchors.top:parent.top;width:parent.width;height:PhoneState.statusFor(overlay.screen);output:overlay.screen}
             PhoneNavigation {visible:panel.phone;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight;output:overlay.screen}
@@ -452,6 +428,7 @@ ShellRoot {
         Component {id:windowsComponent;WindowSwitcher {anchors.fill:parent;anchors.margins:panel.game ? 48 : 24;layoutMode:panel.game ? "console" : panel.phone ? "phone" : "desktop";focus:true}}
         Component {id:wallpaperComponent;WallpaperPicker {}}
         Component {id:welcomeComponent;Onboarding {}}
+        Component {id:androidComponent;AndroidHub {phone:panel.phone}}
         Component {id:searchComponent;SearchPanel {}}
         Component {id:settingsComponent;Settings {}}
         Component {id:convergenceComponent;Convergence {}}

@@ -105,6 +105,8 @@ Scope {
     property string page: ""
     // The old convergence page now lives in Settings → Displays.
     onPageChanged:{if(page==="convergence"){settingsSection="displays";page="settings";return;}
+        // The old tour page opens the full-screen setup instead.
+        if(page==="welcome"){page="";openOobe();return;}
         // The old open-windows page is the console switcher only; elsewhere the strip or recents take over.
         if(page==="windows"){const sc=targetScreen||chooseScreen();if(prefs.mode!=="console"&&!(sc&&layoutFor(sc.width,sc.height,sc.name)==="console")){page="";openSection("windows");return;}}if(page!=="") {closeAudio();closePowerProfile();}}
     property string category: "All apps"
@@ -260,6 +262,29 @@ Scope {
     // Normalize desktop entries once; search, taskbar, and window cards all use
     // these indexes instead of scanning the complete application list.
     property var waydroid: ({installed:false,initialized:false,session:"stopped",container:"stopped",ip:"",multiWindows:true,suspend:false,cursor:true,appCount:0,sharedFolder:""})
+    // Android setup and store. The backend owns both states; the shell only shows them.
+    property var waydroidSetup: ({phase:"idle",checks:{},stages:[],log:[],error:"",androidId:"",image:"VANILLA",arm:false,busy:false})
+    property var androidStore: ({loading:false,progress:-1,count:0,categories:[],items:[],installed:[],jobs:({}),detail:null,error:"",query:"",category:""})
+    property int androidStoreRequest: 0
+    function openAndroid(view) { androidView=view||(waydroid.installed&&waydroid.initialized ? "store" : "setup");targetScreen=targetScreen||chooseScreen();page="android"; }
+    property string androidView: "store"
+    function androidSearch(query,category) { androidStoreRequest++;androidStore=Object.assign({},androidStore,{query:query,category:category});command({action:"android-store-search",query:query,category:category,request:androidStoreRequest}); }
+    function androidStoreEvent(e) {
+        const s=Object.assign({},androidStore);
+        if(e.op==="loading"){s.loading=true;s.error="";if(e.progress!==undefined)s.progress=e.progress;}
+        else if(e.op==="ready"){s.loading=false;s.progress=-1;s.count=e.count;s.categories=e.categories||[];s.installed=e.installed||[];}
+        else if(e.op==="error"){s.loading=false;s.error=e.error||"";}
+        else if(e.op==="results"){if(e.request!==androidStoreRequest)return;s.items=e.items||[];}
+        else if(e.op==="detail")s.detail=e.item;
+        else if(e.op==="installed")s.installed=e.installed||[];
+        else if(e.op==="job"){const j=Object.assign({},s.jobs);if(e.job)j[e.package]=e.job;else delete j[e.package];s.jobs=j;if(e.job&&e.job.state==="done"&&s.installed.indexOf(e.package)<0)s.installed=s.installed.concat([e.package]);}
+        androidStore=s;
+    }
+    // First-run setup. It opens by itself only when the preferences say the user has never finished it.
+    property bool oobeOpen: false
+    property bool oobeExplicit: false
+    function openOobe() { close();oobeExplicit=true;oobeOpen=true; }
+    function finishOobe() { set("onboarded",true);oobeOpen=false;oobeExplicit=false; }
     function isAndroidApp(app) { return !!app && String(app.id||"").toLowerCase().startsWith("waydroid."); }
     function androidPackage(app) { return isAndroidApp(app) ? String(app.id||"").replace(/\.desktop$/i,"").slice(9) : ""; }
     readonly property bool hasAndroidApps: apps.some(a => isAndroidApp(a))
@@ -594,6 +619,8 @@ Scope {
     function settings(which) { if(which==="lock") {lock();return;} if(which==="network"||which==="bluetooth") {controlDetail=which==="network" ? "wifi" : which;page="controls";return;} page=""; command({action:"settings",which:which}); }
     function volume(value) { value=Math.max(0,Math.min(100,Math.round(value)));command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=value; status=s;showVolumeOsd(); }
     function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }
+    // Asks the workspace switcher to open as tiles, for a shortcut or IPC.
+    signal workspaceOverviewRequest()
     property var pendingFocus:null
     // After the mode change reloads the compositor config.
     property Timer consoleEnter: Timer {interval:700;onTriggered:h.command({action:"console-enter"})}
@@ -812,6 +839,10 @@ Scope {
                         // Only an explicit user action may open the drawer.
                         h.preferencesLoaded=true;
                         if(first)h.command({action:"waydroid-status"});
+                    } else if(e.event === "waydroidSetup") {
+                        h.waydroidSetup=e.data||h.waydroidSetup;
+                    } else if(e.event === "androidStore") {
+                        h.androidStoreEvent(e);
                     } else if(e.event === "waydroidStatus") {
                         h.waydroid=Object.assign({},h.waydroid,e.data||{});
                     } else if(e.event === "activity") {

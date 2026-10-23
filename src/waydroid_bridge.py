@@ -114,7 +114,7 @@ class WaydroidBridge:
                     return True
             except OSError:
                 continue
-        return True
+        return False
 
     def shared_folder(self):
         media = self.home / '.local/share/waydroid/data/media/0'

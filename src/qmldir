@@ -203,3 +203,10 @@ CaptureOverlay 1.0 CaptureOverlay.qml
 CapturePreviewToast 1.0 CapturePreviewToast.qml
 
 
+WavyProgress 1.0 WavyProgress.qml
+MorphShape 1.0 MorphShape.qml
+WaydroidSetup 1.0 WaydroidSetup.qml
+AndroidStore 1.0 AndroidStore.qml
+AndroidHub 1.0 AndroidHub.qml
+Oobe 1.0 Oobe.qml
+OobeContent 1.0 OobeContent.qml

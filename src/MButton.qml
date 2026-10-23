@@ -6,6 +6,8 @@ Rectangle {
     property string text: ""
     property string icon: ""
     property string secondaryIcon: ""
+    // Shown after the label, for forward actions such as Next.
+    property string trailingIcon: ""
     property string tooltip: text
     property bool filled: false
     property bool tonal: false
@@ -84,6 +86,7 @@ Rectangle {
         Glyph { visible: a.icon!==""; name:a.icon; color:a.filled ? a.fillInk : a.tonal ? Theme.onContainer : a.ink; font.pixelSize:a.compact ? 19 : 22 }
         Glyph { visible:a.secondaryIcon!==""; name:a.secondaryIcon; color:a.filled ? a.fillInk : a.tonal ? Theme.onContainer : a.ink; font.pixelSize:a.compact ? 17 : 20 }
         MText { visible:a.text!==""; text:a.text; textFormat:Text.PlainText; Layout.fillWidth:true; elide:Text.ElideRight; color:a.filled ? a.fillInk : a.tonal ? Theme.onContainer : a.ink; font.pixelSize:a.compact ? 12 : 14; font.weight:Font.DemiBold }
+        Glyph { visible:a.trailingIcon!==""; name:a.trailingIcon; color:a.filled ? a.fillInk : a.tonal ? Theme.onContainer : a.ink; font.pixelSize:a.compact ? 18 : 20 }
     }
     activeFocusOnTab: true
     function controllerActivate() { clicked(); }

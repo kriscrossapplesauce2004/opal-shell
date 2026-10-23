@@ -122,6 +122,8 @@ Item {
         {s:"system",t:"Updates",k:"pacman flatpak upgrade"},
         {s:"system",t:"Storage",k:"disk space"},
         {s:"system",t:"Temperatures",k:"heat sensors"},
+        {s:"apps",t:"Android apps",k:"waydroid android apk play store fdroid install"},
+        {s:"about",t:"Set up Opal again",k:"setup oobe onboarding welcome first run tour"},
         {s:"about",t:"About this device",k:"version system cpu memory"}
     ]
     property string query:""
