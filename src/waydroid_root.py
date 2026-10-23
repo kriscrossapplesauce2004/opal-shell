@@ -2,7 +2,19 @@
 """Root half of the Opal Waydroid installer: pkexec runs it once per install and it reports each stage as JSON lines on stdout."""
 import json, os, pathlib, re, shutil, signal, subprocess, sys, threading, time
 
-STAGES = ('package', 'binder', 'firewall', 'init', 'service', 'arm', 'androidid', 'reset', 'remove')
+STAGES = ('package', 'binder', 'firewall', 'init', 'gpu', 'service', 'arm', 'androidid', 'reset', 'remove')
+# Extras next to Waydroid: adb lets Opal reach Android without root, pyclip shares the clipboard. Missing ones are skipped.
+EXTRAS = {
+    'pacman': ['android-tools', 'python-pyclip'],
+    'apt': ['adb', 'python3-pyclip'],
+    'dnf': ['android-tools', 'python3-pyclip'],
+    'zypper': ['android-tools', 'python3-pyclip'],
+    'apk': ['android-tools', 'py3-pyclip'],
+}
+QUERY = {'pacman': ['pacman', '-Si'], 'apt': ['apt-cache', 'show'], 'dnf': ['dnf', '-q', 'info'], 'zypper': ['zypper', '--non-interactive', 'info'], 'apk': ['apk', 'info']}
+INSTALLED = {'pacman': ['pacman', '-Q'], 'apt': ['dpkg', '-s'], 'dnf': ['rpm', '-q'], 'zypper': ['rpm', '-q'], 'apk': ['apk', 'info', '-e']}
+SOFTWARE_GPU = {'ro.hardware.gralloc': 'default', 'ro.hardware.egl': 'swiftshader'}
+WAYDROID_CFG = pathlib.Path('/var/lib/waydroid/waydroid.cfg')
 IMAGES = ('VANILLA', 'GAPPS')
 MANAGERS = {
     'pacman': (['pacman', '-S', '--needed', '--noconfirm', 'waydroid'], ['pacman', '-Rns', '--noconfirm', 'waydroid']),
@@ -106,14 +118,32 @@ def firewall_kind():
             pass
     return ''
 
+def quiet(args):
+    try:
+        res = subprocess.run(args, capture_output=True, text=True, timeout=20, env=dict(os.environ, LC_ALL='C'))
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return res.returncode == 0 and 'not found' not in (res.stdout or '').lower()
+
+def extras_to_install(manager):
+    """Extras the repositories have and the system does not."""
+    return [name for name in EXTRAS.get(manager, []) if not quiet(INSTALLED[manager] + [name]) and quiet(QUERY[manager] + [name])]
+
 def run_package(opts):
-    if shutil.which('waydroid'):
-        say(stage='package', log='Waydroid is already installed')
-        return 0
     manager = opts.get('pm', '')
     if manager not in MANAGERS:
         say(stage='package', log='No supported package manager was found')
         return 2
+    extras = extras_to_install(manager)
+    if extras:
+        say(stage='package', log='Adding ' + ', '.join(extras))
+        args = MANAGERS[manager][0][:-1] + extras
+        # A missing extra must not stop the setup.
+        if stream('package', args):
+            say(stage='package', log='Could not add ' + ', '.join(extras) + '. Android still works; some Opal features need adb')
+    if shutil.which('waydroid'):
+        say(stage='package', log='Waydroid is already installed')
+        return 0
     def progress(line):
         m = re.search(r'\((\d+)/(\d+)\)', line)
         if m and int(m.group(2)) > 0:
@@ -178,6 +208,45 @@ def run_init(opts):
     if opts.get('force'):
         args.append('-f')
     return stream('init', args, progress)
+
+def set_properties(text, props):
+    """Return waydroid.cfg text with props in its [properties] section. Other lines stay as they are."""
+    lines = text.splitlines()
+    out, section, seen = [], '', set()
+    for line in lines:
+        head = line.strip()
+        if head.startswith('[') and head.endswith(']'):
+            if section == 'properties':
+                out += [f'{k} = {v}' for k, v in props.items() if k not in seen]
+                seen.update(props)
+            section = head[1:-1].strip()
+        elif section == 'properties' and '=' in head:
+            key = head.split('=', 1)[0].strip()
+            if key in props:
+                out.append(f'{key} = {props[key]}')
+                seen.add(key)
+                continue
+        out.append(line)
+    if section == 'properties':
+        out += [f'{k} = {v}' for k, v in props.items() if k not in seen]
+    elif not any(l.strip() == '[properties]' for l in lines):
+        out += ['', '[properties]'] + [f'{k} = {v}' for k, v in props.items()]
+    return '\n'.join(out) + '\n'
+
+def run_gpu(opts):
+    """Waydroid cannot draw with NVIDIA's driver. Software rendering is slower but works."""
+    try:
+        text = WAYDROID_CFG.read_text()
+    except OSError as error:
+        say(stage='gpu', log=f'Could not read {WAYDROID_CFG}: {error}')
+        return 2
+    try:
+        WAYDROID_CFG.write_text(set_properties(text, SOFTWARE_GPU))
+    except OSError as error:
+        say(stage='gpu', log=f'Could not write {WAYDROID_CFG}: {error}')
+        return 2
+    say(stage='gpu', log='Android draws with SwiftShader')
+    return stream('gpu', ['waydroid', 'upgrade', '--offline'])
 
 def run_service(opts):
     if not shutil.which('systemctl'):
@@ -258,7 +327,7 @@ def run_remove(opts):
         return 2
     return stream('remove', MANAGERS[manager][1])
 
-RUNNERS = {'package': run_package, 'binder': run_binder, 'firewall': run_firewall, 'init': run_init, 'service': run_service,
+RUNNERS = {'package': run_package, 'binder': run_binder, 'firewall': run_firewall, 'init': run_init, 'gpu': run_gpu, 'service': run_service,
            'arm': run_arm, 'androidid': run_androidid, 'reset': run_reset, 'remove': run_remove}
 
 def parse_args(argv):

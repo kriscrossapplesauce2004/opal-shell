@@ -49,9 +49,35 @@ class InstallerTests(unittest.TestCase):
     def test_plan_for_a_fresh_and_a_ready_system(self):
         fresh = {'installed': False, 'binder': 'module', 'firewall': 'ufw', 'initialized': False, 'serviceActive': False, 'arch': 'x86_64'}
         self.assertEqual(waydroid_setup.plan(fresh, {'arm': True}), ['package', 'binder', 'firewall', 'init', 'service', 'arm', 'boot', 'configure'])
-        ready = {'installed': True, 'binder': 'ready', 'firewall': '', 'initialized': True, 'serviceActive': True, 'arch': 'aarch64'}
+        ready = {'installed': True, 'adb': True, 'binder': 'ready', 'firewall': '', 'initialized': True, 'serviceActive': True, 'arch': 'aarch64'}
         self.assertEqual(waydroid_setup.plan(ready, {'arm': True}), ['boot', 'configure'])
         self.assertEqual(waydroid_setup.plan(ready, {'reinstall': True}), ['init', 'service', 'boot', 'configure'])
+        # Without adb the package stage runs again to add it.
+        self.assertEqual(waydroid_setup.plan(dict(ready, adb=False), {}), ['package', 'boot', 'configure'])
+        # NVIDIA-only machines get software graphics after the download, once.
+        self.assertEqual(waydroid_setup.plan(dict(fresh, gpu='nvidia'), {})[:6], ['package', 'binder', 'firewall', 'init', 'gpu', 'service'])
+        self.assertNotIn('gpu', waydroid_setup.plan(dict(ready, gpu='nvidia', softwareGpu=True), {}))
+
+    def test_gpu_detection_and_cfg_properties(self):
+        with tempfile.TemporaryDirectory() as root:
+            for name, vendor in (('renderD128', '0x10de'),):
+                (pathlib.Path(root) / name / 'device').mkdir(parents=True)
+                (pathlib.Path(root) / name / 'device/vendor').write_text(vendor + '\n')
+            self.assertEqual(waydroid_setup.gpu_state(root), 'nvidia')
+            (pathlib.Path(root) / 'renderD129/device').mkdir(parents=True)
+            (pathlib.Path(root) / 'renderD129/device/vendor').write_text('0x1002\n')
+            self.assertEqual(waydroid_setup.gpu_state(root), 'ok')
+        cfg = '[waydroid]\narch = x86_64\n\n[properties]\nro.hardware.egl = mesa\n'
+        out = waydroid_root.set_properties(cfg, waydroid_root.SOFTWARE_GPU)
+        self.assertIn('ro.hardware.egl = swiftshader', out)
+        self.assertIn('ro.hardware.gralloc = default', out)
+        self.assertNotIn('mesa', out)
+        self.assertIn('arch = x86_64', out)
+        self.assertIn('[properties]', waydroid_root.set_properties('[waydroid]\narch = x86_64\n', waydroid_root.SOFTWARE_GPU))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / 'waydroid.cfg'
+            path.write_text(out)
+            self.assertTrue(waydroid_setup.software_gpu(str(path)))
 
     def test_root_run_streams_progress_and_reports_failure(self):
         events = []
@@ -114,6 +140,13 @@ class StoreTests(unittest.TestCase):
         self.assertEqual([a['package'] for a in st.search('browser')], ['org.example.java'])
         self.assertEqual(st.search('nothing here'), [])
         self.assertEqual(android_store.parse_app_list('Name: VLC\npackageName: org.videolan.vlc\ncategories:\n'), ['org.videolan.vlc'])
+
+    def test_updates_compare_installed_version_codes(self):
+        events = []
+        st = android_store.Store(events.append, FakeBridge())
+        st.set_catalog(android_store.build_catalog(self.INDEX, ['x86_64', 'arm64-v8a']))
+        st.versions = {'org.example.java': 10, 'org.example.arm': 5, 'com.other': 3}
+        self.assertEqual([(u['package'], u['installedCode'], u['versionCode']) for u in st.updates()], [('org.example.java', 10, 20)])
 
     def test_install_rejects_a_bad_checksum(self):
         events = []

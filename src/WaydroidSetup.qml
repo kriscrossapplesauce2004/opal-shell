@@ -29,6 +29,8 @@ Item {
         const free = ck.free || 0;
         if (!ck.initialized) r.push(free >= (ck.need || 0) ? {s: "ok", i: "hard_drive", t: gb(free) + " free", d: "Android needs about 4 GB"} : {s: "fail", i: "hard_drive", t: "Only " + gb(free) + " free", d: "Android needs about 4 GB on the system disk"});
         if (ck.firewall) r.push({s: "info", i: "shield", t: "Opal will let Android through " + ck.firewall, d: "Without this, Android has no internet"});
+        if (!ck.adb) r.push({s: "info", i: "cable", t: "Opal will add adb and clipboard sharing", d: "Opal uses adb for the back key, dark mode and app updates"});
+        if (ck.gpu === "nvidia") r.push({s: "info", i: "developer_board", t: "Android will use software graphics", d: "Waydroid can't use NVIDIA cards, so apps draw on the CPU. Fine for most apps, slow for 3D games"});
         r.push(ck.wayland ? {s: "ok", i: "desktop_windows", t: "Android apps open as normal windows", d: "Wayland session found"} : {s: "fail", i: "desktop_windows", t: "Waydroid needs Wayland", d: "Log in to a Wayland session"});
         return r;
     }

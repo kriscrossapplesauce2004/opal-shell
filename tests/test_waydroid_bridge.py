@@ -55,16 +55,20 @@ class WaydroidBridgeTests(unittest.TestCase):
             runs.append(cmd)
             if cmd[:2] == ['waydroid', 'status']:
                 return FakeResult(states.pop(0) if len(states) > 1 else states[0])
+            if cmd[:2] == ['adb', 'connect']:
+                return FakeResult('connected to ' + cmd[2] + '\n')
             return FakeResult('true\n')
         def fake_popen(cmd, **kw):
             popens.append(cmd)
         with tempfile.TemporaryDirectory() as home:
-            bridge = waydroid_bridge.WaydroidBridge(events.append, run=fake_run, popen=fake_popen, which=lambda _: '/usr/bin/waydroid', home=home, sleep=lambda _: None)
+            bridge = waydroid_bridge.WaydroidBridge(events.append, run=fake_run, popen=fake_popen, which=lambda n: '/usr/bin/' + n, home=home, sleep=lambda _: None)
             ok = bridge.launch_app('waydroid.org.fdroid.fdroid', name='F-Droid', light=False)
             self.assertTrue(ok)
             self.assertIn(['waydroid', 'session', 'start'], popens)
             self.assertIn(['waydroid', 'app', 'launch', 'org.fdroid.fdroid'], popens)
-            self.assertIn(['waydroid', 'shell', 'cmd', 'uimode', 'night', 'yes'], runs)
+            # "waydroid shell" needs root, so the theme goes over ADB to the container address.
+            self.assertIn(['adb', '-s', '192.168.240.112:5555', 'shell', 'cmd', 'uimode', 'night', 'yes'], runs)
+            self.assertFalse(any(c[:2] == ['waydroid', 'shell'] for c in runs))
             act_events = [e for e in events if e.get('event') == 'activity']
             self.assertGreaterEqual(len(act_events), 2)
             self.assertEqual(act_events[0]['data']['id'], 'waydroid-boot')
@@ -83,16 +87,29 @@ class WaydroidBridgeTests(unittest.TestCase):
         def fake_run(cmd, **kw):
             runs.append(cmd)
             if cmd[:2] == ['waydroid', 'status']:
-                return FakeResult('Session:\tRUNNING\nContainer:\tRUNNING\n')
+                return FakeResult('Session:\tRUNNING\nContainer:\tRUNNING\nIP address:\t192.168.240.112\n')
+            if cmd[:2] == ['adb', 'connect']:
+                return FakeResult('already connected to ' + cmd[2] + '\n')
             return FakeResult('', 0)
         with tempfile.TemporaryDirectory() as tmp:
             apk = pathlib.Path(tmp) / 'Aurora.apk'
             apk.write_bytes(b'PK\x03\x04')
-            bridge = waydroid_bridge.WaydroidBridge(events.append, run=fake_run, which=lambda _: '/usr/bin/waydroid', home=tmp)
+            bridge = waydroid_bridge.WaydroidBridge(events.append, run=fake_run, which=lambda n: '/usr/bin/' + n, home=tmp)
             self.assertTrue(bridge.install_apk(str(apk)))
             self.assertTrue(any(c[:3] == ['waydroid', 'app', 'install'] for c in runs))
             self.assertTrue(bridge.send_back())
-            self.assertIn(['waydroid', 'shell', 'input', 'keyevent', '4'], runs)
+            self.assertIn(['adb', '-s', '192.168.240.112:5555', 'shell', 'input', 'keyevent', '4'], runs)
+
+    def test_shell_without_adb_or_root_does_nothing(self):
+        runs = []
+        def fake_run(cmd, **kw):
+            runs.append(cmd)
+            return FakeResult('Session:\tRUNNING\nIP address:\t192.168.240.112\n')
+        bridge = waydroid_bridge.WaydroidBridge(lambda _: None, run=fake_run, which=lambda n: '/usr/bin/waydroid' if n == 'waydroid' else None)
+        bridge.adb.euid = lambda: 1000
+        self.assertFalse(bridge.send_back())
+        self.assertFalse(any(c[:2] == ['waydroid', 'shell'] for c in runs))
+        self.assertFalse(bridge.status()['adb'])
 
 
 if __name__ == '__main__':

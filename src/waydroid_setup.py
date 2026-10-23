@@ -10,8 +10,10 @@ TITLES = {
     'init': 'Download Android', 'service': 'Start the Android container', 'arm': 'Add ARM app support',
     'boot': 'Start Android for the first time', 'configure': 'Fit Android to Opal',
     'reset': 'Remove Android data', 'remove': 'Uninstall Waydroid', 'androidid': 'Read the Android ID',
+    'gpu': 'Use software graphics for Android',
 }
-ROOT_STAGES = ('package', 'binder', 'firewall', 'init', 'service', 'arm', 'reset', 'remove')
+ROOT_STAGES = ('package', 'binder', 'firewall', 'init', 'gpu', 'service', 'arm', 'reset', 'remove')
+NVIDIA = '0x10de'
 USER_STAGES = ('boot', 'configure')
 IMAGE_SIZE = {'VANILLA': 830 * 1024 ** 2, 'GAPPS': 1100 * 1024 ** 2}
 NEED_FREE = 4 * 1024 ** 3
@@ -73,6 +75,23 @@ def package_available(manager, run=subprocess.run):
     return res.returncode == 0 and bool((res.stdout or '').strip())
 
 
+def gpu_state(root='/sys/class/drm'):
+    """'nvidia' when every render node is an NVIDIA GPU, which Waydroid cannot use; 'ok' when another GPU exists; '' when no node is found."""
+    vendors = []
+    try:
+        nodes = sorted(pathlib.Path(root).glob('renderD*'))
+    except OSError:
+        return ''
+    for node in nodes:
+        try:
+            vendors.append((node / 'device/vendor').read_text().strip().lower())
+        except OSError:
+            continue
+    if not vendors:
+        return ''
+    return 'nvidia' if all(v == NVIDIA for v in vendors) else 'ok'
+
+
 def cpu_vendor(read=None):
     try:
         text = read('/proc/cpuinfo') if read else pathlib.Path('/proc/cpuinfo').read_text()
@@ -84,7 +103,8 @@ def cpu_vendor(read=None):
 def plan(checks, options):
     """Stage list for an install. Options: image VANILLA|GAPPS, arm bool, reinstall bool."""
     stages = []
-    if not checks.get('installed'):
+    # The package stage also adds adb, which Opal needs to talk to Android, and clipboard sharing.
+    if not checks.get('installed') or not checks.get('adb'):
         stages.append('package')
     if checks.get('binder') != 'ready':
         stages.append('binder')
@@ -92,12 +112,25 @@ def plan(checks, options):
         stages.append('firewall')
     if not checks.get('initialized') or options.get('reinstall'):
         stages.append('init')
+    if checks.get('gpu') == 'nvidia' and ('init' in stages or not checks.get('softwareGpu')):
+        stages.append('gpu')
     if not checks.get('serviceActive') or 'init' in stages:
         stages.append('service')
     if options.get('arm') and checks.get('arch') in ('x86_64', 'amd64'):
         stages.append('arm')
     stages += ['boot', 'configure']
     return stages
+
+
+def software_gpu(path='/var/lib/waydroid/waydroid.cfg'):
+    """True when waydroid.cfg already tells Android to draw with SwiftShader."""
+    import configparser
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    try:
+        parser.read(path, encoding='utf-8')
+    except (configparser.Error, OSError, UnicodeDecodeError):
+        return False
+    return parser.get('properties', 'ro.hardware.egl', fallback='') == 'swiftshader'
 
 
 class Installer:
@@ -172,6 +205,9 @@ class Installer:
             'free': self.free_space(),
             'need': NEED_FREE,
             'pkexec': bool(self.which('pkexec')),
+            'adb': bool(self.which('adb')),
+            'gpu': gpu_state(),
+            'softwareGpu': software_gpu(),
         }
         checks['session'] = self.bridge.status().get('session', 'stopped') if installed else 'stopped'
         problems = []

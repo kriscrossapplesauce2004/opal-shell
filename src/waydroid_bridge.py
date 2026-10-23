@@ -1,6 +1,7 @@
 """First-class Waydroid integration for Opal: session lifecycle, cold-boot Live Activities, theme/DPI sync, APK install, per-app window framing and Android key events."""
 import configparser, os, pathlib, re, shutil, subprocess, threading, time
 import hypr_actions
+from android_shell import AndroidShell
 
 PACKAGE_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$')
 PROP_KEYS = {
@@ -99,6 +100,17 @@ class WaydroidBridge:
         self.sleep = sleep
         self.lock = threading.Lock()
         self.props_cache = {'multiWindows': True, 'suspend': False, 'cursor': True}
+        # Commands inside Android go over ADB; "waydroid shell" needs root.
+        self.ip = ('', 0.0)
+        self.adb = AndroidShell(self.container_ip, run=run, which=which)
+
+    def container_ip(self):
+        """The container's address from the last status, read again when it is older than ten seconds."""
+        ip, when = self.ip
+        if time.monotonic() - when > 10:
+            self.status()
+            ip = self.ip[0]
+        return ip
 
     def installed(self):
         return bool(self.which('waydroid'))
@@ -150,6 +162,7 @@ class WaydroidBridge:
             parsed = parse_status_text(res.stdout)
         except (OSError, subprocess.SubprocessError):
             pass
+        self.ip = (parsed['ip'] if parsed['session'] == 'running' else '', time.monotonic())
         if refresh_props and parsed['session'] == 'running':
             for k in ('multiWindows', 'suspend', 'cursor'):
                 self.read_prop(k)
@@ -164,6 +177,7 @@ class WaydroidBridge:
             'cursor': self.props_cache.get('cursor', True),
             'appCount': len(apps),
             'sharedFolder': self.shared_folder(),
+            'adb': self.adb.available(),
         }
 
     def publish_status(self, refresh_props=False):
@@ -312,13 +326,10 @@ class WaydroidBridge:
         if not self.installed():
             return False
         night = 'no' if light else 'yes'
-        try:
-            self.run(['waydroid', 'shell', 'cmd', 'uimode', 'night', night], capture_output=True, text=True, timeout=3)
-            if isinstance(dpi, int) and 120 <= dpi <= 640:
-                self.run(['waydroid', 'shell', 'wm', 'density', str(dpi)], capture_output=True, text=True, timeout=3)
-            return True
-        except (OSError, subprocess.SubprocessError):
-            return False
+        ok = self.adb.ok(['cmd', 'uimode', 'night', night])
+        if ok and isinstance(dpi, int) and 120 <= dpi <= 640:
+            self.adb.ok(['wm', 'density', str(dpi)])
+        return ok
 
     def sync_posture(self, layout_mode):
         """In phone layout, disable multi_windows so Android apps fill the screen; on desktop/tablet enable freeform windows."""
@@ -331,23 +342,17 @@ class WaydroidBridge:
         pkg = is_waydroid_id(package) or (package.strip() if valid_package(package) else '')
         if not pkg or not self.installed():
             return False
-        try:
-            self.run(['waydroid', 'shell', 'am', 'force-stop', pkg], capture_output=True, text=True, timeout=4)
+        if self.adb.ok(['am', 'force-stop', pkg]):
             self.emit({'event': 'message', 'text': f'Force-stopped {pkg}'})
             return True
-        except (OSError, subprocess.SubprocessError):
-            return False
+        self.emit({'event': 'message', 'text': 'Android did not answer. Install android-tools (adb) so Opal can reach it'})
+        return False
 
     def open_app_info(self, package, light=False):
         pkg = is_waydroid_id(package) or (package.strip() if valid_package(package) else '')
         if not pkg or not self.ensure_session(label='App settings', light=light):
             return False
-        try:
-            self.run(['waydroid', 'shell', 'am', 'start', '-a', 'android.settings.APPLICATION_DETAILS_SETTINGS', '-d', f'package:{pkg}'],
-                     capture_output=True, text=True, timeout=5)
-            return True
-        except (OSError, subprocess.SubprocessError):
-            return False
+        return self.adb.ok(['am', 'start', '-a', 'android.settings.APPLICATION_DETAILS_SETTINGS', '-d', f'package:{pkg}'])
 
     def install_apk(self, raw_path, light=False):
         text = str(raw_path or '').strip()
@@ -393,11 +398,7 @@ class WaydroidBridge:
         """Send Android KEYCODE_BACK (4) to the container."""
         if not self.installed():
             return False
-        try:
-            res = self.run(['waydroid', 'shell', 'input', 'keyevent', '4'], capture_output=True, text=True, timeout=2)
-            return getattr(res, 'returncode', 0) == 0
-        except (OSError, subprocess.SubprocessError):
-            return False
+        return self.adb.ok(['input', 'keyevent', '4'], timeout=2)
 
     def handle(self, c, prefs=None):
         prefs = prefs or {}

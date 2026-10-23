@@ -4,7 +4,7 @@ import hashlib, json, os, pathlib, platform, re, subprocess, threading, time, ur
 REPO = 'https://f-droid.org/repo'
 INDEX_URL = REPO + '/index-v1.jar'
 MAX_AGE = 24 * 3600
-CATALOG_VERSION = 2
+CATALOG_VERSION = 3
 PACKAGE_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$')
 # Shown first on an empty search. Aurora Store reaches Play Store apps without Google services.
 FEATURED = ['com.aurora.store', 'org.fdroid.fdroid', 'org.mozilla.fennec_fdroid', 'org.schabi.newpipe', 'app.organicmaps', 'org.videolan.vlc',
@@ -63,6 +63,7 @@ def build_catalog(index, abis):
             'license': str(app.get('license') or ''),
             'web': str(app.get('webSite') or app.get('sourceCode') or ''),
             'version': str(apk.get('versionName') or ''),
+            'versionCode': int(apk.get('versionCode') or 0),
             'apk': str(apk.get('apkName') or ''),
             'hash': str(apk.get('hash') or ''),
             'size': int(apk.get('size') or 0),
@@ -115,6 +116,8 @@ class Store:
         self.lock = threading.Lock()
         self.loading = False
         self.jobs = {}
+        # Installed version codes, read over ADB. Empty when Android is stopped or adb is missing.
+        self.versions = {}
 
     def abis(self):
         native = ABI.get(platform.machine(), 'x86_64')
@@ -261,6 +264,36 @@ class Store:
         except (OSError, subprocess.SubprocessError):
             pass
 
+    # ---------- updates ----------
+    def updates(self):
+        """Catalogue apps whose installed version is older than the catalogue's."""
+        out = []
+        for pkg, code in sorted(self.versions.items()):
+            a = self.by_package.get(pkg)
+            if a and a.get('versionCode', 0) > code:
+                out.append(dict(self.entry(a), installedCode=code))
+        return out
+
+    def check_updates(self):
+        if not self.catalog:
+            self.load()
+        if self.bridge.installed() and self.bridge.status().get('session') == 'running':
+            self.versions = self.bridge.adb.versions()
+        items = self.updates()
+        self.emit({'event': 'androidStore', 'op': 'updates', 'items': items, 'checked': bool(self.versions) or not items})
+        return items
+
+    def update_all(self, light=False):
+        items = self.check_updates()
+        done = 0
+        for a in items:
+            if self.install(a['package'], light):
+                done += 1
+                self.versions[a['package']] = a.get('versionCode', 0)
+        if items:
+            self.emit({'event': 'message', 'text': f'Updated {done} of {len(items)} Android apps'})
+        self.emit({'event': 'androidStore', 'op': 'updates', 'items': self.updates(), 'checked': True})
+
     # ---------- install ----------
     def job(self, pkg, **fields):
         self.jobs[pkg] = dict(self.jobs.get(pkg) or {}, **fields)
@@ -362,6 +395,10 @@ class Store:
             self.emit({'event': 'androidStore', 'op': 'installed', 'installed': sorted(self.installed)})
         elif action == 'android-store-uninstall' and pkg:
             self.uninstall(pkg)
+        elif action == 'android-store-updates':
+            self.check_updates()
+        elif action == 'android-store-update-all':
+            self.update_all(bool(prefs.get('light')))
         elif action == 'android-store-installed':
             self.refresh_installed()
             self.emit({'event': 'androidStore', 'op': 'installed', 'installed': sorted(self.installed)})

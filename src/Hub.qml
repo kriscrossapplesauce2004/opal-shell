@@ -300,6 +300,7 @@ Scope {
         else if(e.op==="results"){if(e.request!==androidStoreRequest)return;s.items=e.items||[];}
         else if(e.op==="detail")s.detail=e.item;
         else if(e.op==="installed")s.installed=e.installed||[];
+        else if(e.op==="updates")s.updates=e.items||[];
         else if(e.op==="job"){const j=Object.assign({},s.jobs);if(e.job)j[e.package]=e.job;else delete j[e.package];s.jobs=j;if(e.job&&e.job.state==="done"&&s.installed.indexOf(e.package)<0)s.installed=s.installed.concat([e.package]);}
         androidStore=s;
     }

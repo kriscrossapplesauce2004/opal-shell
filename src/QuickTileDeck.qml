@@ -13,10 +13,13 @@ ColumnLayout {
         {id:"mic",title:"Microphone",icon:"mic"}, {id:"keyboard",title:"Keyboard",icon:"keyboard"},
         {id:"motion",title:"Reduced motion",icon:"spark"}, {id:"capture",title:"Screenshot",icon:"capture"},
         {id:"autohide",title:"Auto-hide shelf",icon:"desktop"}, {id:"clipboard",title:"Clipboard",icon:"clipboard"},
-        {id:"focus",title:"Focus timer",icon:"timer"}, {id:"convergence",title:"Displays",icon:"convergence"}
+        {id:"focus",title:"Focus timer",icon:"timer"}, {id:"convergence",title:"Displays",icon:"convergence"},
+        {id:"android",title:"Android",icon:"android"}
     ]
     readonly property var order:(Hub.prefs.quickTiles||defaults).filter(id=>tiles.some(t=>t.id===id))
     readonly property var shown:order.map(id=>tiles.find(t=>t.id===id))
+    // The Android tile shows the live session, so it asks for a fresh status when the sheet opens.
+    Component.onCompleted:if(order.indexOf("android")>=0)Hub.command({action:"waydroid-status"})
     // A tile with a page asks the sheet to grow that page out of the tile.
     signal pageRequested(string id, Item source)
     function openPage(id,source) {deck.pageRequested(id,source);}
@@ -34,6 +37,7 @@ ColumnLayout {
         case "capture":return Hub.recordingActive;
         case "autohide":return !!Hub.prefs.taskbarAutoHide;
         case "focus":return Hub.focusRunning;
+        case "android":return Hub.waydroid.session==="running";
         default:return false;
         }
     }
@@ -46,6 +50,7 @@ ColumnLayout {
         if(id==="clipboard")return Hub.clipboardItems.length+" items";
         if(id==="convergence")return "Layout & docking";
         if(id==="focus")return Math.ceil(Hub.focusSeconds/60)+" minutes";
+        if(id==="android")return !(Hub.waydroid.installed&&Hub.waydroid.initialized) ? "Set up" : state(id) ? (Hub.waydroid.appCount||0)+" apps · On" : "Off";
         return state(id) ? "On" : "Off";
     }
     function toggle(id) {
@@ -64,6 +69,7 @@ ColumnLayout {
         case "clipboard":Hub.toggleClipboard();break;
         case "focus":Hub.timerToggle();break;
         case "convergence":Hub.openSettings("displays");break;
+        case "android":if(Hub.waydroid.installed&&Hub.waydroid.initialized)Hub.command({action:"waydroid-session",verb:state(id) ? "stop" : "start"});else Hub.openAndroid("setup");break;
         }
     }
     function change(id) {let next=order.slice();const index=next.indexOf(id);if(index>=0)next.splice(index,1);else next.push(id);Hub.set("quickTiles",next);}

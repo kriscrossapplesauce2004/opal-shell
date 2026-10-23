@@ -13,18 +13,21 @@ Item {
     property string query: ""
     property string category: ""
     property var selected: null
-    readonly property var items: s.items || []
+    // Apps with a newer version in the catalogue, read over ADB while Android runs.
+    readonly property var updates: s.updates || []
+    readonly property var items: category === "Updates" ? updates : s.items || []
     readonly property var featured: !query && !category ? items.slice(0, 3) : []
     readonly property var listed: !query && !category ? items.slice(3) : items
-    Component.onCompleted: { Hub.command({action: "android-store-load"}); Hub.androidSearch("", ""); }
+    Component.onCompleted: { Hub.command({action: "android-store-load"}); Hub.androidSearch("", ""); Hub.command({action: "android-store-updates"}); }
     Timer { id: debounce; interval: 180; onTriggered: Hub.androidSearch(store.query, store.category) }
     onQueryChanged: debounce.restart()
-    onCategoryChanged: Hub.androidSearch(query, category)
+    onCategoryChanged: if (category === "Updates") Hub.command({action: "android-store-updates"}); else Hub.androidSearch(query, category)
     // A finished catalogue load refreshes the current results.
     Connections { target: Hub; function onAndroidStoreChanged() { if (!Hub.androidStore.loading && Hub.androidStore.count > 0 && store.items.length === 0 && !store.query) debounce.restart(); } }
     Connections { target: Hub; function onAndroidStoreChanged() { if (store.selected && Hub.androidStore.detail && Hub.androidStore.detail.package === store.selected.package) store.selected = Hub.androidStore.detail; } }
     function size(b) { return b >= 1048576 ? (b / 1048576).toFixed(b > 104857600 ? 0 : 1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
     function installed(pkg) { return (s.installed || []).indexOf(pkg) >= 0; }
+    function hasUpdate(pkg) { return updates.some(u => u.package === pkg); }
     function job(pkg) { return (s.jobs || {})[pkg] || null; }
     function open(app) { selected = app; Hub.command({action: "android-store-detail", package: app.package}); }
 
@@ -48,13 +51,14 @@ Item {
         readonly property var j: app ? store.job(app.package) : null
         readonly property bool busy: !!j && (j.state === "download" || j.state === "install")
         readonly property bool have: app ? store.installed(app.package) : false
+        readonly property bool update: app ? store.hasUpdate(app.package) : false
         implicitWidth: busy ? 132 : btn.implicitWidth; implicitHeight: 38
         Behavior on implicitWidth { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
         MButton {
             id: btn; anchors.fill: parent; visible: !ib.busy; compact: true
-            text: ib.have ? "Open" : ib.j && ib.j.state === "failed" ? "Retry" : "Install"
-            filled: !ib.have; tonal: ib.have; enabled: store.ready
-            onClicked: ib.have ? Hub.command({action: "waydroid-launch", package: ib.app.package, name: ib.app.name}) : Hub.command({action: "android-store-install", package: ib.app.package})
+            text: ib.update ? "Update" : ib.have ? "Open" : ib.j && ib.j.state === "failed" ? "Retry" : "Install"
+            filled: !ib.have || ib.update; tonal: ib.have && !ib.update; enabled: store.ready
+            onClicked: ib.have && !ib.update ? Hub.command({action: "waydroid-launch", package: ib.app.package, name: ib.app.name}) : Hub.command({action: "android-store-install", package: ib.app.package})
         }
         Rectangle {
             anchors.fill: parent; visible: ib.busy; radius: height / 2; color: Theme.primaryContainer
@@ -101,7 +105,7 @@ Item {
             // Category chips.
             ListView {
                 Layout.fillWidth: true; Layout.preferredHeight: 36; orientation: ListView.Horizontal; spacing: 8; clip: true; boundsBehavior: Flickable.StopAtBounds
-                model: [{name: "", label: "For you", icon: "auto_awesome"}, {name: "Installed", label: "Installed", icon: "download_done"}].concat((store.s.categories || []).slice(0, 14).map(c => ({name: c.name, label: c.name, icon: ""})))
+                model: [{name: "", label: "For you", icon: "auto_awesome"}, {name: "Installed", label: "Installed", icon: "download_done"}].concat(store.updates.length ? [{name: "Updates", label: store.updates.length + (store.updates.length === 1 ? " update" : " updates"), icon: "update"}] : []).concat((store.s.categories || []).slice(0, 14).map(c => ({name: c.name, label: c.name, icon: ""})))
                 delegate: Rectangle {
                     required property var modelData
                     readonly property bool on: store.category === modelData.name
@@ -136,6 +140,18 @@ Item {
                 ScrollBar.vertical: ScrollBar {}
                 header: Column {
                     width: grid.width; spacing: 12; bottomPadding: 12
+                    // Updates: one calm card on the home of the store, and the Update all action on the Updates chip.
+                    Rectangle {
+                        visible: store.updates.length > 0 && !store.query && (store.category === "" || store.category === "Updates")
+                        width: grid.width; height: visible ? 72 : 0; radius: Theme.shapeLg; color: Theme.secondaryContainer
+                        RowLayout { anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 12; spacing: 14
+                            Glyph { name: "update"; font.pixelSize: 26; color: Theme.onSecondaryContainer }
+                            ColumnLayout { Layout.fillWidth: true; spacing: 0
+                                MText { text: store.updates.length === 1 ? "1 app can be updated" : store.updates.length + " apps can be updated"; role: "titleS"; color: Theme.onSecondaryContainer }
+                                MText { Layout.fillWidth: true; text: store.updates.slice(0, 4).map(u => u.name).join(", ") + (store.updates.length > 4 ? "…" : ""); role: "bodyS"; color: Theme.alpha(Theme.onSecondaryContainer, .8); elide: Text.ElideRight } }
+                            MButton { visible: store.category !== "Updates"; text: "View"; compact: true; onClicked: store.category = "Updates" }
+                            MButton { text: "Update all"; icon: "download"; compact: true; filled: true; onClicked: Hub.command({action: "android-store-update-all"}) } }
+                    }
                     // Featured: the first picks as large cards.
                     Row {
                         visible: store.featured.length > 0; spacing: 10
@@ -159,7 +175,7 @@ Item {
                             }
                         }
                     }
-                    MText { text: store.query ? (store.items.length ? "Results" : "Nothing found for “" + store.query + "”") : store.category === "Installed" ? (store.items.length ? "Installed from the store" : "Nothing installed from the store yet") : store.category || "New and updated"; role: "titleS"; color: Theme.primary; topPadding: 4 }
+                    MText { text: store.query ? (store.items.length ? "Results" : "Nothing found for “" + store.query + "”") : store.category === "Installed" ? (store.items.length ? "Installed from the store" : "Nothing installed from the store yet") : store.category === "Updates" ? (store.items.length ? "Ready to update" : "Everything is up to date") : store.category || "New and updated"; role: "titleS"; color: Theme.primary; topPadding: 4 }
                 }
                 delegate: Item {
                     id: cell
@@ -174,7 +190,7 @@ Item {
                             ColumnLayout { Layout.fillWidth: true; spacing: 1
                                 MText { Layout.fillWidth: true; text: cell.modelData.name; role: "titleS" }
                                 MText { Layout.fillWidth: true; text: cell.modelData.summary; role: "bodyS"; color: Theme.subtext; maximumLineCount: 1 }
-                                MText { Layout.fillWidth: true; text: store.size(cell.modelData.size) + (cell.modelData.arm ? " · ARM" : "") + (store.installed(cell.modelData.package) ? " · Installed" : ""); role: "labelS"; color: Theme.muted } }
+                                MText { Layout.fillWidth: true; text: store.size(cell.modelData.size) + (cell.modelData.arm ? " · ARM" : "") + (store.hasUpdate(cell.modelData.package) ? (cell.modelData.version ? " · New version " + cell.modelData.version : " · Update ready") : store.installed(cell.modelData.package) ? " · Installed" : ""); role: "labelS"; color: Theme.muted } }
                             InstallButton { app: cell.modelData; z: 2 } }
                         MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: store.open(cell.modelData) }
                     }

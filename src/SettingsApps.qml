@@ -66,6 +66,13 @@ SettingsPage {
                 }
             }
         }
+        // Without adb Opal cannot send the back key, dark mode or read app versions; setup adds it.
+        SettingRow {
+            visible:Hub.waydroid.installed&&Hub.waydroid.adb===false
+            icon:"cable";title:"Opal can't reach Android yet"
+            description:"Add adb so the back key, dark mode sync and app updates work"
+            MButton {text:"Add";icon:"download";tonal:true;compact:true;onClicked:Hub.command({action:"waydroid-setup-install",image:"VANILLA",arm:false})}
+        }
         SettingToggle {
             visible:Hub.waydroid.installed
             icon:"select_window";title:"Multi-window mode"

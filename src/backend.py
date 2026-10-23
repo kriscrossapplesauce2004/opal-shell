@@ -13,7 +13,7 @@ prefs_lock = threading.Lock()
 JSON_SEPARATORS = (',', ':')
 system_osk = None
 # Quick Settings tile identifiers. The shell can reorder or hide these, but not add unknown ones.
-QUICK_TILE_IDS = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard','motion','capture','autohide','clipboard','focus','convergence')
+QUICK_TILE_IDS = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard','motion','capture','autohide','clipboard','focus','convergence','android')
 QUICK_TILE_DEFAULT = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard')
 def emit(data):
     with lock:
