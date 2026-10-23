@@ -468,7 +468,12 @@ Scope {
     readonly property int unread: polkitMode ? 0 : Notifier.unread
     property date now: clock.date
     signal navigate(string key)
-    function command(data) { bridge.write(JSON.stringify(data)+"\n"); }
+    // Optimistic flips: the next status poll (≤2s) confirms or corrects these.
+    function command(data) {
+        bridge.write(JSON.stringify(data)+"\n");
+        if (data.action==="mute"&&!polkitMode) status=Object.assign({},status,{muted:!status.muted});
+        else if (data.action==="mic"&&!polkitMode) status=Object.assign({},status,{micMuted:!status.micMuted});
+    }
     function systemOsk(verb) { command({action:"system-osk",verb:verb||"toggle"}); }
     function set(key,value) { let p = Object.assign({},prefs); p[key]=value; prefs=p; command({action:"preference",key:key,value:value}); }
     // In console mode the launcher is the console home under the apps: show it through the compositor instead of a layer over them.
