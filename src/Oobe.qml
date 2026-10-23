@@ -4,7 +4,7 @@ import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
-// First-run setup: a full-screen walk through Wi-Fi, look, device, apps, Claude and shortcuts. Every choice applies right away.
+// First-run setup: a full-screen walk through Wi-Fi, look, device, apps, AI (or none) and shortcuts. Every choice applies right away.
 PanelWindow {
     id: oobe
     screen: Hub.chooseScreen()

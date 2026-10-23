@@ -440,7 +440,7 @@ from power_status import (connected_bluetooth_devices, cpu_governor,
                           parse_upower_batteries, primary_battery,
                           system_batteries)
 hypr_actions = HyprActions()
-import phone_commands, assistant
+import phone_commands, assistant, ai_features
 import power_key
 import game_profiles, gamescope_bridge
 # Set when Opal runs as the gamescope shell; it then owns window roles, app focus and the frame limit.
@@ -494,6 +494,7 @@ def commands():
                 valid = valid or waydroid_bridge.valid_preference(key, value)
                 valid = valid or routines_engine.valid_preference(key, value)
                 valid = valid or key=='lockScramblePin' and type(value)==bool
+                valid = valid or ai_features.valid_preference(key, value)
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
                     if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
@@ -503,6 +504,9 @@ def commands():
                         threading.Thread(target=lambda v=value: WAYDROID.sync_theme(v), daemon=True).start()
                     if key in ('routines','activeModes'):
                         threading.Thread(target=evaluate_routines, daemon=True).start()
+                    if key=='mode' and prefs.get('waydroidAutoPosture') is not False and WAYDROID.installed():
+                        threading.Thread(target=WAYDROID.sync_posture,args=(value,),daemon=True).start()
+                    if key==ai_features.KEY and value is False: stop_claude()
 
             elif action=='display-layouts':
                 from display_layouts import publish
@@ -573,6 +577,9 @@ def commands():
                 except (ValueError,OSError,subprocess.SubprocessError) as error:
                     emit({'event':'message','text':str(error)})
             elif phone_commands.handle(c,emit,GAMES_LISTED): pass
+            elif action in ('ai-remove','ai-restore','ai-status'): threading.Thread(target=ai_command,args=(action,),daemon=True).start()
+            elif isinstance(action,str) and action.startswith(('assistant','claude')) and not ai_features.enabled(prefs):
+                if action=='claude-ask': emit({'event':'claude','id':int(c.get('id') or 0),'text':'AI features are turned off.','done':True,'error':True})
             elif assistant.handle(c,emit): pass
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
@@ -1438,6 +1445,20 @@ def ask_claude(text, request):
             emit({'event':'claude','id':request,'text':final or answer,'tools':tools,'done':True,'error':bool(event.get('is_error'))})
     process.wait()
     if CLAUDE['process'] is process: CLAUDE['process'] = None
+
+def ai_command(action):
+    """AI-free mode. Remove turns AI off, takes AI entries out of other preferences and disconnects Claude Code; restore turns it back on."""
+    if action=='ai-remove':
+        stop_claude()
+        with prefs_lock:
+            prefs.update(ai_features.scrub(prefs)); prefs[ai_features.KEY]=False; save()
+        done=ai_features.disconnect()
+        emit({'event':'message','text':'AI features removed'+(' · Claude Code disconnected' if done else '')})
+    elif action=='ai-restore':
+        with prefs_lock: prefs[ai_features.KEY]=True; save()
+        if ai_features.connect(pathlib.Path(__file__).resolve().with_name('opal_mcp.py')): emit({'event':'message','text':'AI features are on · Opal is connected to Claude Code'})
+        else: emit({'event':'message','text':'AI features are on'})
+    emit(dict(ai_features.status(),event='aiStatus',enabled=ai_features.enabled(prefs)))
 
 def stop_claude():
     process = CLAUDE.get('process')

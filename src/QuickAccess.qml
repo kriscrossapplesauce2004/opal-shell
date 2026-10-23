@@ -107,7 +107,7 @@ Item {
         visible: glance.visible
         opacity: qa.glanceReveal
         anchors.horizontalCenter: parent.horizontalCenter; anchors.top: glance.bottom; anchors.topMargin: 12
-        items: [{b: "Guide", t: "Quick Access"}, {b: "Hold", t: "Claude"}, {b: ControllerNav.acceptLabel, t: "Screenshot"}, {b: ControllerNav.backLabel, t: "Hide"}]
+        items: [{b: "Guide", t: "Quick Access"}, ...(Hub.aiEnabled ? [{b: "Hold", t: "Claude"}] : []), {b: ControllerNav.acceptLabel, t: "Screenshot"}, {b: ControllerNav.backLabel, t: "Hide"}]
     }
     // The glance takes only A and B; everything else stays with the game.
     QtObject { id: glanceClaim; property int priority: 10 }
@@ -413,7 +413,7 @@ Item {
             }
             QaRow {
                 Layout.fillWidth: true
-                kind: "toggle"; icon: "gamepad"; title: "Guide button opens this"; detail: "Tap: glance. Twice: this sheet. Hold: Claude. Turn off if Steam uses Guide"; checked: Hub.prefs.quickAccessGuide !== false
+                kind: "toggle"; icon: "gamepad"; title: "Guide button opens this"; detail: "Tap: glance. Twice: this sheet." + (Hub.aiEnabled ? " Hold: Claude." : "") + " Turn off if Steam uses Guide"; checked: Hub.prefs.quickAccessGuide !== false
                 onActivated: Hub.set("quickAccessGuide", Hub.prefs.quickAccessGuide === false)
             }
             QaRow {

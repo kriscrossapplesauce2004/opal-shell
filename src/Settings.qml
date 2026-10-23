@@ -32,6 +32,7 @@ Item {
          {id:"games",title:"Games & controller",icon:"sports_esports",detail:"Button order and Quick Access"}],
         [{id:"routines",title:"Modes & routines",icon:"routine",detail:"Night light, schedules, profiles"},
          {id:"accessibility",title:"Accessibility",icon:"accessibility_new",detail:"Motion and readable surfaces"},
+         {id:"ai",title:"AI & assistant",icon:Hub.aiEnabled ? "auto_awesome" : "block",detail:Hub.aiEnabled ? "Claude, or turn off every AI feature" : "Off · Opal is AI-free"},
          {id:"system",title:"System",icon:"system_update",detail:"Updates, storage and temperatures"},
          {id:"about",title:"About this device",icon:"info",detail:"Opal"+(Hub.status.uptime ? " · up "+Hub.status.uptime : "")}]
     ]
@@ -119,6 +120,9 @@ Item {
         {s:"accessibility",t:"Reduce motion",k:"animation transitions"},
         {s:"accessibility",t:"Solid surfaces",k:"opaque material transparency readability"},
         {s:"accessibility",t:"Surface opacity",k:"glass density"},
+        {s:"ai",t:"AI features",k:"ai claude assistant copilot llm turn off disable no ai"},
+        {s:"ai",t:"Remove all AI",k:"ai claude delete disable privacy"},
+        {s:"ai",t:"Claude Code",k:"ai claude install mcp"},
         {s:"system",t:"Updates",k:"pacman flatpak upgrade"},
         {s:"system",t:"Storage",k:"disk space"},
         {s:"system",t:"Temperatures",k:"heat sensors"},
@@ -231,7 +235,7 @@ Item {
                 id:page
                 Layout.fillWidth:true;Layout.fillHeight:true
                 readonly property string sec:Hub.settingsSection
-                sourceComponent:({"":overviewPage,network:networkPage,bluetooth:bluetoothPage,devices:devicesPage,link:linkPage,apps:appsPage,notifications:notificationsPage,power:powerPage,powerkey:powerKeyPage,sound:soundPage,displays:screensPage,style:stylePage,look:lookPage,apptheme:appThemePage,home:homePage,phone:phonePage,games:gamesPage,routines:routinesPage,profiles:profilesPage,accessibility:accessibilityPage,system:systemPage,about:aboutPage})[sec]||overviewPage
+                sourceComponent:({"":overviewPage,network:networkPage,bluetooth:bluetoothPage,devices:devicesPage,link:linkPage,apps:appsPage,notifications:notificationsPage,power:powerPage,powerkey:powerKeyPage,sound:soundPage,displays:screensPage,style:stylePage,look:lookPage,apptheme:appThemePage,home:homePage,phone:phonePage,games:gamesPage,routines:routinesPage,profiles:profilesPage,accessibility:accessibilityPage,ai:aiPage,system:systemPage,about:aboutPage})[sec]||overviewPage
                 // A new page slides in from the side; going back slides the other way.
                 onLoaded:pageIn.restart()
                 ParallelAnimation {
@@ -340,6 +344,7 @@ Item {
     Component {id:routinesPage;SettingsRoutines {}}
     Component {id:profilesPage;SettingsProfiles {}}
     Component {id:accessibilityPage;SettingsAccessibility {}}
+    Component {id:aiPage;SettingsAI {}}
     Component {id:systemPage;SettingsSystem {}}
     Component {id:aboutPage;SettingsAbout {}}
 }

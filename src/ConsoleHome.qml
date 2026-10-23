@@ -36,7 +36,7 @@ Item {
     readonly property var pinnedEntries: (Hub.prefs.gamePins || []).map(id => games.find(e => e.id === id)).filter(e => !!e)
     readonly property var continueEntry: recent.find(e => !e.group) || null
     readonly property var featured: focusEntry && !focusEntry.group ? focusEntry : continueEntry
-    readonly property var widgetKinds: (Hub.prefs.consoleWidgets || ["updates", "devices", "music", "storage", "captures", "next"]).filter(k => k !== "playtime")
+    readonly property var widgetKinds: (Hub.prefs.consoleWidgets || ["updates", "devices", "music", "storage", "captures", "next"]).filter(k => k !== "playtime" && (Hub.aiEnabled || k !== "claude"))
     readonly property var columnWidgets: wideLayout ? widgetKinds.slice(0, 2) : []
     readonly property var shelfWidgets: wideLayout ? widgetKinds.slice(2) : widgetKinds
     readonly property bool collapsed: flick.contentY > 190
@@ -602,7 +602,7 @@ Item {
                             {id: "music", g: "music_note", t: "Music", d: "Play, skip, seek"}, {id: "storage", g: "hard_drive", t: "Storage", d: "Free space, uninstall"},
                             {id: "captures", g: "photo_library", t: "Captures", d: "Newest screenshot, copy it"}, {id: "next", g: "tune", t: "Next game", d: "Saver, Balanced, Max"},
                             {id: "minecraft", g: "deployed_code", t: "Minecraft", d: "Launch an instance"}, {id: "toggles", g: "toggle_on", t: "Toggles", d: "Wi-Fi, Bluetooth, DND"},
-                            {id: "claude", g: "auto_awesome", t: "Ask Claude", d: "Hold Guide to talk"}]
+                            {id: "claude", g: "auto_awesome", t: "Ask Claude", d: "Hold Guide to talk"}].filter(w => Hub.aiEnabled || w.id !== "claude")
                     Rectangle {
                         id: tile
                         required property var modelData

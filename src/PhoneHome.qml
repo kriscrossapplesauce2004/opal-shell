@@ -342,6 +342,7 @@ Item {
                 MText { text: "Search apps, files, settings"; role: "body"; font.pixelSize: 16; color: Theme.subtext; Layout.fillWidth: true }
                 PhoneTorch { implicitWidth: 40; implicitHeight: 40; compact: true }
                 Rectangle {
+                    visible: Hub.aiEnabled
                     Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 20; color: Theme.tertiaryContainer
                     Glyph { anchors.centerIn: parent; name: "auto_awesome"; font.pixelSize: 20; color: Theme.onTertiaryContainer }
                     MouseArea { anchors.fill: parent; onClicked: Hub.openAssistant("") }
@@ -382,6 +383,7 @@ Item {
                 }
             }
             Rectangle {
+                visible: Hub.aiEnabled
                 anchors.bottom: parent.bottom; anchors.bottomMargin: 8; anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.min(parent.width - 8, 560); height: 56; radius: 28; color: Theme.level(3)
                 RowLayout {

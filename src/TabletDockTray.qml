@@ -43,7 +43,7 @@ Item {
                 }
                 Rectangle {
                     anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter
-                    width: 40; height: 40; radius: 20; color: Theme.tertiaryContainer
+                    visible: Hub.aiEnabled; width: 40; height: 40; radius: 20; color: Theme.tertiaryContainer
                     Glyph { anchors.centerIn: parent; name: "auto_awesome"; font.pixelSize: 20; color: Theme.onTertiaryContainer }
                     MouseArea { anchors.fill: parent; onClicked: Hub.openAssistant("") }
                 }

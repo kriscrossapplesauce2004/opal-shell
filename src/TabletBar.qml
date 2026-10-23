@@ -42,7 +42,7 @@ Item {
                 visible:bar.keys;spacing:3;anchors.verticalCenter:parent.verticalCenter
                 Segment {first:true;tooltip:"Back";onActivated:bar.back()
                     NavTriangle {anchors.centerIn:parent;width:18;height:18}}
-                Segment {tooltip:"Home · hold for assistant";onActivated:bar.home();onHeld:Hub.openAssistant("")
+                Segment {tooltip:Hub.aiEnabled ? "Home · hold for assistant" : "Home";onActivated:bar.home();onHeld:Hub.openAssistant("")
                     Rectangle {anchors.centerIn:parent;width:18;height:18;radius:9;color:"transparent";border.width:2.5;border.color:Theme.text}}
                 Segment {last:true;tooltip:"Recent apps";onActivated:bar.recents()
                     Rectangle {anchors.centerIn:parent;width:16;height:16;radius:4;color:"transparent";border.width:2.5;border.color:Theme.text}}
@@ -85,7 +85,7 @@ Item {
                 Accessible.role:Accessible.Button;Accessible.name:"Search"
                 Rectangle {
                     anchors.right:parent.right;anchors.rightMargin:8;anchors.verticalCenter:parent.verticalCenter
-                    width:40;height:40;radius:20;color:Theme.tertiaryContainer
+                    visible:Hub.aiEnabled;width:40;height:40;radius:20;color:Theme.tertiaryContainer
                     Glyph {anchors.centerIn:parent;name:"auto_awesome";font.pixelSize:20;color:Theme.onTertiaryContainer}
                     MouseArea {anchors.fill:parent;onClicked:Hub.openAssistant("")}
                     Accessible.role:Accessible.Button;Accessible.name:"Ask Claude"

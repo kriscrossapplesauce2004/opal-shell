@@ -14,7 +14,7 @@ Item {
         {id: "look", label: "Style", icon: "palette", shape: 5},
         {id: "device", label: "Layout", icon: "devices", shape: 3},
         {id: "apps", label: "Apps", icon: "apps", shape: 7},
-        {id: "claude", label: "Claude", icon: "auto_awesome", shape: 8},
+        {id: "claude", label: "AI", icon: Hub.aiEnabled ? "auto_awesome" : "block", shape: 8},
         {id: "tips", label: "Shortcuts", icon: "keyboard", shape: 6},
         {id: "ready", label: "Done", icon: "check", shape: 0}
     ]
@@ -230,7 +230,8 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 8; spacing: 10
             Repeater { model: [
                 {icon: Theme.light ? "dark_mode" : "light_mode", label: Theme.light ? "Dark theme" : "Light theme", run: () => Hub.set("light", !Theme.light)},
-                {icon: "motion_photos_off", label: Theme.reduceMotion ? "Motion is reduced" : "Reduce motion", run: () => Hub.set("reduceMotion", !Theme.reduceMotion)}]
+                {icon: "motion_photos_off", label: Theme.reduceMotion ? "Motion is reduced" : "Reduce motion", run: () => Hub.set("reduceMotion", !Theme.reduceMotion)},
+                {icon: Hub.aiEnabled ? "block" : "check", label: Hub.aiEnabled ? "No AI" : "AI removed", run: () => Hub.command({action: Hub.aiEnabled ? "ai-remove" : "ai-restore"})}]
                 Rectangle { required property var modelData; height: 40; width: hr.implicitWidth + 28; radius: 20; color: Theme.alpha(Theme.level(3), .92)
                     Row { id: hr; anchors.centerIn: parent; spacing: 8
                         Glyph { name: modelData.icon; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
@@ -242,7 +243,7 @@ Item {
     // ---------- 1 network ----------
     Component { id: networkPage; StepLayout {
         icon: "wifi"; title: "Get connected"
-        body: "Opal uses the internet for weather, the app store, Android and Claude. You can skip this and connect later from Quick Settings."
+        body: "Opal uses the internet for weather, the app store" + (Hub.aiEnabled ? ", Android and Claude." : " and Android.") + " You can skip this and connect later from Quick Settings."
         Card {
             id: net
             anchors.fill: parent
@@ -408,39 +409,76 @@ Item {
         } }
     } }
 
-    // ---------- 5 claude ----------
+    // ---------- 5 ai ----------
+    // AI is a choice here: Claude, or no AI at all. "No AI" turns off every AI surface and disconnects Claude Code.
     Component { id: claudePage; StepLayout {
-        icon: "auto_awesome"; title: "Meet Claude"
-        body: "Claude lives in Opal. Ask it anything, or let it change settings, open apps and arrange windows for you. Press Super + A, or type ! in Start."
-        Timer { interval: 3000; repeat: true; running: !AssistantState.available; onTriggered: Hub.command({action: "assistant-context"}) }
-        Component.onCompleted: Hub.command({action: "assistant-context"})
-        Card {
-            width: parent.width; height: Math.min(parent.height, claudeCol.implicitHeight + 48); anchors.verticalCenter: parent.verticalCenter
-            ColumnLayout { id: claudeCol; anchors.fill: parent; anchors.margins: 24; spacing: 18
-                // A sample exchange shows what Claude can do in the shell.
-                Column {
-                    Layout.fillWidth: true; spacing: 10
-                    Repeater { model: [{me: true, t: "Put Firefox and my terminal side by side"}, {me: false, t: "Done. Firefox is on the left, Kitty on the right."}, {me: true, t: "Turn on night light at sunset"}, {me: false, t: "Night light now turns on at sunset and off at sunrise."}]
-                        Item { required property var modelData; width: parent.width; height: bubble.height
-                            Rectangle { id: bubble; anchors.right: modelData.me ? parent.right : undefined; anchors.left: modelData.me ? undefined : parent.left
-                                width: Math.min(parent.width * .85, bubbleRow.implicitWidth + 32); height: bubbleRow.implicitHeight + 20; radius: 20
-                                color: modelData.me ? Theme.primary : Theme.level(3)
-                                Row { id: bubbleRow; anchors.centerIn: parent; spacing: 8
-                                    Glyph { visible: !modelData.me; name: "auto_awesome"; font.pixelSize: 18; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                                    MText { text: modelData.t; role: "body"; color: modelData.me ? Theme.onPrimary : Theme.text; anchors.verticalCenter: parent.verticalCenter } } } } }
+        icon: Hub.aiEnabled ? "auto_awesome" : "block"; title: Hub.aiEnabled ? "Meet Claude" : "No AI, no problem"
+        body: Hub.aiEnabled ? "Claude lives in Opal. Ask it anything, or let it change settings, open apps and arrange windows for you. Press Super + A, or type ! in Start."
+            : "Opal works the same without it. There is no assistant, no AI in search and no Ask Claude buttons. Turn it on later in Settings › AI & assistant."
+        Timer { interval: 3000; repeat: true; running: Hub.aiEnabled && !AssistantState.available; onTriggered: Hub.command({action: "assistant-context"}) }
+        Component.onCompleted: if (Hub.aiEnabled) Hub.command({action: "assistant-context"})
+        Flickable {
+            anchors.fill: parent; contentHeight: Math.max(height, aiCol.implicitHeight); clip: true; boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar {}
+            ColumnLayout { id: aiCol; y: Math.max(0, (parent.parent.height - implicitHeight) / 2); width: parent.width - 10; spacing: 16
+                RowLayout { Layout.fillWidth: true; spacing: 12
+                    PickCard { Layout.fillWidth: true; Layout.preferredHeight: 170; title: "Use Claude"; detail: "An assistant in Start and its own panel"; chosen: Hub.aiEnabled
+                        onPicked: if (!Hub.aiEnabled) Hub.command({action: "ai-restore"})
+                        MorphShape { anchors.centerIn: parent; width: Math.min(parent.width, parent.height) * .9; height: width; shape: 8; spin: Hub.aiEnabled; fill: Hub.aiEnabled ? Theme.primary : Theme.alpha(Theme.text, .18)
+                            Glyph { anchors.centerIn: parent; name: "auto_awesome"; font.pixelSize: parent.width * .45; color: Hub.aiEnabled ? Theme.onPrimary : Theme.subtext } } }
+                    PickCard { Layout.fillWidth: true; Layout.preferredHeight: 170; title: "No AI"; detail: "Turns off and removes every AI feature"; chosen: !Hub.aiEnabled
+                        onPicked: if (Hub.aiEnabled) Hub.command({action: "ai-remove"})
+                        MorphShape { anchors.centerIn: parent; width: Math.min(parent.width, parent.height) * .9; height: width; shape: 0; spin: false; fill: !Hub.aiEnabled ? Theme.primary : Theme.alpha(Theme.text, .18)
+                            Glyph { anchors.centerIn: parent; name: "block"; font.pixelSize: parent.width * .45; color: !Hub.aiEnabled ? Theme.onPrimary : Theme.subtext } } }
                 }
-                Rectangle { Layout.fillWidth: true; implicitHeight: 76; radius: Theme.shapeLg; color: AssistantState.available ? Theme.primaryContainer : Theme.level(3)
-                    RowLayout { anchors.fill: parent; anchors.margins: 16; spacing: 14
-                        Glyph { name: AssistantState.available ? "check_circle" : "download"; font.pixelSize: 28; color: AssistantState.available ? Theme.onContainer : Theme.primary }
-                        ColumnLayout { Layout.fillWidth: true; spacing: 0
-                            MText { text: AssistantState.available ? "Claude Code is installed" : "Claude needs Claude Code"; role: "titleS"; color: AssistantState.available ? Theme.onContainer : Theme.text }
-                            MText { Layout.fillWidth: true; text: AssistantState.available ? "Opal talks to Claude through it. Run claude once in a terminal if you haven't signed in." : "Install it once. A terminal shows each step, then sign in."; role: "bodyS"; wrapMode: Text.Wrap; color: AssistantState.available ? Theme.alpha(Theme.onContainer, .8) : Theme.subtext } }
-                        MButton { visible: !AssistantState.available; text: "Install"; filled: true; onClicked: Hub.command({action: "assistant-install"}) } } }
-                SectionLabel { text: "When Claude wants to change something" }
-                SegmentedButtons { Layout.fillWidth: true; current: AssistantState.mode
-                    options: [{value: "ask", label: "Ask me first", icon: "front_hand"}, {value: "auto", label: "Just do it", icon: "bolt"}]
-                    onPicked: v => AssistantState.setMode(v) }
-                MText { Layout.fillWidth: true; text: AssistantState.mode === "auto" ? "Risky actions, like closing apps or deleting files, still ask." : "Every action waits for your OK in the panel."; role: "bodyS"; color: Theme.subtext; wrapMode: Text.Wrap }
+                Card {
+                    visible: Hub.aiEnabled
+                    Layout.fillWidth: true; Layout.preferredHeight: claudeCol.implicitHeight + 48
+                    ColumnLayout { id: claudeCol; anchors.fill: parent; anchors.margins: 24; spacing: 18
+                        // A sample exchange shows what Claude can do in the shell.
+                        Column {
+                            Layout.fillWidth: true; spacing: 10
+                            Repeater { model: [{me: true, t: "Put Firefox and my terminal side by side"}, {me: false, t: "Done. Firefox is on the left, Kitty on the right."}]
+                                Item { required property var modelData; width: parent.width; height: bubble.height
+                                    Rectangle { id: bubble; anchors.right: modelData.me ? parent.right : undefined; anchors.left: modelData.me ? undefined : parent.left
+                                        width: Math.min(parent.width * .85, bubbleRow.implicitWidth + 32); height: bubbleRow.implicitHeight + 20; radius: 20
+                                        color: modelData.me ? Theme.primary : Theme.level(3)
+                                        Row { id: bubbleRow; anchors.centerIn: parent; spacing: 8
+                                            Glyph { visible: !modelData.me; name: "auto_awesome"; font.pixelSize: 18; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
+                                            MText { text: modelData.t; role: "body"; color: modelData.me ? Theme.onPrimary : Theme.text; anchors.verticalCenter: parent.verticalCenter } } } } }
+                        }
+                        Rectangle { Layout.fillWidth: true; implicitHeight: 76; radius: Theme.shapeLg; color: AssistantState.available ? Theme.primaryContainer : Theme.level(3)
+                            RowLayout { anchors.fill: parent; anchors.margins: 16; spacing: 14
+                                Glyph { name: AssistantState.available ? "check_circle" : "download"; font.pixelSize: 28; color: AssistantState.available ? Theme.onContainer : Theme.primary }
+                                ColumnLayout { Layout.fillWidth: true; spacing: 0
+                                    MText { text: AssistantState.available ? "Claude Code is installed" : "Claude needs Claude Code"; role: "titleS"; color: AssistantState.available ? Theme.onContainer : Theme.text }
+                                    MText { Layout.fillWidth: true; text: AssistantState.available ? "Opal talks to Claude through it. Run claude once in a terminal if you haven't signed in." : "Install it once. A terminal shows each step, then sign in."; role: "bodyS"; wrapMode: Text.Wrap; color: AssistantState.available ? Theme.alpha(Theme.onContainer, .8) : Theme.subtext } }
+                                MButton { visible: !AssistantState.available; text: "Install"; filled: true; onClicked: Hub.command({action: "assistant-install"}) } } }
+                        SectionLabel { text: "When Claude wants to change something" }
+                        SegmentedButtons { Layout.fillWidth: true; current: AssistantState.mode
+                            options: [{value: "ask", label: "Ask me first", icon: "front_hand"}, {value: "auto", label: "Just do it", icon: "bolt"}]
+                            onPicked: v => AssistantState.setMode(v) }
+                        MText { Layout.fillWidth: true; text: AssistantState.mode === "auto" ? "Risky actions, like closing apps or deleting files, still ask." : "Every action waits for your OK in the panel."; role: "bodyS"; color: Theme.subtext; wrapMode: Text.Wrap }
+                    }
+                }
+                // AI-free summary: each row is one surface that is now gone.
+                Card {
+                    visible: !Hub.aiEnabled
+                    Layout.fillWidth: true; Layout.preferredHeight: offCol.implicitHeight + 40
+                    ColumnLayout { id: offCol; anchors.fill: parent; anchors.margins: 20; spacing: 14
+                        Repeater { model: [
+                            {i: "chat_bubble", t: "No assistant", d: "Super + A, the Copilot key and hold gestures do nothing"},
+                            {i: "search", t: "Plain search", d: "Start shows your apps, files and settings only"},
+                            {i: "touch_app", t: "No Ask Claude buttons", d: "Gone from captures, docks, homes and game mode"},
+                            {i: "link_off", t: "Disconnected", d: "Opal's tools are removed from Claude Code, if it is installed"}]
+                            RowLayout { required property var modelData; Layout.fillWidth: true; spacing: 14
+                                Rectangle { Layout.preferredWidth: 40; Layout.preferredHeight: 40; radius: 20; color: Theme.secondaryContainer
+                                    Glyph { anchors.centerIn: parent; name: modelData.i; font.pixelSize: 20; color: Theme.onSecondaryContainer } }
+                                ColumnLayout { Layout.fillWidth: true; spacing: 0
+                                    MText { Layout.fillWidth: true; text: modelData.t; role: "titleS" }
+                                    MText { Layout.fillWidth: true; text: modelData.d; role: "bodyS"; color: Theme.subtext; wrapMode: Text.Wrap } } } }
+                    }
+                }
             }
         }
     } }
@@ -460,21 +498,21 @@ Item {
             {k: "touch_app", t: "Move apps and widgets", d: "Press and hold on the home", g: true}]
           : m === "console" ? [
             {k: "Guide", t: "Quick Access", d: "Performance, music and toggles over any game"},
-            {k: "Guide + A", t: "Claude", d: "Ask without leaving the game"},
+            {k: "Guide + A", t: "Claude", d: "Ask without leaving the game", ai: true},
             {k: "Guide + B", t: "Power menu", d: "Sleep, restart or back to desktop"},
             {k: "A / B", t: "Choose and go back", d: "Everywhere in Opal"}]
           : [
             {k: "Super + Space", t: "Start and search", d: "Apps, files, settings and maths"},
             {k: "Alt + Tab", t: "Switch windows", d: "Hold Alt and tap Tab"},
             {k: "Super + Tab", t: "Every window", d: "Pick one with the mouse or keys"},
-            {k: "Super + A", t: "Claude", d: "Ask or get things done"},
+            {k: "Super + A", t: "Claude", d: "Ask or get things done", ai: true},
             {k: "Super + Comma", t: "Quick Settings", d: "And your notifications"},
             {k: "Super + L", t: "Lock", d: "Your session stays open"},
             {k: "Super + Ctrl + G", t: "Gaming mode", d: "Your library, controller first"}]
         Flickable {
             anchors.fill: parent; contentHeight: Math.max(height, tipGrid.implicitHeight); clip: true; boundsBehavior: Flickable.StopAtBounds
             GridLayout { id: tipGrid; y: Math.max(0, (parent.parent.height - implicitHeight) / 2); width: parent.width; columns: root.narrow ? 1 : 2; columnSpacing: 12; rowSpacing: 12
-                Repeater { model: tips.items
+                Repeater { model: tips.items.filter(t => Hub.aiEnabled || !t.ai)
                     Card { required property var modelData; required property int index; Layout.fillWidth: true; implicitHeight: 92
                         // Cards arrive one after another.
                         opacity: 0; Component.onCompleted: arrive.start()
@@ -513,7 +551,7 @@ Item {
                     {i: "devices", t: ({auto: "Automatic", desktop: "Desktop", phone: "Phone or tablet", console: "Couch"})[Hub.prefs.mode] || "Automatic"},
                     {i: Hub.prefs.floatingMode ? "select_window" : "dashboard", t: Hub.prefs.floatingMode ? "Floating" : "Tiling"},
                     {i: "android", t: Hub.waydroidSetup.busy ? "Android setting up" : Hub.waydroid.installed && Hub.waydroid.initialized ? "Android ready" : "No Android", dim: !(Hub.waydroid.installed || Hub.waydroidSetup.busy)},
-                    {i: "auto_awesome", t: AssistantState.available ? "Claude ready" : "Claude not installed", dim: !AssistantState.available}]
+                    Hub.aiEnabled ? {i: "auto_awesome", t: AssistantState.available ? "Claude ready" : "Claude not installed", dim: !AssistantState.available} : {i: "block", t: "No AI"}]
                     Rectangle { required property var modelData; height: 36; width: rr.implicitWidth + 26; radius: 18; color: modelData.dim ? Theme.alpha(Theme.level(3), .8) : Theme.secondaryContainer
                         Row { id: rr; anchors.centerIn: parent; spacing: 6
                             Glyph { name: modelData.i; font.pixelSize: 17; color: modelData.dim ? Theme.subtext : Theme.onSecondaryContainer; anchors.verticalCenter: parent.verticalCenter }

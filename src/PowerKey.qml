@@ -31,7 +31,8 @@ QtObject {
     readonly property var current:rows[Math.max(0,Math.min(rows.length-1,index))]||null
 
     // Every action the menu can hold. "secure" rows need an unlocked session; "sub" rows open a submenu.
-    readonly property var catalog:[
+    readonly property var catalog:catalogAll.filter(c=>Hub.aiEnabled||c.id!=="assistant")
+    readonly property var catalogAll:[
         {id:"sleep",icon:"bedtime",label:"Sleep",group:"Power"},
         {id:"power",icon:"power_settings_new",label:"Power",group:"Power",sub:true},
         {id:"lock",icon:"lock",label:"Lock",group:"Power"},

@@ -349,8 +349,11 @@ case "${1:-on}" in
         ;;
 esac
 EOF
-# Register the Opal MCP server with Claude Code, so "claude" can drive the shell.
-if command -v claude >/dev/null 2>&1 && ! claude mcp get opal >/dev/null 2>&1; then
+# Register the Opal MCP server with Claude Code, so "claude" can drive the shell. AI-free mode (aiFeatures false) skips it.
+ai_off() {
+    python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("aiFeatures") is False else 1)' "$state_dir/preferences.json" 2>/dev/null
+}
+if ! ai_off && command -v claude >/dev/null 2>&1 && ! claude mcp get opal >/dev/null 2>&1; then
     claude mcp add --scope user opal -- python3 "$config_dir/opal_mcp.py" >/dev/null 2>&1 &&
         echo "Registered the Opal MCP server with Claude Code (remove with: claude mcp remove opal)" || true
 fi

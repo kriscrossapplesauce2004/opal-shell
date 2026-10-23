@@ -23,7 +23,7 @@ Item {
             NavTriangle {anchors.centerIn:parent;width:18;height:18}
         }
         NavKey {
-            tooltip:"Home · hold for assistant";onActivated:nav.home();onHeld:Hub.openAssistant("")
+            tooltip:Hub.aiEnabled ? "Home · hold for assistant" : "Home";onActivated:nav.home();onHeld:Hub.openAssistant("")
             Rectangle {anchors.centerIn:parent;width:18;height:18;radius:9;color:"transparent";border.width:2.5;border.color:Theme.text}
         }
         NavKey {

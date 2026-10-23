@@ -56,7 +56,7 @@ Item {
         Rectangle { Layout.preferredWidth: 88; Layout.preferredHeight: 88; radius: 28; color: Theme.primaryContainer
             Glyph { anchors.centerIn: parent; name: "auto_awesome"; font.pixelSize: 44; color: Theme.onContainer } }
         MText { text: "The new Opal"; role: "displayM"; Layout.fillWidth: true; wrapMode: Text.Wrap }
-        MText { text: "A calmer bar, a lock screen and login screen, a new gaming library and phone home, and Claude in Start. Pick a few things and you're set."; role: "body"; color: Theme.subtext; Layout.fillWidth: true; wrapMode: Text.Wrap }
+        MText { text: "A calmer bar, a lock screen and login screen, a new gaming library and phone home" + (Hub.aiEnabled ? ", and Claude in Start." : ".") + " Pick a few things and you're set."; role: "body"; color: Theme.subtext; Layout.fillWidth: true; wrapMode: Text.Wrap }
         Item { Layout.fillHeight: true } } }
     Component { id: theme; ColumnLayout { spacing: 10
         MText { text: "Light or dark?"; role: "headline" }
@@ -82,7 +82,7 @@ Item {
         Item { Layout.fillHeight: true } } }
     Component { id: done; ColumnLayout { spacing: 10
         MText { text: "A few shortcuts"; role: "headline" }
-        Repeater { model: [{k: "Super + Space", t: "Start and search"}, {k: "! in Start", t: "Ask Claude, or have it change Opal for you"}, {k: "Super + Comma", t: "Controls and notifications"}, {k: "Super + L", t: "Lock"}, {k: "Super + Ctrl + G", t: "Gaming mode"}]
+        Repeater { model: [{k: "Super + Space", t: "Start and search"}, ...(Hub.aiEnabled ? [{k: "! in Start", t: "Ask Claude, or have it change Opal for you"}] : []), {k: "Super + Comma", t: "Controls and notifications"}, {k: "Super + L", t: "Lock"}, {k: "Super + Ctrl + G", t: "Gaming mode"}]
             RowLayout { required property var modelData; Layout.fillWidth: true; spacing: 14
                 Rectangle { Layout.preferredWidth: keyText.implicitWidth + 24; Layout.preferredHeight: 34; radius: 10; color: Theme.level(4)
                     MText { id: keyText; anchors.centerIn: parent; text: modelData.k; role: "label"; font.weight: Font.Bold } }

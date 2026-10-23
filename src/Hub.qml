@@ -173,9 +173,12 @@ Scope {
     property var claudeTools: []
     property bool claudeBusy: false
     property bool claudeError: false
-    function askClaude(text) { const t=text.trim();if(!t)return;claudeRequest++;claudeAnswer="";claudeTools=[];claudeError=false;claudeBusy=true;command({action:"claude-ask",text:t,id:claudeRequest}); }
+    // AI-free mode: false hides every Claude surface and these entry points do nothing.
+    readonly property bool aiEnabled: prefs.aiFeatures!==false
+    property var aiStatus: ({})
+    function askClaude(text) { const t=text.trim();if(!t||!aiEnabled)return;claudeRequest++;claudeAnswer="";claudeTools=[];claudeError=false;claudeBusy=true;command({action:"claude-ask",text:t,id:claudeRequest}); }
     // The assistant panel. Super+A, the Assistant key, Home long-press and "!" in Start open it.
-    function openAssistant(text) {targetScreen=chooseScreen();query="";AssistantState.capture();closeAudio();page="assistant";if(text&&text.trim()!=="")AssistantState.send(text);}
+    function openAssistant(text) {if(!aiEnabled)return;targetScreen=chooseScreen();query="";AssistantState.capture();closeAudio();page="assistant";if(text&&text.trim()!=="")AssistantState.send(text);}
     function stopClaude() { command({action:"claude-stop"});claudeBusy=false; }
     // System reports from system_tools.py.
     property var health: ({disks:[],temperatures:{},hottest:0})
@@ -888,6 +891,7 @@ Scope {
                     else if(e.event === "powerKeyChord") PowerKey.chord();
                     else if(e.event === "powerKeyState") {if(e.device)PowerKey.device=e.device;if(e.live)PowerKey.live=e.live;if(e.contacts)PowerKey.contacts=e.contacts;}
                     else if(e.event === "sun") h.sun={sunrise:e.sunrise,sunset:e.sunset,estimated:e.estimated};
+                    else if(e.event === "aiStatus") h.aiStatus=e;
                     else if(e.event.indexOf("assistant") === 0) AssistantState.ingest(e);
                     else if(e.event === "claude" && e.id===h.claudeRequest) {h.claudeAnswer=e.text||"";h.claudeTools=e.tools||[];if(e.done){h.claudeBusy=false;h.claudeError=!!e.error;}}
                     else if(e.event === "orientation") h.applyOrientation(e.transform);
