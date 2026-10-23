@@ -42,7 +42,7 @@ Item {
         id: devicesView
         Rectangle {
             id: dw
-            radius: 28; color: Theme.alpha(Theme.level(2), .94)
+            radius: 28; color: Theme.fill(Theme.level(2), .94, "widgets")
             readonly property var items: HomeData.devices.slice(0, 3).map(d => ({icon: d.icon, label: d.percent + "%", value: d.percent / 100, name: d.name}))
                 .concat(HomeData.updates > 0 ? [{icon: "system_update", label: String(HomeData.updates), value: -1, name: HomeData.updates + " updates"}] : [])
                 .concat(Hub.status.battery >= 0 && HomeData.devices.length < 3 ? [{icon: Hub.status.charging ? "battery_charging_full" : "battery_full", label: Hub.status.battery + "%", value: Hub.status.battery / 100, name: "This device"}] : [])
@@ -72,7 +72,7 @@ Item {
     Component {
         id: clockView
         Rectangle {
-            radius: 28; color: Theme.alpha(Theme.level(2), .94)
+            radius: 28; color: Theme.fill(Theme.level(2), .94, "widgets")
             Column {
                 anchors.centerIn: parent; spacing: 2
                 MText { anchors.horizontalCenter: parent.horizontalCenter; text: Qt.formatDateTime(Hub.now, "HH:mm"); font.pixelSize: Math.min(hw.height * .34, hw.width * .26); font.weight: Font.Black; font.features: {"tnum": 1} }
@@ -83,7 +83,7 @@ Item {
     Component {
         id: placeholder
         Rectangle {
-            radius: 28; color: Theme.alpha(Theme.level(2), .5); border.width: 1; border.color: Theme.outline
+            radius: 28; color: Theme.fill(Theme.level(2), .5, "widgets"); border.width: 1; border.color: Theme.outline
             MText { anchors.centerIn: parent; text: hw.kind === "live" ? "Live activity shows here" : "No photos yet"; role: "bodyS"; color: Theme.subtext }
         }
     }

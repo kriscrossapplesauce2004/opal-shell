@@ -342,19 +342,22 @@ def revert_gtk(ctx):
 # ---------- Kitty ----------
 
 def export_kitty(ctx, c, light, options):
-    own_file(ctx, 'kitty', '.config/kitty/opal-theme.conf', base_tools.kitty_conf(c))
+    # An opaque Look also makes the terminal opaque; the include comes after the user's own opacity line.
+    opaque = options.get('opaque') is True
+    own_file(ctx, 'kitty', '.config/kitty/opal-theme.conf', base_tools.kitty_conf(c) + ('background_opacity 1.0\n' if opaque else ''))
     conf = ctx.home / '.config/kitty/kitty.conf'
     line = 'include opal-theme.conf'
     if line not in (read(conf) or '').splitlines():
         if read(conf) is None: mark_created(ctx, '.config/kitty/kitty.conf')
         ctx.target('kitty')['included'] = True; ensure_line(conf, line)
-    reload_kitty(ctx)
+    reload_kitty(ctx, opaque)
 
-def reload_kitty(ctx):
+def reload_kitty(ctx, opaque=None):
     """Use remote control when it is on. Otherwise send SIGUSR1, which reloads the config."""
     theme = str(ctx.home / '.config/kitty/opal-theme.conf')
     if ctx.which('kitty'):
         result = ctx.run(['kitty', '@', 'set-colors', '--all', '--configured', theme])
+        if opaque is not None: ctx.run(['kitty', '@', 'set-background-opacity', '--all', '1' if opaque else 'default'])
         if result is not None and not result.returncode: return
     if ctx.which('pkill'): ctx.run(['pkill', '-USR1', '-x', 'kitty'])
 

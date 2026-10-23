@@ -7,7 +7,7 @@ Item {
     // On a tablet the app dock is part of this bar: keys at the left, apps in the middle, the gesture strip at the bottom edge.
     readonly property bool tablet:!!output&&PhoneState.isTablet(output)&&Hub.prefs.tabletDock!==false
     implicitHeight:tablet ? PhoneState.tabletNavHeight : PhoneState.navHeight
-    function go(tab) {if(output)Hub.targetScreen=output;Hub.mobileTab=tab;Hub.page="launcher";}
+    function go(tab) {if(output)Hub.targetScreen=output;if(tab==="recent"){PhoneState.showRecents(output,null);return;}Hub.mobileTab=tab;Hub.page="launcher";}
     // Home closes every Opal surface; the embedded home screen is then what remains.
     function home() {if(output)Hub.targetScreen=output;PhoneState.goHome();}
     function back() {if(Hub.page==="settings"&&Hub.settingsSection!=="")Hub.settingsSection="";else if(Hub.controlDetail!==""&&(Hub.page==="controls"||Hub.page==="notifications"))Hub.controlDetail="";else if(Hub.page==="launcher"&&Hub.mobileTab!=="home")go("home");else if(Hub.page===""&&PhoneState.appInFront&&PhoneState.previousWindow())PhoneState.back();else Hub.close();}

@@ -37,7 +37,7 @@ Item {
                 id: card
                 required property var modelData
                 width: cards.width; height: 60; radius: 22
-                color: Theme.alpha(Theme.level(3), .82)
+                color: Theme.fill(Theme.level(3), .82, "lock")
                 Row {
                     anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 14; spacing: 12
                     Rectangle {

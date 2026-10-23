@@ -6,7 +6,7 @@ Slider {
     property string icon:"volume"
     property bool compact:false
     property bool showIcon:true
-    property bool stopIndicator:true
+    property bool stopIndicator:false
     property bool iconAtHandle:false
     property real trackHeight:compact ? 12 : 40
     property color activeColor:Theme.primary

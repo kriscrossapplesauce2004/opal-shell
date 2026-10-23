@@ -62,7 +62,7 @@ Scope {
             else {slide.to=0;slide.restart();}
         }}
         NumberAnimation {id:slide;target:drawer;property:"progress";duration:Theme.motion(280);easing.type:Easing.OutCubic;onFinished:if(!Hub.audioOpen)drawer.presenting=false}
-        Surface {id:card;width:drawer.width-12;height:drawer.height;x:12+(1-drawer.progress)*drawer.width;radius:30;translucency:Hub.prefs.glass
+        Surface {id:card;width:drawer.width-12;height:drawer.height;x:12+(1-drawer.progress)*drawer.width;radius:30;kind:"shade";translucency:Hub.prefs.glass
             enabled:Hub.audioOpen
             AudioPanel {id:audioPanel;anchors.fill:parent}
         }

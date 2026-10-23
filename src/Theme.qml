@@ -29,7 +29,7 @@ QtObject {
     readonly property color surface: role("surface_container",mix(base,primaryContainer,light ? .14 : .10))
     readonly property color surfaceHigh: role("surface_container_high",mix(base,primaryContainer,light ? .25 : .19))
     readonly property color glassTint: mix(base,light ? primaryContainer : primary,light ? .26 : .19)
-    readonly property color glassEdge: alpha(light ? "#ffffff" : primary,light ? .48 : .18)
+    readonly property color glassEdge: edges ? alpha(light ? "#ffffff" : primary,light ? .48 : .18) : "transparent"
     readonly property color tile: mix(base,light ? primaryContainer : primary,light ? .32 : .24)
     readonly property color tileActive: primary
     readonly property alias onTileActive: theme.primaryInk
@@ -48,7 +48,7 @@ QtObject {
     // Glass roles for islands and cards that sit on the wallpaper.
     readonly property color glassIsland: mix(mix(base,"#ffffff",light ? .25 : .06),light ? primaryContainer : primary,light ? .5 : .24)
     readonly property color glassRaised: mix(mix(base,"#ffffff",light ? .3 : .08),light ? "#ffffff" : primaryContainer,light ? .62 : .42)
-    readonly property color glassHighlight: alpha("#ffffff",light ? .6 : .12)
+    readonly property color glassHighlight: edges ? alpha("#ffffff",light ? .6 : .12) : "transparent"
     readonly property color glassShade: alpha("#000000",light ? .05 : .22)
     readonly property color error: role("error",light ? "#ba1a1a" : "#ffb4ab")
     readonly property color stateLayer: light ? containerInk : text
@@ -72,9 +72,22 @@ QtObject {
     readonly property int durLong: 360
     // Tonal elevation: level 0 is the base and level 5 is the highest container.
     function level(n) {return [base,surfaceLow,surface,surfaceHigh,surfaceHighest,mix(surfaceHighest,primaryContainer,light ? .35 : .25)][Math.max(0,Math.min(5,n))];}
+    // Look: a preset gives each surface glass or solid; per-surface overrides and four effect switches change it.
+    readonly property string look: ["glass","mixed","material"].indexOf(Hub.prefs.look) >= 0 ? Hub.prefs.look : "glass"
+    readonly property var lookSurfaces: ["panels","menus","bars","widgets","shade","lock"]
+    readonly property var presetSolid: ({glass:[],mixed:["panels","menus","shade"],material:["panels","menus","bars","widgets","shade","lock"]})
+    function presetIsSolid(preset,surface) {return (presetSolid[preset]||[]).indexOf(surface) >= 0;}
+    function solid(surface) {const o=(Hub.prefs.lookSurfaces||{})[surface||"panels"];return o==="solid" ? true : o==="glass" ? false : presetIsSolid(look,surface||"panels");}
+    readonly property bool lookCustom: lookSurfaces.some(s=>solid(s)!==presetIsSolid(look,s))
+    readonly property bool blur: Hub.prefs.lookBlur !== false
+    readonly property bool edges: Hub.prefs.lookEdges !== undefined ? !!Hub.prefs.lookEdges : look !== "material"
+    readonly property bool shadows: Hub.prefs.lookShadows !== undefined ? !!Hub.prefs.lookShadows : look === "material"
+    readonly property bool appTransparency: Hub.prefs.lookAppTransparency !== false
+    // A solid surface paints the translucent colour composited over the base, so it keeps its tone but hides the wallpaper.
+    function fill(c,a,surface) {return solid(surface) ? mix(base,c,a) : alpha(c,a);}
     // Large panels may show compositor blur, but only a little.
     readonly property real glassFloor: .9
-    function panelAlpha(t) {return Math.max(glassFloor,Math.min(1,t));}
+    function panelAlpha(t,surface) {return solid(surface) ? 1 : Math.max(glassFloor,Math.min(1,t));}
     // Type scale. Display roles use the wide, round axes of Google Sans Flex.
     readonly property var type: ({
         displayL:{size:64,weight:Font.Black,width:125,round:100},

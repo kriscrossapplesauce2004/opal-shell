@@ -24,7 +24,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         height: dock.flat ? 60 : 72; width: row.implicitWidth + (dock.flat ? 0 : 24); radius: height / 2
-        color: dock.flat ? "transparent" : Theme.alpha(Theme.dockTint, Math.max(.7, Hub.prefs.glass))
+        color: dock.flat ? "transparent" : Theme.fill(Theme.dockTint, Math.max(.7, Hub.prefs.glass), "bars")
         border.width: dock.flat ? 0 : 1; border.color: Theme.outline
         Row {
             id: row

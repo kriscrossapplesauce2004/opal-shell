@@ -94,6 +94,37 @@ Scope {
         }
     }
     Timer { id: holdTimer; interval: 340; onTriggered: if (s.phase === "home") s.phase = "recents" }
+    // Recents carousel. It lives in the gesture surface, so a swipe-up hands its moving card to the carousel in the same frame.
+    property bool recentsOpen: false
+    property var recentsScreen: null
+    // The pose the centre card starts from: {k: scale, x, y: centre offsets, backdrop: opacity}, or null to fade in.
+    property var recentsFrom: null
+    function recentsInsets(screen) { return {top: statusFor(screen), bottom: isTablet(screen) ? navFor(screen) + 8 : navHeight}; }
+    // The centre card slot: a screen-shaped card, an app chip above it and a toolbar below it.
+    function recentsSlot(screen) {
+        const w = screen ? screen.width : width_(), h = screen ? screen.height : height_(), inset = recentsInsets(screen);
+        const tablet = isTablet(screen);
+        const room = h - inset.top - inset.bottom - (tablet ? 168 : 176);
+        const k = Math.max(.3, Math.min(tablet ? .6 : .7, room / h));
+        const top = inset.top + (tablet ? 66 : 70);
+        return {k: k, w: w * k, h: h * k, cx: w / 2, cy: top + h * k / 2, gap: tablet ? 36 : 22, offset: top + h * k / 2 - h / 2};
+    }
+    // The moving card's pose for the home and recents swipe. It depends only on the finger, so it never jumps when the phase changes.
+    // The card's bottom edge stays under the finger while it shrinks towards the recents slot, then a little past it.
+    function cardPose() {
+        const h = height_(), slot = recentsSlot(gestureScreen), p = progress;
+        const t = Math.min(1, p / .6), eased = 1 - (1 - t) * (1 - t);
+        let k = 1 - (1 - slot.k) * eased;
+        if (p > .6) k *= 1 - .3 * Math.min(1, (p - .6) / .4);
+        return {k: k, x: dx * .35, y: h * (1 - k) / 2 + dy * .95, backdrop: Math.min(1, .35 + p * 1.2)};
+    }
+    function showRecents(screen, from) {
+        recentsScreen = screen || gestureScreen || Hub.targetScreen || phoneScreens()[0] || null;
+        recentsFrom = from || null;
+        if (Hub.page !== "") Hub.close();
+        recentsOpen = true;
+    }
+    function closeRecents() { recentsOpen = false; recentsFrom = null; }
     // Called when the finger lifts. Returns after it starts the action; the overlay then plays the settle.
     function end() {
         holdTimer.stop();
@@ -104,7 +135,8 @@ Scope {
             phase = ""; progress = 0;
             return;
         }
-        if (phase === "recents") { outcome = "recents"; openRecents(); }
+        // Recents take the card where it is; the gesture ends in the same frame.
+        if (phase === "recents") { const pose = cardPose(); showRecents(gestureScreen, pose); finish(); return; }
         else if (phase === "home") {
             if (progress > .28 || flingUp) { outcome = "home"; goHome(); } else outcome = "cancel";
         } else if (phase === "switch") {
@@ -170,10 +202,11 @@ Scope {
 
     // Actions. They only change shell state or ask the compositor adapter. They never send keys to apps.
     function goHome() {
+        closeRecents();
         Hub.query = ""; Hub.mobileTab = "home"; Hub.close();
         if (Hub.status.hypr) Hub.command({action: "phone-home"});
     }
-    function openRecents() { if (gestureScreen) Hub.targetScreen = gestureScreen; Hub.mobileTab = "recent"; Hub.page = "launcher"; }
+    function openRecents() { showRecents(gestureScreen, null); }
     function switchApp(step) {
         const w = step < 0 ? previousWindow() : neighbour(step);
         if (w) Hub.focusWindow(w);

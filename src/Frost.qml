@@ -8,7 +8,8 @@ Item {
     property bool strong: false
     property real tint: strong ? .80 : Math.max(.42, Math.min(.82, Hub.prefs.glass + .06))
     property color fill: strong ? Theme.glassRaised : Theme.glassIsland
-    readonly property bool blurred: !!backdrop && backdrop.visible && backdrop.status === Image.Ready && width > 0 && height > 0
+    readonly property bool solid: Theme.solid("widgets")
+    readonly property bool blurred: !solid && !!backdrop && backdrop.visible && backdrop.status === Image.Ready && width > 0 && height > 0
     property point origin: Qt.point(0, 0)
     // Layout settles in steps, so the card position is read again after a short delay.
     Timer { id: relocate; interval: 60; onTriggered: { frost.origin = frost.backdrop ? frost.mapToItem(frost.backdrop, 0, 0) : Qt.point(0, 0); source.scheduleUpdate(); } }
@@ -43,7 +44,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: frost.radius
-        color: Theme.alpha(frost.fill, frost.tint)
+        color: Theme.fill(frost.fill, frost.tint, "widgets")
         border.width: 1; border.color: Theme.glassEdge
         Behavior on color { ColorAnimation { duration: Theme.motion(240) } }
         Rectangle {

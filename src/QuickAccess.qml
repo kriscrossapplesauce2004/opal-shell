@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -259,6 +260,54 @@ Item {
                             Glyph { name: modelData.g; font.pixelSize: 16; color: modelData.low ? Theme.error : Theme.primary; anchors.verticalCenter: parent.verticalCenter }
                             MText { text: modelData.t; role: "label"; font.weight: Font.DemiBold; font.features: {"tnum": 1}; anchors.verticalCenter: parent.verticalCenter } }
                     }
+                }
+            }
+            // Running apps: the one in front is a card with its actions, the others are rows. A switches, the card's Close quits.
+            MText { visible: Compositor.apps.length > 0; text: "Running"; role: "title"; Layout.topMargin: 4 }
+            Repeater {
+                model: Hub.recentWindows.filter(w => !Hub.minimized(w)).slice(0, 6)
+                Rectangle {
+                    id: runRow
+                    required property var modelData
+                    required property int index
+                    readonly property bool lead: index === 0
+                    readonly property var app: Hub.appForWindow(modelData)
+                    Layout.fillWidth: true
+                    implicitHeight: lead ? leadColumn.implicitHeight + 24 : 72
+                    radius: lead ? Theme.shapeLg : 20
+                    color: lead ? Theme.primaryContainer : Theme.alpha(Theme.level(4), .86)
+                    readonly property color ink: lead ? Theme.onContainer : Theme.text
+                    Item {
+                        id: thumb
+                        x: 12; y: 12
+                        width: runRow.lead ? runRow.width - 24 : 88; height: runRow.lead ? width * 9 / 16 : 48
+                        Rectangle { anchors.fill: parent; radius: runRow.lead ? 16 : 10; color: Theme.level(5) }
+                        Loader {
+                            anchors.fill: parent; anchors.margins: 2
+                            active: Hub.status.hypr && !!runRow.modelData.address && qa.sheetOpen
+                            source: "HyprWindowPreview.qml"
+                            onLoaded: item.address = Qt.binding(() => runRow.modelData.address || "")
+                        }
+                        Image { visible: !Hub.status.hypr; anchors.centerIn: parent; width: parent.height * .6; height: width; sourceSize: Qt.size(96, 96); source: Quickshell.iconPath(runRow.app ? runRow.app.icon : "application-x-executable", true) }
+                    }
+                    Column {
+                        id: leadColumn
+                        x: runRow.lead ? 12 : thumb.x + thumb.width + 14
+                        y: runRow.lead ? thumb.y + thumb.height + 10 : (runRow.height - height) / 2
+                        width: runRow.width - x - 12; spacing: 2
+                        MText { width: parent.width; text: runRow.app ? runRow.app.name : runRow.modelData.title; role: runRow.lead ? "title" : "titleS"; color: runRow.ink }
+                        MText { width: parent.width; text: runRow.modelData.title || ""; role: "labelS"; color: Theme.alpha(runRow.ink, .75) }
+                        Row {
+                            visible: runRow.lead; spacing: 8; topPadding: 8
+                            MButton { text: "Switch"; icon: "open_in_new"; filled: true; compact: true; onClicked: { qa.leave(); Hub.focusWindow(runRow.modelData); } }
+                            MButton { text: "Close"; icon: "close"; tonal: true; compact: true; onClicked: Hub.closeWindow(runRow.modelData) }
+                        }
+                    }
+                    MouseArea { visible: !runRow.lead; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { qa.leave(); Hub.focusWindow(runRow.modelData); } }
+                    activeFocusOnTab: !lead
+                    Keys.onReturnPressed: { qa.leave(); Hub.focusWindow(modelData); }
+                    Accessible.role: Accessible.Button; Accessible.name: (app ? app.name : "") + " " + modelData.title
+                    Accessible.onPressAction: { qa.leave(); Hub.focusWindow(modelData); }
                 }
             }
             RowLayout {

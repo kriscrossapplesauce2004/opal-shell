@@ -98,6 +98,6 @@ Item {
         y: parent.height - PhoneState.tabletNavHeight; width: parent.width; height: 88
         screenObj: launcher.screenObj; keys: !!Hub.prefs.phoneButtons
         onBack: Hub.close(); onHome: { if (launcher.screenObj) Hub.targetScreen = launcher.screenObj; PhoneState.goHome(); }
-        onRecents: { if (launcher.screenObj) Hub.targetScreen = launcher.screenObj; Hub.mobileTab = "recent"; Hub.page = "launcher"; }
+        onRecents: PhoneState.showRecents(launcher.screenObj, null)
     }
 }

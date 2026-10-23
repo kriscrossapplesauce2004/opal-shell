@@ -62,7 +62,7 @@ import theme_export
 import omarchy_themes
 import file_browse
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
-PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets')
+PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets','look','lookSurfaces','lookBlur','lookEdges','lookShadows','lookAppTransparency')
 def valid_schedules(value):
     """Night light, dark mode and Do not disturb schedules: sun times or custom times."""
     if not isinstance(value,dict) or not set(value)<={'nightLight','darkMode','dnd'}: return False
@@ -83,6 +83,12 @@ def valid_theme_sync(value):
     if not isinstance(value,dict) or set(value)-{'font','iconTheme','cursorTheme','cursorSize','fontSize'}: return False
     text=lambda v: isinstance(v,str) and len(v)<=120 and not any(ch in v for ch in '\n\r\0')
     return all(text(v) for k,v in value.items() if k in ('font','iconTheme','cursorTheme')) and all(type(value[k])==int and lo<=value[k]<=hi for k,lo,hi in (('cursorSize',16,128),('fontSize',6,32)) if k in value)
+LOOK_SURFACES = ('panels','menus','bars','widgets','shade','lock')
+def valid_look(key, value):
+    """The Look: a preset, per-surface overrides and four effect switches."""
+    if key=='look': return value in ('glass','mixed','material')
+    if key=='lookSurfaces': return isinstance(value,dict) and set(value)<=set(LOOK_SURFACES) and all(v in ('glass','solid') for v in value.values())
+    return key in ('lookBlur','lookEdges','lookShadows','lookAppTransparency') and type(value)==bool
 def valid_profiles(value):
     if not isinstance(value,dict) or len(value)>10: return False
     return all(isinstance(name,str) and 0<len(name)<=40 and isinstance(saved,dict) and set(saved)<=set(PROFILE_KEYS) for name,saved in value.items())
@@ -464,11 +470,14 @@ def commands():
                 valid = valid or key in ('omarchyFollow','omarchyWallpaper') and type(value)==bool
                 valid = valid or key=='portalPicker' and value in ('touch','always','never') or key=='portalView' and value in ('grid','list')
                 valid = valid or power_key.valid_preference(key, value)
+                valid = valid or valid_look(key, value)
+                valid = valid or key=='switcherScope' and value in ('all','workspace') or key=='switcherPreviews' and type(value)==bool
                 valid = valid or game_profiles.valid_preference(key, value)
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
                     if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
                     if key=='floatingMode': threading.Thread(target=floating_apply,args=(value,),daemon=True).start()
+                    if key=='lookBlur': threading.Thread(target=floating_reload,daemon=True).start()
             elif action=='display-layouts':
                 from display_layouts import publish
                 runtime=os.environ.get('XDG_RUNTIME_DIR')
@@ -541,6 +550,9 @@ def commands():
             elif assistant.handle(c,emit): pass
             elif action=='connectivity': connectivity.request(c)
             elif action=='settings': settings(c.get('which'))
+            elif action=='submap-reset':
+                try: hypr_actions.submap_reset()
+                except (OSError,subprocess.SubprocessError): pass
             elif action=='claude-ask' and isinstance(c.get('text'),str) and 0<len(c['text'])<8000:
                 threading.Thread(target=ask_claude,args=(c['text'],int(c.get('id') or 0)),daemon=True).start()
             elif action=='claude-stop': stop_claude()

@@ -259,7 +259,7 @@ Item {
                     Rectangle {
                         id: card
                         required property var modelData
-                        width: 214; height: 148; radius: 26; color: Theme.alpha(Theme.level(2), .94)
+                        width: 214; height: 148; radius: 26; color: Theme.fill(Theme.level(2), .94, "widgets")
                         scale: cardMouse.pressed ? .97 : 1
                         Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
                         RoundedImage { anchors.fill: parent; visible: !!card.modelData.art; source: card.modelData.art || ""; radius: 26; decodeSize: Qt.size(428, 296) }

@@ -1,5 +1,5 @@
 import QtQuick
-// Gesture feedback: a live card follows the finger, with a scrim, labels and the back bubble.
+// Gesture feedback: a live card follows the finger over a quiet wallpaper, neighbours appear when it rests, and the back bubble.
 Item {
     id: stage
     readonly property string phase: PhoneState.phase
@@ -18,28 +18,47 @@ Item {
         function onPhaseChanged() { if (PhoneState.phase === "") { settleAnim.stop(); stage.settle = 0; } }
     }
     readonly property real p: PhoneState.progress
-    // The scrim gives way to a quiet wallpaper while a card moves.
+    readonly property var pose: cardPhase && phase !== "switch" ? PhoneState.cardPose() : ({k: 1, x: 0, y: 0, backdrop: 1})
+    readonly property var slot: PhoneState.recentsSlot(PhoneState.gestureScreen)
+    readonly property var inset: PhoneState.recentsInsets(PhoneState.gestureScreen)
+    // The wallpaper backdrop fades in with the swipe. The status and navigation bars stay visible above and below it.
     Item {
-        anchors.fill: parent
-        opacity: stage.cardPhase ? (stage.settling && PhoneState.outcome === "cancel" ? 1 - stage.settle : Math.min(1, .35 + stage.p * 1.2)) : 0
+        y: stage.inset.top; width: parent.width; height: parent.height - stage.inset.top - stage.inset.bottom
+        opacity: stage.cardPhase ? (stage.settling && PhoneState.outcome === "cancel" ? (1 - stage.settle) * stage.pose.backdrop : stage.pose.backdrop) : 0
         visible: opacity > 0
-        PhoneBackdrop { anchors.fill: parent; soft: 1 }
+        clip: true
+        PhoneBackdrop { y: -stage.inset.top; width: stage.width; height: stage.height; soft: 1 }
         Rectangle { anchors.fill: parent; color: Theme.alpha(Theme.base, .35) }
     }
-    // The moving card follows the finger. Home shrinks it, recents holds it small, switch slides it.
+    // Neighbours fade in once the finger rests, at the places they take in recents.
+    Repeater {
+        model: [-1, 1]
+        GestureCard {
+            required property int modelData
+            visible: opacity > 0 && stage.phase !== "switch"
+            opacity: stage.phase === "recents" && !stage.settling ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasizedDecelerate } }
+            // Older apps sit to the left, as in recents.
+            entry: modelData < 0 ? PhoneState.previousWindow() : null
+            width: stage.width; height: stage.height
+            scale: current.scale; transformOrigin: Item.Center; radius: current.radius
+            x: current.x + modelData * (stage.width * current.scale + stage.slot.gap * current.scale / stage.slot.k)
+            y: current.y
+        }
+    }
+    // The moving card follows the finger: its bottom edge stays under it while it shrinks. Home shrinks it away; switch slides it.
     GestureCard {
         id: current
         visible: stage.cardPhase
         entry: PhoneState.activeWindow()
-        readonly property real shrink: stage.phase === "recents" ? .58 : 1 - Math.min(1, stage.p) * .5
-        readonly property real endShrink: PhoneState.outcome === "home" ? .12 : PhoneState.outcome === "recents" ? .58 : 1
-        readonly property real k: stage.settling ? shrink + (endShrink - shrink) * stage.settle : shrink
+        readonly property real endShrink: PhoneState.outcome === "home" ? .12 : 1
+        readonly property real k: stage.settling ? stage.pose.k + (endShrink - stage.pose.k) * stage.settle : stage.pose.k
         width: stage.width; height: stage.height
         scale: stage.phase === "switch" ? .86 : k
         transformOrigin: Item.Center
         radius: 12 + 28 * (1 - Math.min(1, scale))
-        x: stage.phase === "switch" ? PhoneState.dx * (stage.settling && PhoneState.outcome === "switch" ? 1 + stage.settle : 1) : PhoneState.dx * .35
-        y: stage.phase === "switch" ? 0 : PhoneState.dy * .8 * (stage.settling ? 1 - stage.settle : 1) - (stage.phase === "recents" ? stage.height * .08 : 0)
+        x: stage.phase === "switch" ? PhoneState.dx * (stage.settling && PhoneState.outcome === "switch" ? 1 + stage.settle : 1) : stage.pose.x * (stage.settling ? 1 - stage.settle : 1)
+        y: stage.phase === "switch" ? 0 : stage.pose.y * (stage.settling ? 1 - stage.settle : 1)
         opacity: stage.settling && PhoneState.outcome === "home" ? 1 - stage.settle : 1
     }
     // The next app slides in from the side opposite to the swipe.
@@ -48,13 +67,6 @@ Item {
         entry: PhoneState.dx > 0 ? PhoneState.previousWindow() : PhoneState.neighbour(1)
         width: stage.width; height: stage.height; scale: .86; radius: 40
         x: PhoneState.dx > 0 ? PhoneState.dx - stage.width * 1.04 : PhoneState.dx + stage.width * 1.04
-    }
-    // A label tells which action release will take.
-    Rectangle {
-        visible: stage.phase === "recents" || (stage.phase === "home" && stage.p > .28)
-        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 120
-        width: hint.implicitWidth + 32; height: 40; radius: 20; color: Theme.primaryContainer
-        MText { id: hint; anchors.centerIn: parent; text: stage.phase === "recents" ? "Release for recent apps" : "Release to go home"; role: "label"; color: Theme.onContainer }
     }
     // Back: a bubble leans out of the edge and fills when the swipe is long enough.
     Rectangle {

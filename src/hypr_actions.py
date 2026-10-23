@@ -193,6 +193,11 @@ class HyprActions:
             self.runner(['hyprctl','eval','hl.config({'+table+'})'])
         else:self.runner(['hyprctl','keyword',option,legacy])
 
+    def submap_reset(self):
+        """Leave any submap, for example when the app switcher closes without Alt being released."""
+        if self.is_lua():self.runner(['hyprctl','eval','hl.dispatch(hl.dsp.submap("reset"))'])
+        else:self.runner(['hyprctl','dispatch','submap','reset'])
+
     def clients(self):
         """Return mapped, visible-capable windows from the compositor."""
         return [c for c in json.loads(self.runner(['hyprctl','-j','clients'])) if c.get('mapped')]

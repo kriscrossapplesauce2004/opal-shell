@@ -49,7 +49,7 @@ Popup {
     exit:Transition {NumberAnimation {property:"opacity";to:0;duration:Theme.motion(110)}}
     background:Rectangle {
         radius:24
-        color:Theme.alpha(Theme.light ? Theme.surfaceLowest : Theme.surfaceHigh,.98)
+        color:Theme.fill(Theme.light ? Theme.surfaceLowest : Theme.surfaceHigh,.98,"menus")
         border.width:1;border.color:Theme.glassEdge
     }
     contentItem:ContextMenuBody {

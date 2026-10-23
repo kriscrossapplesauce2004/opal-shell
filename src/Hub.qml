@@ -11,7 +11,13 @@ Scope {
     property var connectivity: ({wifi:{items:[],busy:false,error:"",powered:false},bluetooth:{items:[],busy:false,error:"",powered:false}})
     property string controlDetail: ""
     property string settingsSection: ""
-    function openSettings(section) { settingsSection=section==="display"||section==="screens" ? "displays" : section||"";page="settings"; }
+    // Old section names still open the page that now holds them.
+    readonly property var settingsAliases: ({display:"displays",screens:"displays",convergence:"displays",taskbar:"home",appearance:"style",bluetooth:"devices",schedules:"routines",audio:"sound"})
+    function openSettings(section) { settingsSection=settingsAliases[section]||section||"";page="settings"; }
+    // A search hit names the row to highlight; the highlight clears after a moment.
+    property string settingsFound: ""
+    function findSetting(section, title) { settingsSection=section;settingsFound="";settingsFound=title||"";foundClear.restart(); }
+    property Timer foundClear: Timer {interval:2600;onTriggered:h.settingsFound=""}
 
     property bool taskbarContextOpen:false
     property var taskbarContextScreen:null
@@ -60,7 +66,9 @@ Scope {
     function audioScroll(steps,screen) {osdScreen=screen||chooseScreen();volume(Math.max(0,Math.min(100,status.volume+steps*2)));}
     property string page: ""
     // The old convergence page now lives in Settings → Displays.
-    onPageChanged:{if(page==="convergence"){settingsSection="displays";page="settings";return;}if(page!=="") {closeAudio();closePowerProfile();}}
+    onPageChanged:{if(page==="convergence"){settingsSection="displays";page="settings";return;}
+        // The old open-windows page is the console switcher only; elsewhere the strip or recents take over.
+        if(page==="windows"){const sc=targetScreen||chooseScreen();if(prefs.mode!=="console"&&!(sc&&layoutFor(sc.width,sc.height,sc.name)==="console")){page="";openSection("windows");return;}}if(page!=="") {closeAudio();closePowerProfile();}}
     property string category: "All apps"
     property string query: ""
     property string calculation: ""
@@ -365,6 +373,68 @@ Scope {
     // Floating mode: the drop target while a window is dragged, and Snap Assist offers after a snap.
     property var snapPreview: null
     signal snapAssistRequested(var event)
+    // Recent order: the focused window moves to the front. Hyprland focus history ranks windows not seen yet.
+    property var focusOrder: []
+    function windowKey(w) { return w.address || String(w.className)+"|"+String(w.title); }
+    onStatusChanged: { const a=status.activeAddress||""; if(a&&focusOrder[0]!==a) focusOrder=[a].concat(focusOrder.filter(x=>x!==a)).slice(0,256); }
+    readonly property var recentWindows: {
+        const order=focusOrder, rank=w=>{const i=order.indexOf(windowKey(w));return i>=0 ? i : 1000+(w.focus===undefined ? 500 : w.focus)+(w.handle&&w.handle.activated ? -2000 : 0);};
+        return windows.slice().sort((a,b)=>rank(a)-rank(b));
+    }
+    // App switcher. Alt+Tab sends the hold number and the step count; a call for a hold that already ended does nothing.
+    property bool switcherOpen: false
+    property bool switcherShown: false
+    property bool switcherSticky: false
+    property var switcherList: []
+    property int switcherSelection: 0
+    property var switcherScreen: null
+    property int switcherHold: 0
+    property int switcherEnded: 0
+    function switcherWindows() {
+        const all=recentWindows.filter(w=>!(w.workspaceName||"").startsWith("special:")||minimized(w));
+        const list=prefs.switcherScope==="workspace" ? all.filter(w=>w.workspace===status.workspace||minimized(w)) : all;
+        // Minimized windows wait at the end, behind the others.
+        return list.filter(w=>!minimized(w)).concat(list.filter(w=>minimized(w)));
+    }
+    function switcherBegin(sticky) {
+        switcherList=switcherWindows();switcherScreen=chooseScreen();switcherSticky=sticky;switcherOpen=true;
+        // A quick Alt+Tab never shows the strip; a held one shows it after a moment.
+        if(sticky){switcherShown=true;switcherReveal.stop();} else switcherReveal.restart();
+    }
+    property Timer switcherReveal: Timer {interval:110;onTriggered:if(h.switcherOpen)h.switcherShown=true}
+    function switcherStep(hold, step) {
+        if(hold<=switcherEnded)return;
+        if(!switcherOpen||hold!==switcherHold){switcherHold=hold;switcherBegin(false);}
+        const n=switcherList.length;
+        switcherLastStep=step;
+        switcherSelection=n ? ((step%n)+n)%n : 0;
+    }
+    property int switcherLastStep: 0
+    function switcherMove(delta) {const n=switcherList.length;if(n)switcherSelection=((switcherSelection+delta)%n+n)%n;}
+    function switcherEnd() {switcherEnded=Math.max(switcherEnded,switcherHold);switcherOpen=false;switcherShown=false;switcherSticky=false;switcherReveal.stop();if(status.submap==="opal-switch")command({action:"submap-reset"});}
+    function switcherCommit(hold, step) {
+        if(hold!==undefined){
+            if(hold<=switcherEnded)return;
+            // The pointer may have chosen a window; only a step the shell has not seen yet changes the choice.
+            const fresh=!switcherOpen||hold!==switcherHold;
+            if(fresh){switcherHold=hold;switcherList=switcherWindows();}
+            const n=switcherList.length;
+            if(fresh||step!==switcherLastStep)switcherSelection=n ? ((step%n)+n)%n : 0;
+        }
+        const w=switcherList[switcherSelection];
+        switcherEnd();
+        if(w&&!(active(w)&&!minimized(w)))focusWindow(w);
+    }
+    function switcherCancel(hold) {if(hold!==undefined&&hold<=switcherEnded)return;switcherEnd();}
+    function openSwitcher() {switcherHold=switcherEnded+1;switcherBegin(true);switcherSelection=switcherList.length>1&&active(switcherList[0]) ? 1 : 0;}
+    function switcherCloseSelected() {
+        const w=switcherList[switcherSelection];if(!w)return;
+        closeWindow(w);switcherList=switcherList.filter(x=>x!==w);
+        if(!switcherList.length){switcherEnd();return;}
+        switcherSelection=Math.min(switcherSelection,switcherList.length-1);
+    }
+    // Windows can close while the switcher is open; the list keeps its order and drops them.
+    onWindowsChanged: if(switcherOpen){const keys=windows.map(w=>windowKey(w));switcherList=switcherList.filter(w=>keys.indexOf(windowKey(w))>=0).map(w=>windows.find(x=>windowKey(x)===windowKey(w)));switcherSelection=Math.max(0,Math.min(switcherSelection,switcherList.length-1));}
     property var windows: compositorActive ? compositorWindows : ToplevelManager.toplevels.values.map(w => ({title:w.title,className:w.appId,handle:w,workspace:0,address:""}))
     property var taskGroups: {
         let groups=[];
@@ -492,7 +562,16 @@ Scope {
         if(override)return override;
         return width<680 || (height>width && width<1000) ? "phone" : "desktop";
     }
-    function openSection(section) { launcherSection=section;if(section==="windows")mobileTab="recent";page=section==="windows"&&prefs.mode==="console" ? "windows" : "launcher"; }
+    // Open windows: the strip on a desktop, recents on a phone or tablet, the console switcher in console mode.
+    function openSection(section) {
+        if(section==="windows"){
+            const sc=targetScreen||chooseScreen(),layout=sc ? layoutFor(sc.width,sc.height,sc.name) : prefs.mode;
+            if(layout==="console"||prefs.mode==="console"){page="windows";return;}
+            if(layout==="phone"){PhoneState.showRecents(sc,null);return;}
+            openSwitcher();return;
+        }
+        launcherSection=section;page="launcher";
+    }
     function appForWindow(w) {
         const key=String(w.className||"").toLowerCase().replace(/\.desktop$/i,"").trim();
         return appIndex[key]||null;

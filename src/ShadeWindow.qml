@@ -98,7 +98,7 @@ Scope {
             Behavior on height {enabled:shadeCard.reveal>0.99&&!shade.phone;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
             x:shade.phone ? 0 : shade.width-width-(shade.tablet ? 12 : 18)
             y:shade.phone ? 0 : shade.tablet ? shade.barHeight+6 : shade.height-height-72
-            radius:shade.phone ? 0 : 32;translucency:shade.phone ? Hub.prefs.glass : Math.min(.55,Hub.prefs.glass)
+            radius:shade.phone ? 0 : 32;kind:"shade";translucency:shade.phone ? Hub.prefs.glass : Math.min(.55,Hub.prefs.glass)
             HoverHandler {id:cardHover}
             // Blank space inside the card must not reach the dismiss area.
             MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons}

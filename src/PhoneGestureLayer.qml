@@ -4,19 +4,29 @@ import Quickshell.Wayland
 // Gesture feedback and edge zones for phone outputs. The feedback surface never takes input.
 Scope {
     SplitDivider {}
-    // One feedback surface on the output where the finger is.
+    // One feedback surface on the output where the finger is. Recents live on the same surface, so the swipe hands over without a gap.
     PanelWindow {
         id: feedback
-        screen: PhoneState.gestureScreen || Quickshell.screens[0]
-        visible: PhoneState.phase !== "" && PhoneState.phase !== "drawer" && PhoneState.gestureScreen !== null
+        screen: (PhoneState.recentsOpen ? PhoneState.recentsScreen : PhoneState.gestureScreen) || Quickshell.screens[0]
+        visible: PhoneState.recentsOpen || PhoneState.phase !== "" && PhoneState.phase !== "drawer" && PhoneState.gestureScreen !== null
         anchors { top: true; bottom: true; left: true; right: true }
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "opal-gesture"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: PhoneState.recentsOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         color: "transparent"
-        mask: Region {}
-        GestureStage { anchors.fill: parent }
+        // Gestures take no input. Open recents take it between the status and navigation bars, so the bars keep working.
+        mask: PhoneState.recentsOpen ? openRegion : closedRegion
+        Region { id: closedRegion }
+        Region { id: openRegion; item: recentsInput }
+        Item {
+            id: recentsInput
+            readonly property var inset: PhoneState.recentsInsets(feedback.screen)
+            y: inset.top; width: parent.width; height: parent.height - inset.top - inset.bottom
+        }
+        GestureStage { anchors.fill: parent; visible: !PhoneState.recentsOpen }
+        // Built as soon as an upward swipe starts, so its live previews have pictures by the time the finger lifts.
+        Loader { anchors.fill: parent; active: PhoneState.recentsOpen || PhoneState.phase === "home" || PhoneState.phase === "recents"; sourceComponent: Component { RecentsCarousel { screenObj: feedback.screen } } }
     }
     // Edge zones: thin input strips on both sides of phone outputs.
     Variants {

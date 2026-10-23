@@ -10,6 +10,14 @@ local function opal_mode()
     local body = f:read("*a"); f:close()
     return body:match('"mode"%s*:%s*"([a-z]+)"') or "desktop"
 end
+-- The Look switch "Compositor blur" turns blur off for Opal's own layers. Window blur stays as the user set it.
+local function opal_blur()
+    local f = io.open(OPAL_STATE .. "/preferences.json", "r")
+    if not f then return true end
+    local body = f:read("*a"); f:close()
+    return body:match('"lookBlur"%s*:%s*false') == nil
+end
+local OPAL_BLUR = opal_blur()
 local profiles = {
     desktop = { gaps_in = 5, gaps_out = 8, border = 1, rounding = 16 },
     console = { gaps_in = 2, gaps_out = 4, border = 1, rounding = 6 },
@@ -46,18 +54,18 @@ if phone_displays then
     end
     phone_displays:close()
 end
-hl.layer_rule({ match = { namespace = "^opal-(bar|shelf|overlay|toast|volume-osd)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(bar|shelf|overlay|toast|volume-osd)$" }, blur = OPAL_BLUR, ignore_alpha = 0.1, no_anim = true })
 -- New shade/audio cards blur only their own small surfaces; click-away layers
 -- are transparent input surfaces, never fullscreen blur regions.
-hl.layer_rule({ match = { namespace = "^opal-(audio|shade)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(audio|shade)$" }, blur = OPAL_BLUR, ignore_alpha = 0.1, no_anim = true })
 -- The taskbar menu is a full-screen input host with one painted card.
 -- ignore_alpha keeps blur confined to that translucent card.
-hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
-hl.layer_rule({ match = { namespace = "^opal-assistant$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
-hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-taskbar-menu$" }, blur = OPAL_BLUR, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-assistant$" }, blur = OPAL_BLUR, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-power-profile$" }, blur = OPAL_BLUR, ignore_alpha = 0.1, no_anim = true })
 hl.layer_rule({ match = { namespace = "^opal-power-menu$" }, no_anim = true })
 -- Newer card surfaces animate themselves and blur only their painted cards.
-hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity|snap|snap-assist)$" }, blur = true, ignore_alpha = 0.1, no_anim = true })
+hl.layer_rule({ match = { namespace = "^opal-(convergence-toast|quick-access|tablet-dock|phone-dock|polkit|assistant|activity|snap|snap-assist)$" }, blur = OPAL_BLUR, ignore_alpha = 0.1, no_anim = true })
 -- Gesture, edge and split layers are input surfaces: no blur and no compositor animation.
 hl.layer_rule({ match = { namespace = "^opal-(gesture|edge|split)$" }, blur = false, no_anim = true })
 -- The snap preview stays unblurred: the dragged window under it must stay readable.
@@ -73,6 +81,37 @@ bind("SUPER + space", qs .. "launcher")
 hl.unbind("SUPER + Super_L")
 hl.bind("SUPER + Super_L", hl.dsp.exec_cmd(qs .. "launcher"), { release = true })
 bind("ALT + space", qs .. "launcher")
+-- App switcher. Hold Alt and tap Tab to walk windows in recent order; releasing Alt switches.
+-- Every call names the hold and the step, so a late IPC call can never reopen a switch that already ended.
+local switch_hold, switch_step = 0, 0
+local function switch_send(verb) hl.exec_cmd(qs .. verb .. " " .. switch_hold .. " " .. switch_step) end
+local function switch_begin(step)
+    switch_hold = switch_hold + 1; switch_step = step
+    hl.dispatch(hl.dsp.submap("opal-switch"))
+    switch_send("switcherStep")
+end
+local function switch_finish(verb)
+    hl.dispatch(hl.dsp.submap("reset"))
+    switch_send(verb)
+end
+hl.unbind("ALT + Tab")
+hl.bind("ALT + Tab", function() switch_begin(1) end)
+hl.unbind("ALT + SHIFT + Tab")
+hl.bind("ALT + SHIFT + Tab", function() switch_begin(-1) end)
+pcall(hl.define_submap, "opal-switch", function()
+    hl.bind("ALT + Tab", function() switch_step = switch_step + 1; switch_send("switcherStep") end)
+    hl.bind("ALT + SHIFT + Tab", function() switch_step = switch_step - 1; switch_send("switcherStep") end)
+    hl.bind("ALT + right", function() switch_step = switch_step + 1; switch_send("switcherStep") end)
+    hl.bind("ALT + left", function() switch_step = switch_step - 1; switch_send("switcherStep") end)
+    hl.bind("ALT + Q", function() switch_send("switcherCloseWindow") end)
+    hl.bind("ALT + Alt_L", function() switch_finish("switcherCommit") end, { release = true })
+    hl.bind("ALT + Alt_R", function() switch_finish("switcherCommit") end, { release = true })
+    hl.bind("ALT + Return", function() switch_finish("switcherCommit") end)
+    hl.bind("ALT + Escape", function() switch_finish("switcherCancel") end)
+    hl.bind("Escape", function() switch_finish("switcherCancel") end)
+end)
+-- Super+Tab opens the same switcher and keeps it open without holding a key.
+bind("SUPER + Tab", qs .. "switcherOpen")
 bind("SUPER + comma", qs .. "controls")
 bind("SUPER + N", qs .. "notifications")
 bind("SUPER + CTRL + P", qs .. "phone")

@@ -65,6 +65,17 @@ ShellRoot {
         function maximize():void {Hub.command({action:"window-maximize",address:Hub.status.activeAddress||""});}
         function keySnap(direction:string):void {Hub.command({action:"window-key-snap",direction:direction,address:Hub.status.activeAddress||""});}
         function showDesktop():void {Hub.command({action:"show-desktop"});}
+        // App switcher calls from the Alt+Tab binds in hyprland.lua, and Super+Tab.
+        function switcherStep(hold:int, step:int):void {Hub.switcherStep(hold,step);}
+        function switcherCommit(hold:int, step:int):void {Hub.switcherCommit(hold,step);}
+        function switcherCancel(hold:int, step:int):void {Hub.switcherCancel(hold);}
+        function switcherCloseWindow(hold:int, step:int):void {if(hold===Hub.switcherHold)Hub.switcherCloseSelected();}
+        function switcherOpen():void {
+            if(Hub.switcherOpen){Hub.switcherEnd();return;}
+            const sc=Hub.chooseScreen(),layout=sc ? Hub.layoutFor(sc.width,sc.height,sc.name) : "desktop";
+            if(layout==="desktop")Hub.openSwitcher();
+            else {Hub.targetScreen=sc;Hub.openSection("windows");}
+        }
         function windows():string {return JSON.stringify(Hub.windows.map(w=>({title:w.title||"",app:w.className||"",workspace:w.workspace||0})));}
         function navigate(key:string):void {Hub.navigate(key);}
         function search(text:string):void {Hub.targetScreen=Hub.chooseScreen();Hub.openSection("apps");Hub.query=text;if(text.startsWith("="))Hub.command({action:"calculate",text:text.slice(1).trim()});}
@@ -268,6 +279,21 @@ ShellRoot {
             }
         }
     }
+    // App switcher strip on the focused screen. Alt+Tab drives it through a compositor submap, so only Super+Tab takes the keyboard.
+    PanelWindow {
+        id:switcherWindow
+        screen:Hub.switcherScreen||Hub.chooseScreen()
+        visible:Hub.switcherShown
+        anchors {top:true;bottom:true;left:true;right:true}
+        exclusionMode:ExclusionMode.Ignore
+        WlrLayershell.layer:WlrLayer.Overlay
+        WlrLayershell.namespace:"opal-switcher"
+        WlrLayershell.keyboardFocus:Hub.switcherSticky ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        color:"transparent"
+        Loader {anchors.fill:parent;active:Hub.switcherShown;sourceComponent:Component {AppSwitcher {}}}
+    }
+    // A switcher submap left on without the strip, for example after a lost key release, is cleared.
+    Timer {interval:1500;running:Hub.status.submap==="opal-switch"&&!Hub.switcherOpen;onTriggered:if(Hub.status.submap==="opal-switch"&&!Hub.switcherOpen)Hub.command({action:"submap-reset"})}
     WorkspaceOsd {}
     // Quick Access floats above games. Only a keyboard or IPC open takes keyboard focus.
     PanelWindow {
@@ -392,13 +418,15 @@ ShellRoot {
             readonly property bool phone:overlay.layoutMode==="phone"&&!overlay.tabletLauncher
             readonly property bool game:overlay.layoutMode==="console"
             readonly property bool launcher:overlay.pg==="launcher"
-            width:phone||game&&launcher ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : overlay.pg==="settings" ? 880 : launcher ? 960 : overlay.pg==="windows" ? 1100 : overlay.pg==="convergence"||overlay.pg==="wallpaper" ? 800 : overlay.pg==="appearance"||overlay.pg==="welcome" ? 660 : 490)
+            readonly property bool full:phone||game&&(launcher||overlay.pg==="settings"||overlay.pg==="windows")
+            width:full ? overlay.width : Math.min(overlay.width-36,overlay.searchPanel ? 640 : overlay.desktopStart ? 760 : overlay.pg==="settings" ? 1120 : launcher ? 960 : overlay.pg==="windows" ? 1100 : overlay.pg==="convergence"||overlay.pg==="wallpaper" ? 800 : overlay.pg==="appearance"||overlay.pg==="welcome" ? 660 : 490)
             readonly property real contentFit:overlayContent.item&&overlayContent.item.fitHeight!==undefined ? overlayContent.item.fitHeight : 0
-            height:phone||game&&launcher ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : overlay.pg==="settings" ? 720 : overlay.pg==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
+            height:full ? overlay.height : Math.min(overlay.height-88,overlay.desktopStart ? 620 : launcher ? 740 : overlay.pg==="settings" ? 780 : overlay.pg==="clipboard" ? 650 : contentFit>0 ? contentFit : 860)
             Behavior on height {enabled:overlay.visible;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            x:phone||game&&launcher ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||overlay.pg==="settings"||overlay.pg==="appearance"||overlay.pg==="welcome"||overlay.pg==="convergence"||overlay.pg==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
-            y:phone||game&&launcher ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||overlay.pg==="settings"||overlay.pg==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
-            radius:phone||game&&launcher ? 0 : overlay.desktopStart ? 28 : overlay.searchPanel ? 32 : 36
+            x:full ? 0 : overlay.searchPanel ? 18+54 : overlay.desktopStart ? 18 : launcher||overlay.pg==="settings"||overlay.pg==="appearance"||overlay.pg==="welcome"||overlay.pg==="convergence"||overlay.pg==="wallpaper" ? (overlay.width-width)/2 : overlay.width-width-12
+            y:full ? 0 : overlay.desktopStart||overlay.searchPanel ? overlay.height-height-72 : launcher||overlay.pg==="settings"||overlay.pg==="welcome" ? Math.max(60,(overlay.height-height)/2) : 62
+            radius:full ? 0 : overlay.desktopStart ? 28 : overlay.searchPanel ? 32 : 36
+            kind:phone&&launcher ? "widgets" : "panels"
             translucency:phone&&launcher ? Math.min(.35,Hub.prefs.glass) : Hub.prefs.glass
             border.width:phone&&launcher ? 0 : 1
             MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons}
@@ -416,10 +444,7 @@ ShellRoot {
                 MouseArea {anchors.fill:parent;onClicked:Hub.toast=""}
             }
         }
-        Component {id:windowsComponent;ColumnLayout {anchors.fill:parent;anchors.margins:24;spacing:16
-            RowLayout {Layout.fillWidth:true;MText {text:"App switcher";font.pixelSize:28;Layout.fillWidth:true}MButton {icon:"close";onClicked:Hub.close()}}
-            WindowSwitcher {Layout.fillWidth:true;Layout.fillHeight:true;layoutMode:panel.game ? "console" : panel.phone ? "phone" : "desktop";focus:true}
-        }}
+        Component {id:windowsComponent;WindowSwitcher {anchors.fill:parent;anchors.margins:panel.game ? 48 : 24;layoutMode:panel.game ? "console" : panel.phone ? "phone" : "desktop";focus:true}}
         Component {id:wallpaperComponent;WallpaperPicker {}}
         Component {id:welcomeComponent;Onboarding {}}
         Component {id:searchComponent;SearchPanel {}}

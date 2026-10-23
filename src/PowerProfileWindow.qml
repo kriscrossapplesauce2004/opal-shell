@@ -37,7 +37,7 @@ PanelWindow {
         width:Math.min(366,picker.width-16)
         height:Math.min(500,picker.height-picker.barHeight-(picker.layoutMode==="desktop" ? 88 : 24))
         radius:26
-        translucency:Math.max(.42,Hub.prefs.glass*.72)
+        kind:"menus";translucency:Math.max(.42,Hub.prefs.glass*.72)
         elevated:false
         border.color:Theme.alpha(Theme.outline,.72)
         x:Math.round(Math.max(8,Math.min(Hub.powerProfileX-width/2,picker.width-width-8)))

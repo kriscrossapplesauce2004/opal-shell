@@ -32,7 +32,7 @@ PanelWindow {
         height:menuBody.implicitHeight
         radius:28
         // Match the shelf's base glass instead of using a heavy elevated card.
-        translucency:Math.max(.72,Hub.prefs.glass+.2)
+        kind:"menus";translucency:Math.max(.72,Hub.prefs.glass+.2)
         elevated:false
         border.color:Theme.alpha(Theme.outline,.72)
         x:Math.max(8,Math.min(Hub.taskbarContextCentered ? Hub.taskbarContextX-width/2 : Hub.taskbarContextX,context.width-width-8))

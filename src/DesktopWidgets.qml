@@ -41,7 +41,7 @@ Column {
                     // Grouped list shape: outer corners are round, inner corners are tight.
                     topLeftRadius: index === 0 ? 16 : 6; topRightRadius: topLeftRadius
                     bottomLeftRadius: index === widgets.recent.length - 1 ? 16 : 6; bottomRightRadius: bottomLeftRadius
-                    color: Theme.alpha(Theme.light ? "#ffffff" : Theme.glassRaised, Theme.light ? .72 : .5)
+                    color: Theme.fill(Theme.light ? "#ffffff" : Theme.glassRaised, Theme.light ? .72 : .5, "widgets")
                     Rectangle { anchors.fill: parent; topLeftRadius: parent.topLeftRadius; topRightRadius: parent.topRightRadius; bottomLeftRadius: parent.bottomLeftRadius; bottomRightRadius: parent.bottomRightRadius; color: Theme.stateLayer; opacity: rowMouse.pressed ? .12 : rowMouse.containsMouse ? .07 : 0; Behavior on opacity { NumberAnimation { duration: Theme.motion(120) } } }
                     Image { id: rowIcon; x: 12; anchors.verticalCenter: parent.verticalCenter; width: 26; height: 26; sourceSize: Qt.size(52, 52); asynchronous: true; source: Quickshell.iconPath(row.modelData.icon, true) }
                     Glyph { visible: rowIcon.status !== Image.Ready; anchors.centerIn: rowIcon; name: Hub.glyphForApp(row.modelData); font.pixelSize: 22; color: Theme.primary }
@@ -120,7 +120,7 @@ Column {
         signal activated()
         Layout.fillWidth: true; Layout.fillHeight: true
         radius: lead || active ? height / 2 : keyMouse.pressed ? 10 : 16
-        color: lead || active ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.alpha(Theme.light ? "#ffffff" : Theme.glassRaised, Theme.light ? .7 : .5)
+        color: lead || active ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.fill(Theme.light ? "#ffffff" : Theme.glassRaised, Theme.light ? .7 : .5, "widgets")
         scale: keyMouse.pressed ? .94 : 1
         Behavior on radius { NumberAnimation { duration: Theme.motion(220); easing.type: Easing.OutCubic } }
         Behavior on scale { NumberAnimation { duration: Theme.motion(150) } }

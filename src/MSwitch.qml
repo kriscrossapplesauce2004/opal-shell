@@ -1,8 +1,12 @@
 import QtQuick
-// M3 switch: the handle grows when on and shows a check.
+// M3 Expressive switch: the handle carries a check when on and a cross when off, and grows while pressed.
 Rectangle {
     id: sw
     property bool checked: false
+    // A row that owns the press sets these, so the whole row presses the switch.
+    property bool interactive: true
+    property bool held: false
+    readonly property bool down: held || mouse.pressed
     signal toggled(bool checked)
     implicitWidth: 52; implicitHeight: 32
     radius: height / 2
@@ -11,17 +15,18 @@ Rectangle {
     opacity: enabled ? 1 : .4
     Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durShort) } }
     Rectangle {
-        readonly property real size: mouse.pressed ? 28 : sw.checked ? 24 : 16
+        readonly property real size: sw.down ? 28 : 24
         width: size; height: size; radius: size / 2
-        x: sw.checked ? sw.width - width - 4 : (mouse.pressed ? 2 : 8)
+        x: sw.checked ? sw.width - width - (sw.down ? 2 : 4) : (sw.down ? 2 : 4)
         anchors.verticalCenter: parent.verticalCenter
         color: sw.checked ? Theme.onPrimary : Theme.subtext
-        Behavior on x { NumberAnimation { duration: Theme.motion(Theme.durShort); easing.type: Easing.OutCubic } }
+        Behavior on x { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasizedDecelerate } }
         Behavior on width { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
-        Glyph { anchors.centerIn: parent; visible: sw.checked; name: "check"; font.pixelSize: 16; color: Theme.primary }
+        Behavior on height { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
+        Glyph { anchors.centerIn: parent; name: sw.checked ? "check" : "close"; font.pixelSize: 16; color: sw.checked ? Theme.primary : Theme.level(4) }
     }
-    MouseArea { id: mouse; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: sw.toggled(!sw.checked) }
-    activeFocusOnTab: true
+    MouseArea { id: mouse; anchors.fill: parent; enabled: sw.interactive; cursorShape: Qt.PointingHandCursor; onClicked: sw.toggled(!sw.checked) }
+    activeFocusOnTab: interactive
     Keys.onSpacePressed: toggled(!checked)
     Accessible.role: Accessible.CheckBox
     Accessible.checked: checked

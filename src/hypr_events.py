@@ -177,7 +177,8 @@ def listen(emit):
                  'address': w['address'], 'workspace': w['workspace']['id'], 'workspaceName': w['workspace'].get('name', ''),
                  'monitor': names.get(w.get('monitor'), ''),
                  'at': w.get('at', [0, 0]), 'size': w.get('size', [0, 0]),
-                 'floating': bool(w.get('floating')), 'fullscreen': w.get('fullscreen', 0), 'pid': w.get('pid', 0)}
+                 'floating': bool(w.get('floating')), 'fullscreen': w.get('fullscreen', 0), 'pid': w.get('pid', 0),
+                 'focus': w.get('focusHistoryID', 0)}
                 for w in clients if w.get('mapped')
             ],
         }

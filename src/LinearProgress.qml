@@ -1,6 +1,6 @@
 import QtQuick
 
-// M3 Expressive linear progress: the active track, a gap, the inactive track and a stop dot. A negative value shows an indeterminate sweep.
+// M3 Expressive linear progress: the active track, a gap and the inactive track. A negative value shows an indeterminate sweep.
 Item {
     id: bar
     property real value: 0
@@ -22,5 +22,4 @@ Item {
         color: Theme.alpha(bar.ink, .2)
     }
     Rectangle { visible: bar.indeterminate; anchors.fill: parent; radius: bar.height / 2; color: Theme.alpha(bar.ink, .2); z: -1 }
-    Rectangle { visible: !bar.indeterminate; x: bar.width - bar.height / 2 - 2; y: (bar.height - 4) / 2; width: 4; height: 4; radius: 2; color: bar.ink }
 }

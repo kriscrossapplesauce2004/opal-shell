@@ -48,7 +48,7 @@ Scope {
     readonly property var colors: ({primary: hex(Theme.primary), onPrimary: hex(Theme.onPrimary), primaryContainer: hex(Theme.primaryContainer), onPrimaryContainer: hex(Theme.onContainer),
         secondary: hex(Theme.secondary), tertiary: hex(Theme.tertiary), base: hex(Theme.base), surface: hex(Theme.surface), surfaceHigh: hex(Theme.surfaceHigh),
         text: hex(Theme.text), subtext: hex(Theme.subtext), error: hex(Theme.error)})
-    readonly property var exportOptions: ({light: Theme.light, font: Theme.font})
+    readonly property var exportOptions: ({light: Theme.light, font: Theme.font, opaque: !Theme.appTransparency})
     property string exported: ""
     onColorsChanged: exportSoon.restart()
     Connections { target: Hub; function onPrefsChanged() { exportSoon.restart(); } }

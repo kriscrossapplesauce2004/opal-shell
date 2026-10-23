@@ -99,7 +99,7 @@ Item {
     }
 
     component Divider:Rectangle {width:2;height:36;radius:1;color:Theme.outline;anchors.verticalCenter:parent.verticalCenter}
-    component Island:Rectangle {radius:height/2;color:Theme.alpha(Theme.level(3),Math.max(.94,Hub.prefs.glass))}
+    component Island:Rectangle {radius:height/2;color:Theme.fill(Theme.level(3),Math.max(.94,Hub.prefs.glass),"bars")}
     // One segment of a connected button group: outer corners round, inner corners small, and a small gap to the next segment.
     component Segment:Rectangle {
         id:seg
