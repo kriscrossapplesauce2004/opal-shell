@@ -118,8 +118,15 @@ bind("SUPER + CTRL + P", qs .. "phone")
 bind("SUPER + CTRL + G", qs .. "gaming")
 bind("SUPER + CTRL + Q", qs .. "quickaccess")
 bind("SUPER + CTRL + D", qs .. "desktop")
--- Rishot owns Print; Opal Capture Studio remains on Super+Shift+S.
-bind("Print", "/home/melissa/.local/bin/rishot")
+-- Print opens Rishot when it is installed, else Capture Studio; Capture Studio is always on Super+Shift+S.
+local rishot = os.getenv("HOME") .. "/.local/bin/rishot"
+local rishot_file = io.open(rishot, "r")
+if rishot_file then
+    rishot_file:close()
+    bind("Print", rishot)
+else
+    bind("Print", qs .. "capture")
+end
 bind("SUPER + SHIFT + S", qs .. "capture")
 bind("SHIFT + Print", qs .. "screenshot")
 bind("SUPER + SHIFT + R", qs .. "record")
