@@ -216,7 +216,7 @@ def titlebar_colors(prefs):
     bar = hexa('surface_container', '#f3e9e8' if light else '#271d1d', 'f2')
     text = hexa('on_surface', '#231919' if light else '#f0dedd')
     close = hexa('error', '#ba1a1a' if light else '#ffb4ab')
-    button = hexa('surface_container_highest', '#e2d8d7' if light else '#3d3231')
+    button = hexa('surface_container_highest', roles.get('outline_variant') or roles.get('surface_container_high') or ('#e2d8d7' if light else '#3d3231'))
     ink = hexa('on_error', '#ffffff' if light else '#690005')
     respect = 'false' if (prefs or {}).get('respectCsd') is False else 'true'
     # Escape backslashes for the Lua string literal.

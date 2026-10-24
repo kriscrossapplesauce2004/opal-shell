@@ -500,6 +500,7 @@ def commands():
                     with prefs_lock: prefs[key]=value; save()
                     if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
                     if key in ('floatingMode','respectCsd'): threading.Thread(target=floating_apply,args=(prefs.get('floatingMode',False),),daemon=True).start()
+                    if key in ('light','dynamicPalette','dynamicColors') and prefs.get('floatingMode'): threading.Thread(target=floating_apply,args=(True,),daemon=True).start()
                     if key=='lookBlur': threading.Thread(target=floating_reload,daemon=True).start()
                     if key=='light' and prefs.get('waydroidSyncTheme') is not False:
                         threading.Thread(target=lambda v=value: WAYDROID.sync_theme(v), daemon=True).start()
@@ -542,6 +543,7 @@ def commands():
                         prefs['dynamicPalette'] = palette; prefs['omarchyTheme'] = ''
                         prefs['dynamicColors'] = True
                         save()
+                    if prefs.get('floatingMode'): threading.Thread(target=floating_apply,args=(True,),daemon=True).start()
                     emit({'event':'message','text':'Wallpaper colors applied · light and dark palettes ready'})
                 except Exception as error:
                     emit({'event':'message','text':str(error) if isinstance(error, ValueError) else 'Matugen could not read this image or generate colors. Previous colors kept.'})

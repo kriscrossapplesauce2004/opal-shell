@@ -85,6 +85,8 @@ class FloatingModeTests(unittest.TestCase):
         self.assertIn('respect_csd = true', lua)
         self.assertIn('csd_pattern =', lua)
         self.assertIn('bar = "rgba(f3e9e8f2)"', fm.titlebar_colors({'light': True}))
+        with_outline = fm.titlebar_colors({'dynamicPalette': {'dark': {'outline_variant': '#464748'}}})
+        self.assertIn('button = "rgb(464748)"', with_outline)
         off = fm.titlebar_colors({'respectCsd': False})
         self.assertIn('respect_csd = false', off)
 

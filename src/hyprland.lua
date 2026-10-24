@@ -214,12 +214,12 @@ if opal_floating() then
     -- The vendored hyprbars keeps its buttons across reloads, so seed them once per session.
     if bars then
         local ok, c = pcall(dofile, state_dir .. "/hypr-titlebars.lua")
-        if not ok or type(c) ~= "table" then c = { bar = "rgba(271d1df2)", text = "rgb(f0dedd)", close = "rgb(ffb4ab)", button = "rgb(4a3f3e)", ink = "rgb(1b1112)", font = "Google Sans Flex" } end
+        if not ok or type(c) ~= "table" then c = { bar = "rgba(271d1df2)", text = "rgb(f0dedd)", close = "rgb(ffb4ab)", button = "rgb(464748)", ink = "rgb(1b1112)", font = "Google Sans Flex" } end
         pcall(hl.config, { plugin = { hyprbars = {
             enabled = true, bar_height = 36, bar_color = c.bar, ["col.text"] = c.text, bar_title_enabled = true,
             bar_text_font = c.font, bar_text_size = 11, bar_text_weight = "semibold", bar_text_align = "left", bar_padding = 14,
             bar_button_padding = 10, bar_part_of_window = true, bar_precedence_over_border = true, bar_blur = false,
-            icon_on_hover = true, inactive_button_color = c.button,
+            icon_on_hover = false,
             on_double_click = qs .. "maximize",
         } } })
         -- Windows with client decorations draw their own titlebars, so hyprbars is disabled on them.
@@ -231,7 +231,7 @@ if opal_floating() then
         if not _G.opal_hyprbars_seeded then
             pcall(bars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })
             pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "□", action = qs .. "maximize" })
-            pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "–", action = qs .. "minimize" })
+            pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "−", action = qs .. "minimize" })
             pcall(bars.add_button, { bg_color = c.button, fg_color = c.text, size = 15, icon = "⊞", action = qs .. "snaplayouts" })
             _G.opal_hyprbars_seeded = true
         end
