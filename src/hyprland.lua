@@ -222,6 +222,11 @@ if opal_floating() then
             icon_on_hover = true, inactive_button_color = c.button,
             on_double_click = qs .. "maximize",
         } } })
+        -- Windows with client decorations draw their own titlebars, so hyprbars is disabled on them.
+        if c.respect_csd ~= false then
+            local csd_pat = c.csd_pattern or "^(google-chrome.*|chromium.*|brave-browser.*|vivaldi.*|opera.*|microsoft-edge.*|firefox.*|thunderbird.*|floorp.*|zen-browser.*|zen.*|librewolf.*|tor-browser.*|mullvad-browser.*|org\\.gnome\\..*|gnome-.*|nautilus.*|evince.*|loupe.*|totem.*|epiphany.*|baobab.*|geary.*|simple-scan.*|io\\.github\\..*|com\\.github\\..*|io\\.gitlab\\..*|code.*|Code.*|vscode.*|vscodium.*|cursor.*|zed.*|zed-editor.*|discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*|dev\\.opal\\..*)$"
+            pcall(hl.window_rule, { name = "opal-no-bar-csd", match = { class = csd_pat }, ["hyprbars:no_bar"] = true })
+        end
         -- Buttons are laid out right to left: close, maximize, minimize, snap layouts.
         if not _G.opal_hyprbars_seeded then
             pcall(bars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })

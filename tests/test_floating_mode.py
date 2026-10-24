@@ -82,7 +82,34 @@ class FloatingModeTests(unittest.TestCase):
         self.assertIn('bar = "rgba(271d1df2)"', lua)
         self.assertIn('text = "rgb(f0dedd)"', lua)
         self.assertIn('close = "rgb(ffb4ab)"', lua)
+        self.assertIn('respect_csd = true', lua)
+        self.assertIn('csd_pattern =', lua)
         self.assertIn('bar = "rgba(f3e9e8f2)"', fm.titlebar_colors({'light': True}))
+        off = fm.titlebar_colors({'respectCsd': False})
+        self.assertIn('respect_csd = false', off)
+
+    def test_client_side_decorations_recognition(self):
+        self.assertTrue(fm.is_csd({'class': 'google-chrome'}))
+        self.assertTrue(fm.is_csd({'class': 'firefox'}))
+        self.assertTrue(fm.is_csd({'class': 'org.gnome.Nautilus'}))
+        self.assertTrue(fm.is_csd({'class': 'code'}))
+        self.assertTrue(fm.is_csd({'class': 'dev.opal.Files'}))
+        self.assertFalse(fm.is_csd({'class': 'kitty'}))
+        self.assertFalse(fm.is_csd({'class': 'org.kde.dolphin'}))
+        self.assertFalse(fm.is_csd({'class': 'steam'}))
+        self.assertFalse(fm.is_csd({'class': 'google-chrome'}, {'respectCsd': False}))
+
+    def test_plan_resize_group_with_csd_member(self):
+        mon = {'name': 'eDP-1', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'scale': 1, 'reserved': [0, 0, 0, 72]}
+        snapped = {
+            '0xa': {'cell': [0.0, 0.0, 0.5, 1.0], 'monitor': 'eDP-1', 'workspace': 1, 'rect': [10, 10, 800, 600], 'csd': True},
+            '0xb': {'cell': [0.5, 0.0, 0.5, 1.0], 'monitor': 'eDP-1', 'workspace': 1, 'rect': [20, 20, 800, 600], 'csd': False},
+        }
+        updated, ops = fm.plan_resize_group(snapped, mon, 1, 0.5, titlebar=36)
+        csd_rect = next(o['rect'] for o in ops if o['address'] == '0xa')
+        non_csd_rect = next(o['rect'] for o in ops if o['address'] == '0xb')
+        self.assertEqual(csd_rect[1], 8)
+        self.assertEqual(non_csd_rect[1], 44)
 
     def test_fit_rect_keeps_windows_on_screen(self):
         mon = {'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'scale': 1, 'reserved': [0, 0, 0, 0]}

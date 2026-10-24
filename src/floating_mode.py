@@ -11,6 +11,44 @@ GAP = 8
 TITLEBAR = 36
 SHELF = 72
 MAX_MEMORY = 200
+# Patterns for window classes that draw their own client decorations.
+CSD_PATTERNS = [
+    r'^(google-chrome.*|chromium.*|brave-browser.*|vivaldi.*|opera.*|microsoft-edge.*)$',
+    r'^(firefox.*|thunderbird.*|floorp.*|zen-browser.*|zen.*|librewolf.*|tor-browser.*|mullvad-browser.*)$',
+    r'^(org\.gnome\..*|gnome-.*|nautilus.*|evince.*|loupe.*|totem.*|epiphany.*|baobab.*|geary.*|simple-scan.*)$',
+    r'^(io\.github\..*|com\.github\..*|io\.gitlab\..*)$',
+    r'^(code.*|Code.*|vscode.*|vscodium.*|cursor.*|zed.*|zed-editor.*)$',
+    r'^(discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*)$',
+    r'^(dev\.opal\..*)$',
+]
+
+
+def is_csd(client, prefs=None):
+    """Return True when the window draws its own client-side decorations."""
+    if prefs and prefs.get('respectCsd') is False: return False
+    cls = client.get('class') if isinstance(client, dict) else (client or '')
+    if not cls or not isinstance(cls, str): return False
+    custom = (prefs or {}).get('csdClasses')
+    if isinstance(custom, list):
+        for pattern in custom:
+            try:
+                if re.search(pattern, cls): return True
+            except re.error: continue
+    for pat in CSD_PATTERNS:
+        try:
+            if re.search(pat, cls): return True
+        except re.error: continue
+    return False
+
+
+def csd_lua_pattern(prefs=None):
+    """Return a combined regular expression for Hyprland window rules."""
+    patterns = list(CSD_PATTERNS)
+    custom = (prefs or {}).get('csdClasses')
+    if isinstance(custom, list):
+        patterns.extend([p for p in custom if isinstance(p, str)])
+    inner = '|'.join(p.strip('^$()') for p in patterns)
+    return f'^({inner})$'
 
 
 def load(path=STATE):
@@ -180,7 +218,10 @@ def titlebar_colors(prefs):
     close = hexa('error', '#ba1a1a' if light else '#ffb4ab')
     button = hexa('surface_container_highest', '#e2d8d7' if light else '#3d3231')
     ink = hexa('on_error', '#ffffff' if light else '#690005')
-    return ('return { bar = "%s", text = "%s", close = "%s", button = "%s", ink = "%s", font = "Google Sans Flex" }\n' % (bar, text, close, button, ink))
+    respect = 'false' if (prefs or {}).get('respectCsd') is False else 'true'
+    # Escape backslashes for the Lua string literal.
+    csd_pat = csd_lua_pattern(prefs).replace('\\', '\\\\\\\\')
+    return ('return { bar = "%s", text = "%s", close = "%s", button = "%s", ink = "%s", font = "Google Sans Flex", respect_csd = %s, csd_pattern = "%s" }\n' % (bar, text, close, button, ink, respect, csd_pat))
 
 
 # Drag snapping: the opal-windowing plugin names the zone under the cursor.
@@ -336,7 +377,8 @@ def plan_resize_group(snapped, monitor, workspace, ratio, titlebar=0, shelf=SHEL
         else:
             continue
         updated[addr]['cell'] = new_cell
-        rect = snap_rect(monitor, new_cell, gap=gap, titlebar=titlebar, shelf=shelf)
+        tb = 0 if updated[addr].get('csd') else titlebar
+        rect = snap_rect(monitor, new_cell, gap=gap, titlebar=tb, shelf=shelf)
         ops.append({'op': 'geometry', 'address': addr, 'rect': rect})
     return updated, ops
 

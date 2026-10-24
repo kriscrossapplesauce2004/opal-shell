@@ -9,6 +9,7 @@ SettingsPage {
         options:[{value:false,label:"Tiling",icon:"grid_view"},{value:true,label:"Floating",icon:"select_window"}]
         onPicked:value=>Hub.set("floatingMode",value)}
     MText {Layout.fillWidth:true;Layout.leftMargin:16;Layout.topMargin:6;text:Hub.prefs.floatingMode ? "Title bars, snap layouts and minimize. Turning it off tiles every window again." : "Windows tile side by side. Floating mode adds title bars and snap layouts.";role:"bodyS";color:Theme.subtext;wrapMode:Text.Wrap}
+    SettingToggle {visible:!!Hub.prefs.floatingMode;first:true;last:true;icon:"select_window";title:"Respect window side decorations";description:"Do not add titlebars to windows that have client-side decorations (Chrome, GNOME)";checked:Hub.prefs.respectCsd!==false;onToggled:Hub.set("respectCsd",!(Hub.prefs.respectCsd!==false))}
     SettingsGroup {title:"App switcher"
         SettingRow {icon:"tab";title:"Alt+Tab shows";description:"Super+Tab keeps the switcher open without holding a key"
             SegmentedButtons {width:260;buttonHeight:40;current:Hub.prefs.switcherScope==="workspace" ? "workspace" : "all"

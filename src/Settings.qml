@@ -69,6 +69,7 @@ Item {
         {s:"link",t:"Opal Link",k:"kde connect phone sync"},
         {s:"devices",t:"Controllers",k:"gamepad joystick"},
         {s:"apps",t:"Window mode",k:"tiling floating titlebars snap"},
+        {s:"apps",t:"Respect window side decorations",k:"csd client side decorations window titlebars"},
         {s:"apps",t:"Alt+Tab shows",k:"app switcher windows workspace"},
         {s:"apps",t:"Live previews",k:"app switcher thumbnails"},
         {s:"apps",t:"Opal file dialogs",k:"file picker portal open save"},

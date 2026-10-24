@@ -484,7 +484,8 @@ def commands():
                 valid = valid or key=='assistantMode' and value in ('ask','auto')
                 valid = valid or key=='displayModes' and isinstance(value,dict) and len(value)<=32 and all(isinstance(k,str) and 0<len(k)<=200 and v in ('desktop','phone') for k,v in value.items())
                 valid = valid or key in CONVERGE_KEYS and type(value)==bool
-                valid = valid or key=='floatingMode' and type(value)==bool
+                valid = valid or key in ('floatingMode','respectCsd') and type(value)==bool
+                valid = valid or key=='csdClasses' and isinstance(value,list) and all(isinstance(v,str) for v in value)
                 valid = valid or key in ('omarchyFollow','omarchyWallpaper') and type(value)==bool
                 valid = valid or key=='portalPicker' and value in ('touch','always','never') or key=='portalView' and value in ('grid','list')
                 valid = valid or power_key.valid_preference(key, value)
@@ -498,7 +499,7 @@ def commands():
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
                     if key in ('powerKey','powerKeyLayout') and POWER_KEY[0]: POWER_KEY[0].apply()
-                    if key=='floatingMode': threading.Thread(target=floating_apply,args=(value,),daemon=True).start()
+                    if key in ('floatingMode','respectCsd'): threading.Thread(target=floating_apply,args=(prefs.get('floatingMode',False),),daemon=True).start()
                     if key=='lookBlur': threading.Thread(target=floating_reload,daemon=True).start()
                     if key=='light' and prefs.get('waydroidSyncTheme') is not False:
                         threading.Thread(target=lambda v=value: WAYDROID.sync_theme(v), daemon=True).start()
@@ -928,7 +929,7 @@ def floating_watch(data):
             rect=remembered or [*c['at'],*c['size']]
             # A window without a remembered place does not land exactly on another one: it steps down and right.
             others=[x['at'] for x in clients if x['address']!=c['address'] and x['workspace']['id']==c['workspace']['id']]
-            placed=floating_mode.cascade(rect,others,monitor,titlebar=bar)
+            placed=floating_mode.cascade(rect,others,monitor,titlebar=0 if floating_mode.is_csd(c,prefs) else bar)
             if placed!=[int(v) for v in rect] or remembered: floating_run([{'op':'geometry','address':c['address'],'rect':placed}])
     if time.time()-floating_saved_at[0]>15:
         floating_saved_at[0]=time.time()
@@ -985,10 +986,12 @@ def window_snap(address,cell,monitor_name='',assist=False):
             state=floating_mode.load(); snapped=state.setdefault('snapped',{})
             origin=drag_origin.pop(address,None)
             entry=snapped.get(address) or {'rect':origin or [int(v) for v in (*client.get('at',[0,0]),*client.get('size',[800,600]))]}
-            entry.update(cell=[float(v) for v in cell],monitor=monitor.get('name',''),workspace=int(monitor.get('activeWorkspace',{}).get('id',(client.get('workspace') or {}).get('id',0))))
+            is_csd=floating_mode.is_csd(client,prefs)
+            entry.update(cell=[float(v) for v in cell],monitor=monitor.get('name',''),workspace=int(monitor.get('activeWorkspace',{}).get('id',(client.get('workspace') or {}).get('id',0))),csd=is_csd)
             snapped[address]=entry
             floating_mode.save(state)
-        hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell,titlebar=floating_titlebar() if prefs.get('floatingMode') else 0))
+        bar=0 if is_csd else (floating_titlebar() if prefs.get('floatingMode') else 0)
+        hypr_actions.geometry(address,*floating_mode.snap_rect(monitor,cell,titlebar=bar))
         if prefs.get('floatingMode'): hypr_actions.snap_restore_size(address,int(entry['rect'][2]),int(entry['rect'][3]))
         publish_snap_groups(state,monitors)
         if assist and prefs.get('floatingMode'): snap_assist(address,cell,entry,snapped)
@@ -1081,7 +1084,10 @@ def snap_preview(drag,seq):
         return
     try: monitor=next((m for m in cached_monitors() if m.get('name')==drag.get('monitor')),None)
     except (ValueError,OSError,subprocess.SubprocessError): monitor=None
-    if monitor and seq==snap_seq[0]: emit({'event':'snapPreview','monitor':monitor.get('name',''),'zone':zone,'rect':floating_mode.snap_frame(monitor,cell,titlebar=floating_titlebar())})
+    try: drag_client=next((c for c in hypr_actions.clients() if c.get('address')==drag.get('address')),None) if drag.get('address') else None
+    except (ValueError,OSError,subprocess.SubprocessError): drag_client=None
+    drag_bar=0 if (drag_client and floating_mode.is_csd(drag_client,prefs)) else floating_titlebar()
+    if monitor and seq==snap_seq[0]: emit({'event':'snapPreview','monitor':monitor.get('name',''),'zone':zone,'rect':floating_mode.snap_frame(monitor,cell,titlebar=drag_bar)})
 def floating_drag(drag):
     # The opal-windowing plugin reports drags: a drop in a zone snaps, and a snapped window dragged away is free again.
     kind=drag.get('kind'); address=drag.get('address','')
