@@ -37,8 +37,8 @@ leave Hyprland untouched.
 On GNOME, KDE Plasma, Xfce, Cinnamon or anything else, one line fetches the
 source and opens the switch assistant:
 
-    curl -fsSL https://raw.githubusercontent.com/kriscrossapplesauce2004/opal-shell/main/tools/switch/get-opal.sh | sh
-    curl -fsSL …/get-opal.sh | sh -s -- --gui    # the same assistant as a window
+    curl -fsSL https://raw.githubusercontent.com/kriscrossapplesauce2004/opal-shell/main/get.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/kriscrossapplesauce2004/opal-shell/main/get.sh | sh -s -- --gui    # as a window
 
 From a checkout, run `tools/switch/opal-switch` (or `--gui`); once Opal is
 installed it is `opal switch`. The assistant checks the computer, installs
