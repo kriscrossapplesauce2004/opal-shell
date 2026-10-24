@@ -306,13 +306,51 @@ Item {
                             MText { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; text: modelData.name; role: "labelS"; color: Theme.subtext }
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { Hub.set("dynamicColors", false); Hub.set("palette", index); } } } }
                     Item { width: 56; height: 72
-                        readonly property bool on: !!Hub.prefs.dynamicColors
+                        readonly property bool on: !!Hub.prefs.dynamicColors && !Hub.prefs.omarchyTheme
                         Rectangle { width: 52; height: 52; radius: 26; x: 2; clip: true; color: Theme.level(4)
                             Image { anchors.fill: parent; source: Hub.prefs.wallpaperPath || ""; fillMode: Image.PreserveAspectCrop; sourceSize.width: 104; asynchronous: true; opacity: .9 }
                             Rectangle { anchors.fill: parent; anchors.margins: -4; radius: 30; color: "transparent"; border.width: 3; border.color: Theme.primary; visible: parent.parent.on }
                             Glyph { anchors.centerIn: parent; name: Hub.themeBusy ? "hourglass" : "wallpaper"; color: "white"; style: Text.Outline; styleColor: Theme.alpha("#000000", .4) } }
                         MText { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; text: "Wallpaper"; role: "labelS"; color: Theme.subtext }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; enabled: !!Hub.prefs.wallpaperPath; onClicked: Hub.command({action: "matugen"}) } }
+                }
+                // Whole themes in Omarchy's format: colours plus their own wallpaper, in one tap. Settings › Style has every theme and filters.
+                RowLayout { Layout.fillWidth: true; visible: Hub.omarchyThemes.length > 0
+                    SectionLabel { text: "Themes"; Layout.fillWidth: true }
+                    MText { text: Hub.omarchyThemes.length + " themes · more in Settings"; role: "labelS"; color: Theme.subtext } }
+                ListView {
+                    id: themeStrip
+                    visible: Hub.omarchyThemes.length > 0
+                    Layout.fillWidth: true; Layout.preferredHeight: 128; orientation: ListView.Horizontal; spacing: 10; clip: true; boundsBehavior: Flickable.StopAtBounds
+                    Component.onCompleted: if (!Hub.omarchyThemes.length) Hub.command({action: "omarchy-themes"})
+                    // Themes with wallpapers first, light ones only when Opal is light.
+                    model: Hub.omarchyThemes.filter(t => !!t.wallpaper).sort((a, b) => ((a.mode === "light") !== Theme.light) - ((b.mode === "light") !== Theme.light)).slice(0, 24)
+                    delegate: Item {
+                        id: tcard
+                        required property var modelData
+                        readonly property bool on: !!Hub.prefs.dynamicColors && Hub.prefs.omarchyTheme === modelData.id
+                        width: 156; height: 128
+                        Rectangle {
+                            id: tframe
+                            width: parent.width; height: 96; radius: tcard.on ? 26 : 16; clip: true; color: tcard.modelData.background
+                            Behavior on radius { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasized } }
+                            scale: tHit.pressed ? .96 : 1
+                            Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
+                            RoundedImage { anchors.fill: parent; radius: tframe.radius; source: tcard.modelData.wallpaper || ""; decodeSize: Qt.size(312, 192) }
+                            // The theme's own bar: accent dot and palette bubbles.
+                            Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 8 } height: 20; radius: 10; color: Theme.alpha(tcard.modelData.background, .86)
+                                Row { anchors.verticalCenter: parent.verticalCenter; x: 5; spacing: 4
+                                    Rectangle { width: 11; height: 11; radius: 5.5; color: tcard.modelData.accent }
+                                    Repeater { model: tcard.modelData.swatches.slice(1, 6)
+                                        Rectangle { required property string modelData; width: 7; height: 7; radius: 3.5; anchors.verticalCenter: parent.verticalCenter; color: modelData } } } }
+                            Rectangle { anchors.fill: parent; radius: parent.radius; color: "transparent"; border.width: tcard.on ? 3 : 0; border.color: Theme.primary }
+                            Flower { visible: tcard.on; width: 28; height: 28; anchors { right: parent.right; top: parent.top; margins: 7 } fill: Theme.primary; lobes: 6
+                                Glyph { anchors.centerIn: parent; name: "check"; font.pixelSize: 15; color: Theme.onPrimary } }
+                        }
+                        MText { anchors { left: parent.left; right: parent.right; top: tframe.bottom; topMargin: 7 } text: tcard.modelData.name; role: "label"; elide: Text.ElideRight; color: tcard.on ? Theme.primary : Theme.text }
+                        MouseArea { id: tHit; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Hub.command({action: "omarchy-apply", id: tcard.modelData.id}) }
+                        Accessible.role: Accessible.RadioButton; Accessible.name: modelData.name; Accessible.checked: on
+                    }
                 }
                 SectionLabel { text: "Look" }
                 RowLayout { Layout.fillWidth: true; spacing: 10
