@@ -96,9 +96,11 @@ class FloatingModeTests(unittest.TestCase):
         self.assertTrue(fm.is_csd({'class': 'org.gnome.Nautilus'}))
         self.assertTrue(fm.is_csd({'class': 'code'}))
         self.assertTrue(fm.is_csd({'class': 'dev.opal.Files'}))
+        self.assertTrue(fm.is_csd({'class': 'steam'}))
+        self.assertTrue(fm.is_csd({'class': 'Steam'}))
         self.assertFalse(fm.is_csd({'class': 'kitty'}))
         self.assertFalse(fm.is_csd({'class': 'org.kde.dolphin'}))
-        self.assertFalse(fm.is_csd({'class': 'steam'}))
+        self.assertFalse(fm.is_csd({'class': 'steam'}, {'respectCsd': False}))
         self.assertFalse(fm.is_csd({'class': 'google-chrome'}, {'respectCsd': False}))
 
     def test_plan_resize_group_with_csd_member(self):

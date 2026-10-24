@@ -224,7 +224,7 @@ if opal_floating() then
         } } })
         -- Windows with client decorations draw their own titlebars, so hyprbars is disabled on them.
         if c.respect_csd ~= false then
-            local csd_pat = c.csd_pattern or "^(google-chrome.*|chromium.*|brave-browser.*|vivaldi.*|opera.*|microsoft-edge.*|firefox.*|thunderbird.*|floorp.*|zen-browser.*|zen.*|librewolf.*|tor-browser.*|mullvad-browser.*|org\\.gnome\\..*|gnome-.*|nautilus.*|evince.*|loupe.*|totem.*|epiphany.*|baobab.*|geary.*|simple-scan.*|io\\.github\\..*|com\\.github\\..*|io\\.gitlab\\..*|code.*|Code.*|vscode.*|vscodium.*|cursor.*|zed.*|zed-editor.*|discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*|dev\\.opal\\..*)$"
+            local csd_pat = c.csd_pattern or "^(google-chrome.*|chromium.*|brave-browser.*|vivaldi.*|opera.*|microsoft-edge.*|firefox.*|thunderbird.*|floorp.*|zen-browser.*|zen.*|librewolf.*|tor-browser.*|mullvad-browser.*|org\\.gnome\\..*|gnome-.*|nautilus.*|evince.*|loupe.*|totem.*|epiphany.*|baobab.*|geary.*|simple-scan.*|io\\.github\\..*|com\\.github\\..*|io\\.gitlab\\..*|code.*|Code.*|vscode.*|vscodium.*|cursor.*|zed.*|zed-editor.*|discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*|steam.*|Steam.*|dev\\.opal\\..*)$"
             pcall(hl.window_rule, { name = "opal-no-bar-csd", match = { class = csd_pat }, ["hyprbars:no_bar"] = true })
         end
         -- Buttons are laid out right to left: close, maximize, minimize, snap layouts.

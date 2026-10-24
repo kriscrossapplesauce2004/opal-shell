@@ -18,7 +18,7 @@ CSD_PATTERNS = [
     r'^(org\.gnome\..*|gnome-.*|nautilus.*|evince.*|loupe.*|totem.*|epiphany.*|baobab.*|geary.*|simple-scan.*)$',
     r'^(io\.github\..*|com\.github\..*|io\.gitlab\..*)$',
     r'^(code.*|Code.*|vscode.*|vscodium.*|cursor.*|zed.*|zed-editor.*)$',
-    r'^(discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*)$',
+    r'^(discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*|steam.*|Steam.*)$',
     r'^(dev\.opal\..*)$',
 ]
 
