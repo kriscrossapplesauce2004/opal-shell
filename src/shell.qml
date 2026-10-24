@@ -28,6 +28,8 @@ ShellRoot {
         function appearance():void {Hub.targetScreen=Hub.chooseScreen();Hub.openSettings("style");}
         // Omarchy-format themes: wear one by folder name, or save the current look as an Omarchy theme.
         function theme(name:string):void {Hub.command({action:"omarchy-apply",id:name});}
+        // Pins an app (desktop id, no .desktop) to the launcher and dock through the backend, so it stays pinned.
+        function pinApp(id:string):string {Hub.command({action:"pin",id:id,initial:Hub.favoriteApps.map(a=>a.id)});return "Pinned "+id;}
         // Apps (Photos, Files) set the wallpaper here; the colours follow when wallpaper colours are on.
         function wallpaper(path:string):string {Hub.command({action:"wallpaper",path:path,wallpaperFit:Hub.prefs.wallpaperFit||"crop",wallpaperDim:Hub.prefs.wallpaperDim||0});return "ok";}
         // The portal asks whether Opal draws an app's file dialog; "shown" means yes.
