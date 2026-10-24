@@ -19,7 +19,7 @@ Column {
         files.forEach(f => list.push({kind: "file", file: f, id: "f" + f.path}));
         return list;
     }
-    visible: cards.length > 0
+    visible: Hub.prefs.resumeSuggestions !== false && cards.length > 0
     function open(path) { Quickshell.execDetached(["xdg-open", path]); }
     function launchGame(g) { const full = Hub.games.find(x => x.id === g.id); if (full) Hub.launchGame(full); }
     function resume(d) {

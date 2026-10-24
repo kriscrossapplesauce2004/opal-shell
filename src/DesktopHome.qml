@@ -233,7 +233,7 @@ Item {
         readonly property real room: home.width - start - (home.widgets ? 460 : 48)
         readonly property int fit: Math.min(4, Math.floor((room + 14) / 228))
         visible: opacity > 0
-        opacity: home.emptyWorkspace && !home.editing && cards.length > 0 ? 1 : 0
+        opacity: Hub.prefs.resumeSuggestions !== false && home.emptyWorkspace && !home.editing && cards.length > 0 ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durLong); easing.type: Easing.OutCubic } }
         x: Math.max(start, start + (room - width) / 2)
         y: parent.height * .3

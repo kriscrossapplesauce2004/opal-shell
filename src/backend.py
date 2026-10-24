@@ -67,7 +67,7 @@ import capture_service
 import routines_engine
 
 TIME = re.compile(r'([01]\d|2[0-3]):[0-5]\d')
-PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets','look','lookSurfaces','lookBlur','lookEdges','lookShadows','lookAppTransparency')
+PROFILE_KEYS = ('barStyle','iconStyle','quickTiles','sheetSections','light','palette','dynamicColors','dynamicPalette','colorScheme','glass','wallpaperPath','wallpaperFit','wallpaperDim','mode','taskbarCenter','taskbarLabels','taskbarClockDate','taskbarAutoHide','reduceMotion','desktopWidgets','resumeSuggestions','look','lookSurfaces','lookBlur','lookEdges','lookShadows','lookAppTransparency')
 def valid_schedules(value):
     """Night light, dark mode and Do not disturb schedules: sun times or custom times."""
     if not isinstance(value,dict) or not set(value)<={'nightLight','darkMode','dnd'}: return False

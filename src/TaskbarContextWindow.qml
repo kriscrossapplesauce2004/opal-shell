@@ -16,11 +16,8 @@ PanelWindow {
     WlrLayershell.namespace:"opal-taskbar-menu"
     WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
     color:"transparent"
-    // Keep taskbar controls live while a context menu is open. A new right
-    // click can then replace the menu without a close-and-click dance.
     mask:Region {
         Region {x:0;y:0;width:context.width;height:context.height}
-        Region {intersection:Intersection.Subtract;x:0;y:context.height-context.taskbarHeight;width:context.width;height:context.taskbarHeight}
     }
 
     MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons;onPressed:Hub.closeTaskbarContext()}
@@ -84,6 +81,6 @@ PanelWindow {
                 if(entry.run)entry.run();
             }
         }
-        MouseArea {anchors.fill:parent;acceptedButtons:Qt.RightButton;onPressed:mouse.accepted=true}
+        MouseArea {anchors.fill:parent;acceptedButtons:Qt.RightButton;onPressed:Hub.closeTaskbarContext()}
     }
 }

@@ -16,7 +16,7 @@ ROLES = ('primary', 'on_primary', 'primary_container', 'on_primary_container',
 SCHEMES = ('scheme-tonal-spot', 'scheme-expressive', 'scheme-vibrant', 'scheme-neutral')
 IMAGE_SUFFIXES = ('.png', '.jpg', '.jpeg', '.webp', '.bmp')
 DEFAULTS = dict(wallpaperPath='', wallpaperFit='crop', wallpaperDim=0.15,
-                desktopWidgets=True, dynamicColors=False, dynamicPalette={},
+                desktopWidgets=True, resumeSuggestions=True, dynamicColors=False, dynamicPalette={},
                 colorScheme='scheme-tonal-spot')
 
 def local_image(value):
@@ -155,7 +155,7 @@ def generate(path, scheme):
     return normalize_colors(json.loads(proc.stdout))
 
 def valid_preference(key, value):
-    return (key in ('desktopWidgets', 'dynamicColors') and type(value) is bool
+    return (key in ('desktopWidgets', 'resumeSuggestions', 'dynamicColors') and type(value) is bool
             or key == 'wallpaperFit' and value in ('crop', 'fit')
             or key == 'wallpaperDim' and type(value) in (int, float) and 0 <= value <= .8
             or key == 'colorScheme' and value in SCHEMES)

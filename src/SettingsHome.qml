@@ -32,6 +32,7 @@ SettingsPage {
     MText {visible:Hub.favoriteApps.length===0;Layout.fillWidth:true;Layout.leftMargin:16;text:"Right-click any app and choose Pin.";role:"bodyS";color:Theme.subtext}
     SettingsGroup {title:"Home"
         SettingToggle {icon:"widgets";title:"Desktop widgets";description:"Glance, media and calendar cards on the desktop";checked:Hub.prefs.desktopWidgets!==false;onToggled:Hub.set("desktopWidgets",!checked)}
+        SettingToggle {icon:"history";title:"Pick up where you left off";description:"Show recent files, games, media and device sessions on Home";checked:Hub.prefs.resumeSuggestions!==false;onToggled:Hub.set("resumeSuggestions",!checked)}
         SettingToggle {icon:"layers_clear";title:"Hide the home under apps";description:"Icons and widgets fade out while a window is open";checked:Hub.prefs.homeHideUnderApps!==false;onToggled:Hub.set("homeHideUnderApps",!checked)}
         SettingToggle {icon:"desktop_windows";title:"Desktop files on the tablet home";description:"Files in ~/Desktop show as icons next to your apps";checked:Hub.prefs.homeDesktopFiles===true;onToggled:Hub.set("homeDesktopFiles",!checked)}
     }

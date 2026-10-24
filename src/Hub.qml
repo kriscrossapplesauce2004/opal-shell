@@ -6,7 +6,7 @@ import Quickshell.Wayland
 
 Scope {
     id: h
-    property var prefs: ({mode:"desktop", palette:0, light:false, glass:0.78, favorites:[], recent:[], wallpaper:0, wallpaperPath:"", wallpaperFit:"crop", wallpaperDim:.15, desktopWidgets:true, dynamicColors:false, dynamicPalette:{}, colorScheme:"scheme-tonal-spot"})
+    property var prefs: ({mode:"desktop", palette:0, light:false, glass:0.78, favorites:[], recent:[], wallpaper:0, wallpaperPath:"", wallpaperFit:"crop", wallpaperDim:.15, desktopWidgets:true, resumeSuggestions:true, dynamicColors:false, dynamicPalette:{}, colorScheme:"scheme-tonal-spot"})
     property var status: ({workspace:1, workspaces:[], windows:[], title:"Your desktop", volume:0, muted:false, network:"Connecting…", wifi:false, bluetooth:false, track:"", artist:"", art:"", playing:false, battery:-1, batteries:[], charging:false, brightness:-1, cpu:0, memory:0, uptime:"", profile:"", governor:"", hypr:false})
     property var connectivity: ({wifi:{items:[],busy:false,error:"",powered:false},bluetooth:{items:[],busy:false,error:"",powered:false}})
     property string controlDetail: ""

@@ -118,8 +118,8 @@ bind("SUPER + CTRL + P", qs .. "phone")
 bind("SUPER + CTRL + G", qs .. "gaming")
 bind("SUPER + CTRL + Q", qs .. "quickaccess")
 bind("SUPER + CTRL + D", qs .. "desktop")
--- Capture Studio: Print or Super+Shift+S picks a region, window or screen; Shift+Print saves the whole screen at once; Super+Shift+R starts or stops a recording.
-bind("Print", qs .. "capture")
+-- Rishot owns Print; Opal Capture Studio remains on Super+Shift+S.
+bind("Print", "/home/melissa/.local/bin/rishot")
 bind("SUPER + SHIFT + S", qs .. "capture")
 bind("SHIFT + Print", qs .. "screenshot")
 bind("SUPER + SHIFT + R", qs .. "record")

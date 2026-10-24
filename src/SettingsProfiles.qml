@@ -6,7 +6,7 @@ Flickable {
     id: page
     contentHeight: column.implicitHeight; clip: true; boundsBehavior: Flickable.StopAtBounds
     ScrollBar.vertical: ScrollBar {}
-    readonly property var keys: ["barStyle","iconStyle","quickTiles","sheetSections","light","palette","dynamicColors","dynamicPalette","colorScheme","glass","wallpaperPath","wallpaperFit","wallpaperDim","mode","taskbarCenter","taskbarLabels","taskbarClockDate","taskbarAutoHide","reduceMotion","desktopWidgets"]
+    readonly property var keys: ["barStyle","iconStyle","quickTiles","sheetSections","light","palette","dynamicColors","dynamicPalette","colorScheme","glass","wallpaperPath","wallpaperFit","wallpaperDim","mode","taskbarCenter","taskbarLabels","taskbarClockDate","taskbarAutoHide","reduceMotion","desktopWidgets","resumeSuggestions"]
     readonly property var profiles: Hub.prefs.profiles || {}
     readonly property var names: Object.keys(profiles).sort()
     function snapshot() { const out = {}; keys.forEach(k => { if (Hub.prefs[k] !== undefined) out[k] = Hub.prefs[k]; }); return out; }

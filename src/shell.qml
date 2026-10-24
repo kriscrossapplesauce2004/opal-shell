@@ -151,7 +151,7 @@ ShellRoot {
                     {text:"Settings",icon:"settings",run:()=>{Hub.targetScreen=output.modelData;Hub.openSettings();}}
                 ]}
                 // Below the home, so desktop icons and widgets get their own right clicks first.
-                MouseArea {anchors.fill:parent;z:-1;enabled:morph.shown==="desktop";acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.targetScreen=output.modelData;desktopMenu.popup(e.x,e.y);}}
+                MouseArea {anchors.fill:parent;z:-1;enabled:morph.shown==="desktop";acceptedButtons:Qt.RightButton;onClicked:e=>{Hub.openTaskbarContext(output.modelData,e.x,e.y,desktopMenu.entries,false,"Desktop","desktop_windows");}}
             }
             PanelWindow {
                 id:statusbar
