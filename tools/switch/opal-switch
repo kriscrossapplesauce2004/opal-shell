@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Switch to Opal: "opal-switch" asks in the terminal, "opal-switch --gui" opens the assistant window.
+set -euo pipefail
+here=$(CDPATH= cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
+repo=$(CDPATH= cd -- "$here/../.." && pwd)
+if [[ "${1:-}" == --gui ]]; then
+    shift
+    python3 "$here/opal_switch.py" prepare-gui
+    fonts="${XDG_CACHE_HOME:-$HOME/.cache}/opal-switch/fonts"
+    # OPAL_POLKIT=1 is Opal's standalone mode: no session backend and no notification server, so it is safe on any desktop.
+    exec env OPAL_POLKIT=1 OPAL_SWITCH_ENGINE="$here/opal_switch.py" OPAL_SWITCH_FONTS="$([[ -d $fonts ]] && echo "$fonts")" \
+        quickshell -n -p "$repo/src/switch.qml" "$@"
+fi
+exec python3 "$here/opal_switch.py" "$@"

@@ -32,6 +32,24 @@ preferences are preserved. Use `./install.sh --restart` to install and reload
 in one step, `--no-deps` to skip package installation, or `--no-hyprland` to
 leave Hyprland untouched.
 
+## Switch from another desktop
+
+On GNOME, KDE Plasma, Xfce, Cinnamon or anything else, one line fetches the
+source and opens the switch assistant:
+
+    curl -fsSL https://raw.githubusercontent.com/kriscrossapplesauce2004/opal-shell/main/tools/switch/get-opal.sh | sh
+    curl -fsSL …/get-opal.sh | sh -s -- --gui    # the same assistant as a window
+
+From a checkout, run `tools/switch/opal-switch` (or `--gui`); once Opal is
+installed it is `opal switch`. The assistant checks the computer, installs
+Hyprland, Quickshell and helpers with pacman, dnf (Quickshell from its COPR),
+zypper or apt, adds an **Opal** session to the login screen, and brings the old
+desktop's wallpaper, light or dark theme, accent, pinned apps, keyboard layouts
+and scroll direction along. It asks for your password once. Your old desktop
+stays installed. `opal-switch --undo` takes Opal off the login screen and puts
+your settings back. `--check` only shows what would happen, and `--json` prints
+the checks.
+
 ## Material 3 Expressive glass refresh
 
 - Shared tokens in `Theme.qml`: an M3 surface-container ramp, secondary/tertiary containers, glass island/raised/highlight roles, an error role, shape scale and expressive motion curves.
