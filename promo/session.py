@@ -70,6 +70,10 @@ end)
 ''')
 
     def start(self, settle=9):
+        # The clock shim is a build product outside git; rebuild it when a cleanup removed it.
+        if self.clock and not CLOCKSHIFT.exists():
+            CLOCKSHIFT.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(['gcc', '-shared', '-fPIC', '-O2', '-o', str(CLOCKSHIFT), str(pathlib.Path(__file__).parent / 'tools/clockshift.c'), '-ldl'], check=True)
         self.write_prefs()
         self.write_configs()
         env = {k: v for k, v in os.environ.items() if k not in ('WAYLAND_DISPLAY', 'DISPLAY', 'HYPRLAND_INSTANCE_SIGNATURE', 'SWAYSOCK', 'DBUS_SESSION_BUS_ADDRESS')}
