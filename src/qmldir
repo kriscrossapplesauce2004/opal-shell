@@ -142,6 +142,7 @@ QuickAccess 1.0 QuickAccess.qml
 RoundedImage 1.0 RoundedImage.qml
 GameDetail 1.0 GameDetail.qml
 singleton Activities 1.0 Activities.qml
+singleton Spaces 1.0 Spaces.qml
 ActivityPill 1.0 ActivityPill.qml
 ActivitySegment 1.0 ActivitySegment.qml
 SuggestionChips 1.0 SuggestionChips.qml
@@ -222,3 +223,4 @@ NotificationSheet 1.0 NotificationSheet.qml
 ClockCard 1.0 ClockCard.qml
 QuickBigTile 1.0 QuickBigTile.qml
 DisplaysPanel 1.0 DisplaysPanel.qml
+OpalField 1.0 OpalField.qml

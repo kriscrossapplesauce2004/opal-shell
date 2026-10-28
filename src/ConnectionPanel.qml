@@ -139,12 +139,12 @@ ColumnLayout {
     }
     ColumnLayout {
         visible:p.wifi&&p.joinMode!=="";Layout.fillWidth:true;spacing:8
-        TextField {id:joinSsid;Layout.fillWidth:true;placeholderText:"Network name";maximumLength:32}
+        OpalField {id:joinSsid;Layout.fillWidth:true;placeholderText:"Network name";maximumLength:32}
         RowLayout {visible:p.joinMode==="enterprise";Layout.fillWidth:true;spacing:8
-            TextField {id:joinIdentity;Layout.fillWidth:true;placeholderText:"Username"}
+            OpalField {id:joinIdentity;Layout.fillWidth:true;placeholderText:"Username"}
             SegmentedButtons {id:joinEap;options:[{label:"PEAP",value:"peap"},{label:"TTLS",value:"ttls"}];current:"peap";onPicked:value=>current=value}
         }
-        TextField {id:joinPassword;Layout.fillWidth:true;placeholderText:"Password";echoMode:TextInput.Password}
+        OpalField {id:joinPassword;Layout.fillWidth:true;placeholderText:"Password";echoMode:TextInput.Password}
         MButton {
             Layout.alignment:Qt.AlignRight;text:"Join";filled:true;enabled:joinSsid.text.length>0&&!p.state.busy&&(p.joinMode!=="enterprise"||joinIdentity.text.length>0)
             onClicked:{

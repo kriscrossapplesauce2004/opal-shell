@@ -37,7 +37,9 @@ Rectangle {
         PhoneState.spacesX = pill.mapToItem(null, 0, 0).x;
         PhoneState.spacesOpen = true;
     }
-    readonly property bool wide: flashing || hover.hovered
+    readonly property var info: Spaces.info(current)
+    // A switch flashes the name and apps, unless the contextual pills are calm, off or folded.
+    readonly property bool wide: (flashing && Activities.level === "full" && !Activities.collapsed) || hover.hovered
     visible: Hub.status.hypr && current > 0
     radius: height / 2
     color: open ? Theme.primaryContainer : framed ? Theme.level(3) : "transparent"
@@ -49,10 +51,21 @@ Rectangle {
     Row {
         id: row
         anchors.verticalCenter: parent.verticalCenter; x: pill.framed ? 8 : 3; spacing: 8
+        // The space's symbol on its colour, else its number. Wide, it also shows the space's name.
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(30, numText.implicitWidth + 16); height: 30; radius: 15; color: Theme.primary
-            MText { id: numText; anchors.centerIn: parent; text: String(pill.current); role: "label"; font.weight: Font.Bold; color: Theme.onPrimary }
+            readonly property bool named: pill.wide && pill.info.name !== "" && !pill.info.auto
+            readonly property color ink: pill.info.color ? Theme.base : Theme.onPrimary
+            width: named ? badgeRow.implicitWidth + 20 : Math.max(30, badgeRow.implicitWidth + 16); height: 30; radius: 15
+            color: pill.info.color || Theme.primary
+            Behavior on width { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
+            Row {
+                id: badgeRow; anchors.centerIn: parent; spacing: 6
+                Glyph { visible: pill.info.icon !== ""; name: pill.info.icon; font.pixelSize: 18; color: parent.parent.ink; anchors.verticalCenter: parent.verticalCenter }
+                MText { visible: pill.info.icon === ""; text: String(pill.current); role: "label"; font.weight: Font.Bold; color: parent.parent.ink; anchors.verticalCenter: parent.verticalCenter }
+                MText { visible: parent.parent.named; text: pill.info.name; role: "label"; font.weight: Font.Bold; color: parent.parent.ink; anchors.verticalCenter: parent.verticalCenter
+                    width: Math.min(implicitWidth, 120); elide: Text.ElideRight }
+            }
         }
         // A switch or hover shows the apps on this workspace.
         Row {
@@ -80,7 +93,7 @@ Rectangle {
                     readonly property bool urgent: Hub.windows.some(w => Number(w.workspace) === Number(modelData) && Hub.urgent(w))
                     anchors.verticalCenter: parent.verticalCenter
                     width: on ? 14 : 6; height: 6; radius: 3
-                    color: on ? (pill.open ? Theme.containerInk : Theme.primary) : urgent ? Theme.tertiary
+                    color: on ? (pill.open ? Theme.containerInk : (pill.info.color || Theme.primary)) : urgent ? Theme.tertiary
                         : Theme.alpha(pill.open ? Theme.containerInk : Theme.text, Hub.windows.some(w => Number(w.workspace) === Number(modelData)) ? .6 : .28)
                     Behavior on width { NumberAnimation { duration: Theme.motion(Theme.durMedium); easing.type: Easing.OutCubic } }
                 }
@@ -94,5 +107,5 @@ Rectangle {
         onWheel: e => { const d = e.angleDelta.y || -e.angleDelta.x; if (!d) return; const i = pill.spaces.indexOf(pill.current), next = pill.spaces[i + (d < 0 ? 1 : -1)]; Hub.workspace(next !== undefined ? next : pill.current + (d < 0 ? 1 : 0)); }
     }
     Accessible.role: Accessible.Button
-    Accessible.name: "Workspace " + current + " of " + spaces.length + (apps.length ? ", " + apps.length + " apps" : ", empty") + ". Show workspaces"
+    Accessible.name: (info.name ? info.name + ", workspace " : "Workspace ") + current + " of " + spaces.length + (apps.length ? ", " + apps.length + " apps" : ", empty") + ". Show workspaces"
 }

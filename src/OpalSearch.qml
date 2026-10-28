@@ -28,7 +28,9 @@ FocusScope {
     readonly property real fitHeight: layout.implicitHeight + inset * 2 + (ownField ? fieldBox.height + 12 : 0)
     implicitHeight: fitHeight
 
+    // Saved spaces reopen from search like actions.
     readonly property var actions: allActions.filter(a => Hub.aiEnabled !== false || a.id !== "assistant")
+        .concat(Spaces.saved.map(sp => ({id: "space:" + sp.id, name: sp.name, detail: "Saved space · " + (sp.apps || []).length + " apps", icon: sp.icon || "bookmark", keywords: "space workspace project saved " + sp.name})))
     readonly property var allActions: [
         {id:"controls",name:"Quick settings",detail:"Wi-Fi, sound and display",icon:"tune",keywords:"control center volume brightness"},
         {id:"wallpaper",name:"Wallpaper",detail:"Choose a background image",icon:"wallpaper",keywords:"background photo picture"},
@@ -154,6 +156,7 @@ FocusScope {
             else if (id === "android-setup") Hub.openAndroid("setup");
             else if (id === "setup") Hub.openOobe();
             else if (id === "workspaces") { Hub.close(); Hub.workspaceOverviewRequest(); }
+            else if (id.startsWith("space:")) { Hub.close(); Spaces.open(Spaces.saved.find(sp => "space:" + sp.id === id)); }
             else Hub.page = id;
         }
     }

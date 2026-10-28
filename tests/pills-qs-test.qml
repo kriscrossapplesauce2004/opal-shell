@@ -27,7 +27,10 @@ ShellRoot {
             {name: "qs-desktop-sizes", view: qs, w: 412, h: 720, prefs: {quickTiles: ["wifi", "bluetooth", "media", "dnd", "theme", "focus", "mic", "keyboard", "devices"], quickTileSizes: {focus: "big"}}},
             {name: "notification-card", view: notes, w: 420, h: 620},
             {name: "clock-card", view: clock, w: 400, h: 820},
-            {name: "displays-sheet", view: displays, w: 412, h: 620}
+            {name: "displays-sheet", view: displays, w: 412, h: 620},
+            {name: "spaces-card", view: spaces, w: 1040, h: 420, spaces: true},
+            {name: "spaces-edit", view: spaces, w: 460, h: 640, spaces: true, edit: 2},
+            {name: "spaces-shelf", view: shelf, w: 1440, h: 160, spaces: true}
         ]
         Loader { id: loader; anchors.fill: parent }
         function run() {
@@ -50,6 +53,15 @@ ShellRoot {
             Opal.HomeData.clocks = [{zone: "Asia/Tokyo", label: "Tokyo", offset: 540}, {zone: "America/New_York", label: "New York", offset: -240}];
             Opal.Hub.ddc = {available: true, items: [{bus: 4, connector: "DP-1", model: "DELL U2723QE", ddc: true, value: 72, max: 100}, {bus: 5, connector: "HDMI-A-1", model: "SAMSUNG", ddc: false, value: -1, max: 100}]};
             Opal.Hub.focusRunning = true; Opal.Hub.focusSeconds = 4 * 60 + 12;
+            if (c.spaces) {
+                Opal.Hub.prefs = Object.assign({}, Opal.Hub.prefs, {spaces: {"1": {name: "Opal", icon: "palette", color: "#c7a7ff"}, "3": {name: "Games", icon: "sports_esports", color: "#8bd5a0"}},
+                    savedSpaces: [{id: "quantlab", name: "Quantlab", icon: "science", color: "#ffb38a", apps: [{app: "code", cls: "code"}, {app: "firefox", cls: "firefox"}]}, {id: "printing", name: "Printing", icon: "print", color: "#9ecbff", apps: [{app: "firefox", cls: "firefox"}]}]});
+                Opal.Hub.apps = [{id: "firefox", name: "Firefox", icon: "firefox", keywords: [], categories: [], execute: () => {}}, {id: "code", name: "Code", icon: "code", keywords: [], categories: [], execute: () => {}}, {id: "steam", name: "Steam", icon: "steam", keywords: [], categories: [], execute: () => {}}];
+                Opal.Hub.compositorActive = true;
+                Opal.Hub.compositorWindows = [{title: "Opal", className: "code", address: "a1", workspace: 1, at: [0, 0], size: [960, 1080]}, {title: "Docs", className: "firefox", address: "a2", workspace: 1, at: [960, 0], size: [960, 1080]},
+                    {title: "Mozilla Firefox", className: "firefox", address: "a3", workspace: 2, at: [0, 0], size: [1920, 1080]}, {title: "Steam", className: "steam", address: "a4", workspace: 3, at: [0, 0], size: [1920, 1080]}];
+                Opal.Hub.status = Object.assign({}, Opal.Hub.status, {workspace: c.name === "spaces-shelf" ? 1 : 2, workspaces: [1, 2, 3]});
+            }
             loader.sourceComponent = null; loader.sourceComponent = c.view;
             if (c.fresh) Qt.callLater(() => { Opal.Notifier.announced = Opal.Notifier.entries[0]; Opal.Notifier.announcedAt = Date.now(); });
             grab.restart();
@@ -63,5 +75,6 @@ ShellRoot {
     Component { id: qs; Card { Opal.QuickSettings { id: sheet; anchors.fill: parent; Component.onCompleted: sheet.editing = !!fixture.cases[fixture.step].edit } } }
     Component { id: notes; Card { Opal.NotificationSheet { anchors.fill: parent } } }
     Component { id: clock; Card { Opal.ClockCard { anchors.fill: parent } } }
+    Component { id: spaces; Item { Opal.WorkspaceCard { id: wcard; x: 10; y: 10; width: implicitWidth; height: implicitHeight; Component.onCompleted: if (fixture.cases[fixture.step].edit) wcard.editing = fixture.cases[fixture.step].edit } } }
     Component { id: displays; Card { Opal.DisplaysPanel { anchors.fill: parent; anchors.margins: 16 } } }
 }
