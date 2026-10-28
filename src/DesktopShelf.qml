@@ -116,7 +116,8 @@ Item {
         Rectangle {
             id:submapChip
             readonly property string name:String(Hub.status.submap||"")
-            visible:name!==""&&name!=="reset"
+            // Opal's own submaps (opal-switch) are plumbing, not a mode the user entered.
+            visible:name!==""&&name!=="reset"&&!name.startsWith("opal-")
             implicitWidth:submapRow.implicitWidth+20;implicitHeight:parent.height
             width:implicitWidth;height:implicitHeight;radius:height/2;color:Theme.tertiaryContainer
             Row {

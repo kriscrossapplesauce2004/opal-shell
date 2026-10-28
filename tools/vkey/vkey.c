@@ -14,6 +14,8 @@
 static struct wl_seat* seat;
 static struct zwp_virtual_keyboard_manager_v1* manager;
 static struct xkb_keymap* keymap;
+static struct xkb_state* xstate;
+static struct zwp_virtual_keyboard_v1* keyboard;
 
 static void global(void* data, struct wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
     if (!strcmp(interface, wl_seat_interface.name))
@@ -41,6 +43,15 @@ static int code_for(const char* name) {
     return -1;
 }
 
+// Sends one key, then the modifier state that follows from it, so compositor binds such as Alt+Tab see held modifiers.
+static void send_key(int code, uint32_t state) {
+    zwp_virtual_keyboard_v1_key(keyboard, now_ms(), code, state);
+    xkb_state_update_key(xstate, code + 8, state == WL_KEYBOARD_KEY_STATE_PRESSED ? XKB_KEY_DOWN : XKB_KEY_UP);
+    zwp_virtual_keyboard_v1_modifiers(keyboard, xkb_state_serialize_mods(xstate, XKB_STATE_MODS_DEPRESSED),
+        xkb_state_serialize_mods(xstate, XKB_STATE_MODS_LATCHED), xkb_state_serialize_mods(xstate, XKB_STATE_MODS_LOCKED),
+        xkb_state_serialize_layout(xstate, XKB_STATE_LAYOUT_EFFECTIVE));
+}
+
 int main(void) {
     struct wl_display* display = wl_display_connect(NULL);
     if (!display) { fprintf(stderr, "no display\n"); return 1; }
@@ -59,7 +70,8 @@ int main(void) {
     char* map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     memcpy(map, text, size);
     munmap(map, size);
-    struct zwp_virtual_keyboard_v1* keyboard = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager, seat);
+    xstate = xkb_state_new(keymap);
+    keyboard = zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager, seat);
     zwp_virtual_keyboard_v1_keymap(keyboard, WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1, fd, size);
     wl_display_roundtrip(display);
     char line[256], name[128];
@@ -73,11 +85,13 @@ int main(void) {
         else continue;
         int code = code_for(name);
         if (code < 0) { fprintf(stderr, "unknown key %s\n", name); continue; }
-        if (tap || state == WL_KEYBOARD_KEY_STATE_PRESSED) zwp_virtual_keyboard_v1_key(keyboard, now_ms(), code, WL_KEYBOARD_KEY_STATE_PRESSED);
+        if (tap || state == WL_KEYBOARD_KEY_STATE_PRESSED) send_key(code, WL_KEYBOARD_KEY_STATE_PRESSED);
         if (tap) { wl_display_roundtrip(display); usleep(40000); }
-        if (tap || state == WL_KEYBOARD_KEY_STATE_RELEASED) zwp_virtual_keyboard_v1_key(keyboard, now_ms(), code, WL_KEYBOARD_KEY_STATE_RELEASED);
+        if (tap || state == WL_KEYBOARD_KEY_STATE_RELEASED) send_key(code, WL_KEYBOARD_KEY_STATE_RELEASED);
         wl_display_roundtrip(display);
     }
+    // Leave no modifier held behind.
+    zwp_virtual_keyboard_v1_modifiers(keyboard, 0, 0, 0, 0);
     zwp_virtual_keyboard_v1_destroy(keyboard);
     wl_display_roundtrip(display);
     return 0;

@@ -83,17 +83,26 @@ hl.bind("SUPER + Super_L", hl.dsp.exec_cmd(qs .. "launcher"), { release = true }
 bind("ALT + space", qs .. "launcher")
 -- App switcher. Hold Alt and tap Tab to walk windows in recent order; releasing Alt switches.
 -- Every call names the hold and the step, so a late IPC call can never reopen a switch that already ended.
-local switch_hold, switch_step = 0, 0
+-- Holds count up from the clock, so a config reload never restarts them below one the shell already ended.
+local switch_hold, switch_step = os.time() - 1790000000, 0
+local switch_active = false
 local function switch_send(verb) hl.exec_cmd(qs .. verb .. " " .. switch_hold .. " " .. switch_step) end
 local function switch_begin(step)
-    switch_hold = switch_hold + 1; switch_step = step
+    switch_hold = switch_hold + 1; switch_step = step; switch_active = true
     hl.dispatch(hl.dsp.submap("opal-switch"))
     switch_send("switcherStep")
 end
 local function switch_finish(verb)
+    if not switch_active then return end
+    switch_active = false
     hl.dispatch(hl.dsp.submap("reset"))
     switch_send(verb)
 end
+-- Releasing Alt switches. Release binds never fire here: Alt went down before the submap and Tab was pressed while it was held,
+-- so the raw key event does it (xkb keycodes 64 Alt_L and 108 Alt_R; state 0 is a release).
+pcall(hl.on, "input.keyboard.key", function(code, _, state)
+    if switch_active and state == 0 and (code == 64 or code == 108) then switch_finish("switcherCommit") end
+end)
 hl.unbind("ALT + Tab")
 hl.bind("ALT + Tab", function() switch_begin(1) end)
 hl.unbind("ALT + SHIFT + Tab")

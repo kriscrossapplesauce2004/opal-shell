@@ -77,7 +77,7 @@ end)
         self.write_prefs()
         self.write_configs()
         env = {k: v for k, v in os.environ.items() if k not in ('WAYLAND_DISPLAY', 'DISPLAY', 'HYPRLAND_INSTANCE_SIGNATURE', 'SWAYSOCK', 'DBUS_SESSION_BUS_ADDRESS')}
-        home, shims = fixture_home.build()
+        home, shims = fixture_home.build(subprocess.run(['date', '-d', self.clock, '+%s'], capture_output=True, text=True).stdout.strip() if self.clock else None)
         mirror = home / '.local/state/opal'
         if mirror.is_symlink() or mirror.exists():
             mirror.unlink()
@@ -135,7 +135,9 @@ WAYLAND_DISPLAY=opal-parent exec Hyprland -c '{self.state}/hyprland.lua' > '{sel
         return result.stdout.strip() if capture else ''
 
     def spawn(self, args, **kw):
-        return subprocess.Popen(args, env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, **kw)
+        # Apps share the shell's shifted clock (PROMO_CLOCK comes through Hyprland's environment).
+        env = dict(self.env, LD_PRELOAD=str(CLOCKSHIFT)) if self.env.get('PROMO_CLOCK') and CLOCKSHIFT.exists() else self.env
+        return subprocess.Popen(args, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, **kw)
 
     def ipc(self, fn, *args, check=True):
         try:

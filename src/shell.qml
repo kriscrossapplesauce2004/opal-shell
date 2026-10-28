@@ -273,7 +273,7 @@ ShellRoot {
         WlrLayershell.namespace:"opal-switcher"
         WlrLayershell.keyboardFocus:Hub.switcherSticky ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         color:"transparent"
-        Loader {anchors.fill:parent;active:Hub.switcherShown;sourceComponent:Component {AppSwitcher {}}}
+        Loader {anchors.fill:parent;focus:true;active:Hub.switcherShown;sourceComponent:Component {AppSwitcher {}}}
     }
     // A switcher submap left on without the strip, for example after a lost key release, is cleared.
     Timer {interval:1500;running:Hub.status.submap==="opal-switch"&&!Hub.switcherOpen;onTriggered:if(Hub.status.submap==="opal-switch"&&!Hub.switcherOpen)Hub.command({action:"submap-reset"})}

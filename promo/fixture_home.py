@@ -4,13 +4,13 @@ The fixture HOME holds tidy sample files instead of the user's own, and links on
 assets (icons, applications, Steam art, wallpapers). The shims stand in for every command that
 would read or change the real machine: Wi-Fi, Bluetooth, audio, power, theme settings and pkill.
 """
-import os, pathlib, shutil, stat, textwrap
+import fnmatch, os, pathlib, shutil, stat, textwrap
 
 HOME = pathlib.Path.home()
 PROMO = HOME / '.local/state/opal/promo-home'
 SHIMS = HOME / '.local/state/opal/promo-shims'
 
-LINKS = ['.local/share/icons', '.local/share/applications', '.local/share/Steam', '.steam', '.local/share/PrismLauncher',
+LINKS = ['.local/share/icons', '.local/share/applications', '.steam', '.local/share/PrismLauncher',
          '.local/share/fonts', 'Pictures/Wallpapers', '.config/heroic', '.config/lutris']
 
 FILES = {
@@ -25,9 +25,13 @@ FILES = {
     'Downloads/quickshell-0.3.tar.gz': '',
     'Videos/Launch trailer.mp4': '',
     '.zshrc': "PROMPT='%F{blue}opal%f %F{white}%~%f %F{magenta}❯%f '\nalias ls='ls --color=auto'\n",
-    '.config/fastfetch/config.jsonc': '{"logo": {"type": "small"}, "modules": ["title", "separator", "os", "kernel", "wm", "shell", "terminal", "cpu", "gpu", "memory", "break", "colors"]}\n',
+    '.config/fastfetch/config.jsonc': '{"logo": {"type": "small"}, "modules": ["os", "kernel", "wm", "shell", "terminal", "cpu", "gpu", "memory", "break", "colors"]}\n',
 }
-SKIP_PHOTOS = {'HFzVfJ5WEAAadoU.jpeg'}
+# Mirrored folders: real directories of symlinks, minus the listed paths. Steam shortcuts are
+# kept out of recordings, so the console shows only real Steam, Prism, Heroic and Lutris games.
+MIRRORS = {'.local/share/Steam': ['userdata/*/config/shortcuts.vdf']}
+SKIP_PHOTOS = {'HFzVfJ5WEAAadoU.jpeg', 'default.png', 'dr5-keyart-YzI66DkClTeJ5jBQ.png',
+               'had-a-dream-the-heat-death-of-the-universe-happened-and-the-v0-y6au4moeftoh1.webp'}
 PHOTOS = {
     'Pictures/Space': HOME / 'Pictures/Wallpapers',
 }
@@ -79,8 +83,28 @@ NOOPS = ['pkill', 'loginctl', 'brightnessctl', 'plasma-apply-colorscheme', 'flat
          'pkexec', 'sudo', 'matugen', 'kwriteconfig6', 'dconf', 'hyprsunset', 'gamemoded', 'checkupdates']
 
 
-def build():
+def mirror(source, dest, skip):
+    """Rebuild dest as directories of symlinks into source, leaving out the glob patterns in skip."""
+    if dest.is_symlink():
+        dest.unlink()
+    dest.mkdir(parents=True, exist_ok=True)
+    for child in source.iterdir():
+        rel = child.name
+        if any(fnmatch.fnmatch(rel, pattern) for pattern in skip):
+            continue
+        inner = [pattern.split('/', 1)[1] for pattern in skip if '/' in pattern and fnmatch.fnmatch(rel, pattern.split('/', 1)[0])]
+        link = dest / child.name
+        if inner and child.is_dir() and not child.is_symlink():
+            mirror(child, link, inner)
+        elif not link.exists() and not link.is_symlink():
+            link.symlink_to(child)
+
+
+def build(clock=None):
     PROMO.mkdir(parents=True, exist_ok=True)
+    for rel, skip in MIRRORS.items():
+        if (HOME / rel).is_dir():
+            mirror(HOME / rel, PROMO / rel, skip)
     for rel in LINKS:
         target, link = HOME / rel, PROMO / rel
         if target.exists() and not link.exists() and not link.is_symlink():
@@ -105,7 +129,21 @@ def build():
         path = SHIMS / name
         path.write_text('#!/bin/sh\n# Promo recording stand-in: never touches the real machine.\n' + textwrap.dedent(body).strip() + '\n')
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    if clock:
+        backdate(int(clock))
     return PROMO, SHIMS
+
+
+def backdate(clock):
+    # File times sit before the session's shifted clock: this morning, yesterday, last week.
+    offsets = [25 * 60, 70 * 60, 3 * 3600, 26 * 3600, 2 * 86400, 6 * 86400, 12 * 86400]
+    visible = [p for p in PROMO.rglob('*') if not p.is_symlink() and not p.relative_to(PROMO).parts[0].startswith('.')]
+    for i, path in enumerate(sorted(visible)):
+        stamp = clock - offsets[i % len(offsets)] - i * 97
+        try:
+            os.utime(path, (stamp, stamp), follow_symlinks=False)
+        except OSError:
+            pass
 
 
 if __name__ == '__main__':
