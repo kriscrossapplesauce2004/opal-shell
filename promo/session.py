@@ -218,6 +218,13 @@ WAYLAND_DISPLAY=opal-parent exec Hyprland -c '{self.state}/hyprland.lua' > '{sel
         self.cursor = (x1, y1)
         return self.pointer(lines)
 
+    def scroll(self, dy, notches=1, gap=.05):
+        # Wheel notches at the cursor; dy is pixels per notch (positive is down).
+        lines = []
+        for _ in range(notches):
+            lines += [f'scroll {dy}', f'sleep {int(gap * 1000)}']
+        return self.pointer(lines)
+
     def combo(self, *names, hold=.05):
         return self.keys([f'down {n}' for n in names] + [f'sleep {int(hold * 1000)}'] + [f'up {n}' for n in reversed(names)])
 

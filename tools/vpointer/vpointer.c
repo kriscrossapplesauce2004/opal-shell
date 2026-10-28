@@ -1,5 +1,5 @@
 // Test pointer for nested sessions: reads commands from stdin and plays them through wlr-virtual-pointer.
-// Commands: "move X Y W H" (absolute, in a W×H extent), "glide X Y W H STEPS" (from the last point), "down", "up", "sleep MS".
+// Commands: "move X Y W H" (absolute, in a W×H extent), "glide X Y W H STEPS" (from the last point), "down", "up", "scroll DY" (wheel pixels, positive is down), "sleep MS".
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +55,10 @@ int main(void) {
             lx = x; ly = y;
         } else if (!strncmp(line, "down", 4) || !strncmp(line, "up", 2)) {
             zwlr_virtual_pointer_v1_button(pointer, now_ms(), BTN_LEFT, line[0] == 'd' ? WL_POINTER_BUTTON_STATE_PRESSED : WL_POINTER_BUTTON_STATE_RELEASED);
+            zwlr_virtual_pointer_v1_frame(pointer);
+        } else if (sscanf(line, "scroll %lf", &x) == 1) {
+            zwlr_virtual_pointer_v1_axis_source(pointer, WL_POINTER_AXIS_SOURCE_WHEEL);
+            zwlr_virtual_pointer_v1_axis(pointer, now_ms(), WL_POINTER_AXIS_VERTICAL_SCROLL, wl_fixed_from_double(x));
             zwlr_virtual_pointer_v1_frame(pointer);
         } else if (sscanf(line, "sleep %d", &ms) == 1) {
             wl_display_flush(display);
