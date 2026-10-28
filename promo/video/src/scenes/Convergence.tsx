@@ -53,7 +53,7 @@ export const Convergence: React.FC = () => {
       {/* Bars 19-20: tablet. */}
       <Sequence from={0} durationInFrames={2 * BAR}>
         <TabletShot clip="t01-home.mp4" from={1.0} scale={1.08} />
-        <Chip icon="tablet" label="Tablet: widgets and a real launcher" start={BEAT} x={960} y={1010} scale={1.05} exit={2 * BAR - 12} />
+        <Chip icon="tablet" label="Tablet: widgets and a real launcher" start={BEAT} x={960} y={1010} exit={2 * BAR - 12} />
       </Sequence>
       {/* Bars 21-22: phone home pages. */}
       <Sequence from={2 * BAR} durationInFrames={2 * BAR}>
@@ -73,9 +73,9 @@ export const Convergence: React.FC = () => {
       </Sequence>
       {/* Bars 25-26: all three at once. */}
       <Sequence from={6 * BAR} durationInFrames={2 * BAR}>
-        <MonitorShot clip="d01-apps.mp4" from={8.0} x={560} scale={0.62} />
-        <TabletShot clip="t02-app.mp4" from={2.6} x={1240} scale={0.5} delay={BEAT} />
-        <PhoneShot clip="p01-home.mp4" from={3.5} x={1640} scale={0.6} delay={BEAT * 2} />
+        <MonitorShot clip="d01-apps.mp4" from={8.0} x={540} scale={0.7} />
+        <TabletShot clip="t02-app.mp4" from={2.6} x={1250} scale={0.56} delay={BEAT} />
+        <PhoneShot clip="p01-home.mp4" from={3.5} x={1680} scale={0.7} delay={BEAT * 2} />
         <Kinetic text="One shell. Every screen." start={BEAT * 3} size={92} y={960} weight={[220, 820]} exit={2 * BAR - 14} />
       </Sequence>
       {/* Bars 27-32: console. */}
@@ -85,7 +85,7 @@ export const Convergence: React.FC = () => {
       </Sequence>
       <Sequence from={consoleStart + 3 * BAR} durationInFrames={3 * BAR}>
         <Footage src="g02-quickaccess.mp4" from={1.0} radius={0} shadow={false} cams={[{f: 0, s: 1.15, x: 0.75, y: 0.5}, {f: 3 * BAR, s: 1.3, x: 0.8, y: 0.5}]} />
-        <Chip icon="sports_esports" label="Quick Access, over any game" start={BEAT} x={640} y={980} scale={1.1} exit={3 * BAR - 12} />
+        <Chip icon="sports_esports" label="Quick Access, over any game" start={BEAT} x={640} y={980} exit={3 * BAR - 12} />
       </Sequence>
     </AbsoluteFill>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Sequence, staticFile} from 'remotion';
-import {Backdrop, Cam, Chip, Flash, Footage, Kinetic, ShapeWipe} from './components';
+import {Backdrop, Cam, Chip, Device, Flash, Footage, Kinetic, Screen, ShapeWipe} from './components';
 import {Intro} from './scenes/Intro';
 import {Breakdown} from './scenes/Breakdown';
 import {Convergence} from './scenes/Convergence';
@@ -19,10 +19,10 @@ const push = (x: number, y: number, s0: number, s1: number, d: number): Cam[] =>
 const DESKTOP: Shot[] = [
   {at: 4 * BAR, dur: 2 * BAR, clip: 'd01-apps.mp4', from: 1.6, rate: 1.6, cams: [{f: 0, s: 1.22, x: 0.5, y: 0.45}, {f: 2 * BAR, s: 1.0, x: 0.5, y: 0.5}], chip: ['space_dashboard', 'Real tiling, real apps'], chipAt: [960, 960]},
   {at: 6 * BAR, dur: BAR, clip: 'd02-launcher.mp4', from: 1.6, cams: push(0.2, 0.62, 1.55, 1.75, BAR), chip: ['search', 'Start and search'], chipAt: [1380, 960]},
-  {at: 7 * BAR, dur: BAR, clip: 'd03-quick-settings.mp4', from: 1.8, rate: 1.2, cams: push(0.86, 0.6, 1.6, 1.8, BAR), chip: ['tune', 'Pixel-grade Quick Settings'], chipAt: [600, 960]},
+  {at: 7 * BAR, dur: BAR, clip: 'd03-quick-settings.mp4', from: 1.8, rate: 1.2, cams: push(0.86, 0.42, 1.6, 1.8, BAR), chip: ['tune', 'Pixel-grade Quick Settings'], chipAt: [600, 960]},
   {at: 8 * BAR, dur: BAR, clip: 'd04-activity.mp4', from: 2.6, cams: push(0.75, 0.85, 1.8, 2.0, BAR), chip: ['bolt', 'Live activities'], chipAt: [600, 160]},
   {at: 9 * BAR, dur: BAR, clip: 'd05-switcher.mp4', from: 1.1, cams: push(0.5, 0.5, 1.35, 1.5, BAR), chip: ['swap_horiz', 'Alt+Tab, reimagined'], chipAt: [960, 960]},
-  {at: 10 * BAR, dur: BAR / 2, clip: 'd06-snap.mp4', from: 2.1, cams: push(0.39, 0.15, 1.9, 2.1, BAR / 2), chip: ['grid_view', 'Snap layouts'], chipAt: [600, 900]},
+  {at: 10 * BAR, dur: BAR / 2, clip: 'd06-snap.mp4', from: 2.1, cams: push(0.33, 0.16, 1.8, 2.0, BAR / 2), chip: ['grid_view', 'Snap layouts'], chipAt: [600, 900]},
   {at: 10 * BAR + BAR / 2, dur: BAR / 2, clip: 'd07-clipboard.mp4', from: 1.5, cams: push(0.86, 0.35, 1.6, 1.75, BAR / 2), chip: ['content_paste', 'Clipboard history'], chipAt: [600, 900]},
   {at: 11 * BAR, dur: BAR, clip: 'd08-capture.mp4', from: 1.8, cams: push(0.5, 0.45, 1.2, 1.3, BAR), chip: ['screenshot_region', 'Capture Studio'], chipAt: [960, 960]},
 ];
@@ -51,10 +51,20 @@ const MONTAGE: Shot[] = [
   {at: 38 * BAR + half, dur: half, clip: 'd12-lock.mp4', from: 1.8, cams: push(0.5, 0.4, 1.0, 1.08, half), chip: ['palette', 'Themed to the wallpaper'], chipAt: [960, 940]},
 ];
 
+// Phone clips are portrait: they play inside a phone on the backdrop instead of being cropped to the frame.
+const PhoneFrame: React.FC<{s: Shot}> = ({s}) => (
+  <AbsoluteFill>
+    <Backdrop />
+    <Device kind="phone" w={392} h={872} x={960} y={500} scale={1.08}>
+      <Screen src={s.clip} from={s.from} w={392} h={872} srcW={1236} srcH={2748} playbackRate={s.rate ?? 1} />
+    </Device>
+  </AbsoluteFill>
+);
+
 const ShotView: React.FC<{s: Shot}> = ({s}) => (
   <AbsoluteFill>
-    <Footage src={s.clip} from={s.from} cams={s.cams ?? full} radius={0} shadow={false} playbackRate={s.rate ?? 1} />
-    {s.chip && <Chip icon={s.chip[0]} label={s.chip[1]} start={6} x={s.chipAt?.[0] ?? 960} y={s.chipAt?.[1] ?? 960} scale={1.15} exit={s.dur - 12} />}
+    {s.clip.startsWith('p') ? <PhoneFrame s={s} /> : <Footage src={s.clip} from={s.from} cams={s.cams ?? full} radius={0} shadow={false} playbackRate={s.rate ?? 1} />}
+    {s.chip && <Chip icon={s.chip[0]} label={s.chip[1]} start={6} x={s.chip && s.clip.startsWith('p') ? 960 : s.chipAt?.[0] ?? 960} y={s.clip.startsWith('p') ? 1010 : s.chipAt?.[1] ?? 960} exit={s.dur - 12} />}
     {s.title && (
       <>
         <AbsoluteFill style={{background: 'linear-gradient(180deg, transparent 55%, rgba(5,7,15,0.75) 100%)'}} />

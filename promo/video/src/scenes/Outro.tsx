@@ -22,14 +22,14 @@ export const Outro: React.FC = () => {
       <div style={{position: 'absolute', top: 210, width: 1920, textAlign: 'center', fontFamily: FONT, fontSize: 260, color: C.text, letterSpacing: '-0.05em',
         fontVariationSettings: `'wght' ${wght}, 'wdth' 108, 'ROND' 100, 'opsz' 144`, opacity: mark, transform: `scale(${0.9 + 0.1 * mark})`}}>Opal</div>
       {[['desktop_windows', 'Desktop'], ['tablet', 'Tablet'], ['smartphone', 'Phone'], ['sports_esports', 'Console']].map(([icon, label], i) => (
-        <Chip key={label} icon={icon} label={label} start={BAR + i * BEAT} x={960 + (i - 1.5) * 250} y={600} />
+        <Chip key={label} icon={icon} label={label} start={BAR + i * BEAT} x={960 + (i - 1.5) * 330} y={590} />
       ))}
       <div style={{position: 'absolute', left: 960, top: 760, transform: `translate(-50%, 0) scale(${0.96 + 0.04 * line})`, opacity: line,
         padding: '22px 34px', borderRadius: 26, background: 'rgba(16, 19, 33, 0.82)', border: '1.5px solid rgba(255,255,255,0.12)',
-        fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: 25, color: C.text, whiteSpace: 'nowrap', boxShadow: '0 30px 80px rgba(0,0,0,0.5)'}}>
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontSize: 27, color: C.text, whiteSpace: 'nowrap', boxShadow: '0 30px 80px rgba(0,0,0,0.5)'}}>
         <span style={{color: C.primary}}>$ </span>{INSTALL.slice(0, typed)}<span style={{opacity: (f >> 4) % 2 ? 1 : 0, color: C.primary}}>▍</span>
       </div>
-      <div style={{position: 'absolute', top: 870, width: 1920, textAlign: 'center', fontFamily: FONT, fontSize: 30, color: C.dim,
+      <div style={{position: 'absolute', top: 870, width: 1920, textAlign: 'center', fontFamily: FONT, fontSize: 36, color: C.dim,
         fontVariationSettings: "'wght' 450, 'ROND' 100", opacity: emphasized(interpolate(f, [3 * BAR, 3 * BAR + 30], [0, 1], clamp))}}>
         github.com/kriscrossapplesauce2004/opal-shell
       </div>

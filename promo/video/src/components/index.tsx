@@ -142,10 +142,10 @@ export const Chip: React.FC<{icon: string; label: string; start: number; x: numb
   if (f < start) return null;
   return (
     <div style={{position: 'absolute', left: x, top: y, transform: `translate(-50%, -50%) scale(${scale * s * (1 - out * 0.4)}, ${scale * (0.6 + 0.4 * s) * (1 - out * 0.4)})`,
-      opacity: Math.min(1, s * 1.4) * (1 - out), display: 'flex', alignItems: 'center', gap: 14, padding: '14px 28px 14px 20px', borderRadius: 999,
-      background: bg, color: fg, fontFamily: FONT, fontSize: 30, fontVariationSettings: "'wght' 560, 'ROND' 100", whiteSpace: 'nowrap',
+      opacity: Math.min(1, s * 1.4) * (1 - out), display: 'flex', alignItems: 'center', gap: 18, padding: '20px 40px 20px 28px', borderRadius: 999,
+      background: bg, color: fg, fontFamily: FONT, fontSize: 42, fontVariationSettings: "'wght' 600, 'ROND' 100", whiteSpace: 'nowrap',
       border: tone === 'glass' ? '1.5px solid rgba(255,255,255,0.14)' : 'none', backdropFilter: 'blur(18px)', boxShadow: '0 18px 50px rgba(0,0,0,0.35)'}}>
-      <span style={{fontFamily: ICON, fontSize: 34, fontVariationSettings: "'FILL' 1, 'wght' 500", color: tone === 'primary' ? C.primaryInk : C.primary}}>{icon}</span>
+      <span style={{fontFamily: ICON, fontSize: 50, fontVariationSettings: "'FILL' 1, 'wght' 500", color: tone === 'primary' ? C.primaryInk : C.primary}}>{icon}</span>
       {label}
     </div>
   );
