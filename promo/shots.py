@@ -59,7 +59,7 @@ def d01_apps(s):
     s.spawn([APPS + 'files/opal-files']); wait(1.5)
     s.spawn([APPS + 'terminal/opal-terminal']); wait(1.5)
     s.spawn([APPS + 'photos/opal-photos']); wait(1.6)
-    s.glide(480, 780, .6, click=True); wait(.3)
+    s.glide(1440, 300, .6, click=True); wait(.3)   # the terminal tiles top-right
     s.type('fastfetch\n', cps=18); wait(2.2)
 
 
@@ -92,18 +92,21 @@ def d04_activity(s):
 
 @clip('d05-switcher')
 def d05_switcher(s):
-    s.ipc('switcherOpen'); wait(1.0)
-    for _ in range(3):
-        s.tap('Right'); wait(.55)
-    s.tap('Return'); wait(1.2)
+    # A real Alt+Tab: hold Alt, walk the strip with Tab, let go to switch.
+    wait(.4)
+    s.keys(['down Alt_L', 'sleep 120', 'tap Tab', 'sleep 650', 'tap Tab', 'sleep 650', 'tap Tab', 'sleep 900', 'up Alt_L'])
+    wait(1.4)
 
 
 @clip('d06-snap')
 def d06_snap(s):
+    # The panel opens at the focused window's top-right corner; Files is focused (tiled left).
+    s.glide(600, 760, .4, click=True); wait(.5)
     s.ipc('snaplayouts'); wait(.9)
-    for x, y in ((1590, 95), (1700, 95), (1850, 95), (1700, 170)):
-        s.glide(x, y, .35); wait(.35)
-    s.click(); wait(1.2)
+    for x, y in ((626, 97), (750, 97), (873, 97), (750, 182), (626, 182)):
+        s.glide(x, y, .3); wait(.3)
+    wait(.4)
+    s.click(1400, 760, .4); wait(1.0)   # a click outside dismisses it
 
 
 @clip('d07-clipboard')
@@ -166,6 +169,119 @@ def run_desktop(names):
                 shot(s)
 
 
+# ---------------------------------------------------------------- phone (412x916 logical at scale 3)
+
+def mobile_prepare(s):
+    for fn in ('controls', 'launcher'):
+        s.ipc(fn, check=False); wait(1.0); s.ipc('close', check=False); wait(.5)
+    s.move(206, 600)
+
+
+@clip('p01-home')
+def p01_home(s):
+    wait(1.6)
+    s.ipc('launcher'); wait(1.8)
+    s.ipc('close'); wait(1.2)
+
+
+@clip('p02-shade')
+def p02_shade(s):
+    wait(.5)
+    s.ipc('controls'); wait(2.4)
+    s.ipc('close'); wait(1.0)
+
+
+@clip('p03-apps')
+def p03_apps(s):
+    wait(.4)
+    s.spawn([APPS + 'photos/opal-photos']); wait(2.4)
+    s.spawn([APPS + 'files/opal-files']); wait(2.2)
+    s.ipc('switcherOpen'); wait(2.2)
+    s.tap('Escape'); s.ipc('close'); wait(1.0)
+
+
+@clip('p04-power')
+def p04_power(s):
+    s.ipc('powerMenu'); wait(1.2)
+    for key in ('Down', 'Down', 'Up'):
+        s.tap(key); wait(.55)
+    s.ipc('powerMenuClose'); wait(.6)
+
+
+@clip('p05-lock')
+def p05_lock(s):
+    s.ipc('lock'); wait(3.0)
+
+
+# ---------------------------------------------------------------- tablet (1280x800 logical at scale 2)
+
+@clip('t01-home')
+def t01_home(s):
+    wait(1.6)
+    s.ipc('launcher'); wait(2.0)
+    s.type('pho', cps=8); wait(1.4)
+    s.ipc('close'); wait(1.0)
+
+
+@clip('t02-app')
+def t02_app(s):
+    s.spawn([APPS + 'photos/opal-photos']); wait(2.6)
+    s.ipc('launcher'); wait(2.0)
+    s.ipc('close'); wait(1.0)
+    s.ipc('controls'); wait(1.8)
+    s.ipc('close'); wait(.8)
+
+
+# ---------------------------------------------------------------- console (1920x1080 logical at scale 2)
+
+@clip('g01-home')
+def g01_home(s):
+    wait(1.6)
+    for key in ('down', 'down', 'down', 'right', 'right', 'right', 'right', 'down'):
+        s.tap({'down': 'Down', 'right': 'Right'}[key]); wait(.5)
+    wait(1.2)
+
+
+@clip('g02-quickaccess')
+def g02_quickaccess(s):
+    wait(.6)
+    s.ipc('quickaccess'); wait(1.6)
+    for key in ('Down', 'Down', 'Right', 'Down'):
+        s.tap(key); wait(.55)
+    wait(.6)
+    s.ipc('quickaccess'); wait(1.2)
+
+
+MOBILE = {'phone': [p01_home, p02_shade, p03_apps, p04_power, p05_lock], 'tablet': [t01_home, t02_app]}
+
+
+def run_mobile(kind, names):
+    size = (1236, 2748, 3) if kind == 'phone' else (2560, 1600, 2)
+    s = Session(kind, *size, prefs={'mode': 'phone'}, battery=78, cursor=False)
+    with s:
+        mobile_prepare(s)
+        for shot in MOBILE[kind]:
+            if not names or shot.clip in names or shot.clip.split('-')[0] in names:
+                shot(s)
+
+
+def run_console(names):
+    s = Session('console', 3840, 2160, 2, prefs={'mode': 'console'}, controller=True)
+    with s:
+        # The IPC call toggles Quick Access open and closed.
+        for _ in range(2):
+            s.ipc('quickaccess', check=False); wait(1.0)
+        s.move(1900, 1070)
+        for shot in (g01_home, g02_quickaccess):
+            if not names or shot.clip in names:
+                shot(s)
+
+
 if __name__ == '__main__':
     which, names = sys.argv[1], sys.argv[2:]
-    {'desktop': run_desktop}[which](names)
+    if which == 'desktop':
+        run_desktop(names)
+    elif which in ('phone', 'tablet'):
+        run_mobile(which, names)
+    elif which == 'console':
+        run_console(names)

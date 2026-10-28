@@ -23,9 +23,9 @@ LOOK_KEYS = ('palette', 'light', 'dynamicColors', 'dynamicPalette', 'colorScheme
 
 
 class Session:
-    def __init__(self, name, width, height, scale=1, prefs=None, fresh=True, clock='2026-10-24 09:41:00', battery=None, controller=False, media=True):
+    def __init__(self, name, width, height, scale=1, prefs=None, fresh=True, clock='2026-10-24 09:41:00', battery=None, controller=False, media=True, cursor=True):
         self.name, self.width, self.height, self.scale = name, width, height, scale
-        self.clock, self.battery, self.controller, self.media = clock, battery, controller, media
+        self.clock, self.battery, self.controller, self.media, self.cursor = clock, battery, controller, media, cursor
         self.state = STATE_ROOT / name
         self.runtime = pathlib.Path(f'/tmp/opr-{name}')
         if fresh and self.state.exists():
@@ -63,6 +63,7 @@ hl.monitor({{ output = "WAYLAND-1", mode = "{self.width}x{self.height}", positio
 hl.monitor({{ output = "", mode = "preferred", position = "auto", scale = 1 }})
 hl.config({{ misc = {{ disable_hyprland_logo = true, disable_splash_rendering = true, disable_watchdog_warning = true }}, ecosystem = {{ no_update_news = true, no_donation_nag = true }}, cursor = {{ no_warps = true, inactive_timeout = 1 }} }})
 dofile("{SRC}/hyprland.lua")
+{'' if self.cursor else 'pcall(hl.config, {{ cursor = {{ invisible = true }} }})'}
 hl.on("hyprland.start", function()
     hl.exec_cmd("env > '{self.state}/env'")
     hl.exec_cmd("env OPAL_STATE_DIR='{self.state}' OPAL_NESTED=1 QS_ICON_THEME='{icon_theme}' LD_PRELOAD='{CLOCKSHIFT}' quickshell -n -p '{SRC}/shell.qml' > '{self.state}/shell.log' 2>&1")
