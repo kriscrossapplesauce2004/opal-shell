@@ -227,6 +227,9 @@ if opal_floating() then
             local csd_pat = c.csd_pattern or "^(google-chrome.*|chromium.*|brave-browser.*|vivaldi.*|opera.*|microsoft-edge.*|firefox.*|thunderbird.*|floorp.*|zen-browser.*|zen.*|librewolf.*|tor-browser.*|mullvad-browser.*|org\\.gnome\\..*|gnome-.*|nautilus.*|evince.*|loupe.*|totem.*|epiphany.*|baobab.*|geary.*|simple-scan.*|io\\.github\\..*|com\\.github\\..*|io\\.gitlab\\..*|code.*|Code.*|vscode.*|vscodium.*|cursor.*|zed.*|zed-editor.*|discord.*|vesktop.*|equibop.*|webcord.*|equicord.*|obsidian.*|slack.*|spotify.*|signal.*|telegram-desktop.*|chatgpt.*|steam.*|Steam.*|dev\\.opal\\..*)$"
             pcall(hl.window_rule, { name = "opal-no-bar-csd", match = { class = csd_pat }, ["hyprbars:no_bar"] = true })
         end
+        -- Games get no titlebar: grabbing the top strip drags the window mid-play (Minecraft, KSP, anything run through Steam or gamescope).
+        pcall(hl.window_rule, { name = "opal-no-bar-games", match = { class = "^(steam_app_.*|gamescope.*|Minecraft.*|minecraft.*|KSP.*|org\\.prismlauncher.*|com\\.mojang.*|net\\.minecraft.*)$" }, ["hyprbars:no_bar"] = true })
+        pcall(hl.window_rule, { name = "opal-no-bar-fullscreen", match = { fullscreen = true }, ["hyprbars:no_bar"] = true })
         -- Buttons are laid out right to left: close, maximize, minimize, snap layouts.
         if not _G.opal_hyprbars_seeded then
             pcall(bars.add_button, { bg_color = c.close, fg_color = c.ink, size = 15, icon = "×", action = [[hyprctl eval 'hl.dispatch(hl.dsp.window.close())']] })

@@ -568,7 +568,7 @@ def kv_config(c, light):
             name, element, 'true' if interior else 'false', element, frame, frame, frame, frame)
         if expansion: text += 'frame.expansion=%d\n' % expansion
         return text + extra
-    general = {'author': 'Opal', 'comment': 'Generated from the Opal palette', 'x11drag': 'menubar_and_primary_toolbar', 'alt_mnemonic': 'true', 'left_tabs': 'false', 'attach_active_tab': 'false',
+    general = {'author': 'Opal', 'comment': 'Generated from the Opal palette', 'x11drag': 'none', 'alt_mnemonic': 'true', 'left_tabs': 'false', 'attach_active_tab': 'false',
                'mirror_doc_tabs': 'true', 'group_toolbar_buttons': 'false', 'toolbar_item_spacing': '2', 'toolbar_interior_spacing': '4', 'toolbar_separator_thickness': '0', 'spread_progressbar': 'true',
                'progressbar_thickness': '8', 'composite': 'true', 'menu_shadow_depth': '8', 'tooltip_shadow_depth': '6', 'splitter_width': '4', 'scroll_width': '8', 'scroll_arrows': 'false',
                'scroll_min_extent': '40', 'slider_width': '6', 'slider_handle_width': '20', 'slider_handle_length': '20', 'tickless_slider_handle_size': '20', 'check_size': '20',
