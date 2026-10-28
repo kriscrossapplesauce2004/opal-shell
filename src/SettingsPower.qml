@@ -42,12 +42,12 @@ SettingsPage {
                 topLeftRadius:index===0 ? 24 : 8;bottomLeftRadius:topLeftRadius;topRightRadius:index===3 ? 24 : 8;bottomRightRadius:topRightRadius
                 color:on ? Theme.error : Theme.alpha(Theme.light ? "#ffffff" : Theme.glassRaised,Theme.light ? .8 : .6)
                 Behavior on color {ColorAnimation {duration:Theme.motion(160)}}
-                Rectangle {anchors.fill:parent;topLeftRadius:parent.topLeftRadius;topRightRadius:parent.topRightRadius;bottomLeftRadius:parent.bottomLeftRadius;bottomRightRadius:parent.bottomRightRadius;color:Theme.stateLayer;opacity:keyMouse.pressed ? .12 : keyMouse.containsMouse ? .06 : 0}
+                Rectangle {anchors.fill:parent;topLeftRadius:parent.topLeftRadius;topRightRadius:parent.topRightRadius;bottomLeftRadius:parent.bottomLeftRadius;bottomRightRadius:parent.bottomRightRadius;color:Theme.stateLayer;opacity:keyMouse.pressed ? .12 : keyMouse.containsMouse&&!keyMouse.stale ? .06 : 0}
                 Column {anchors.centerIn:parent;spacing:4
                     Glyph {anchors.horizontalCenter:parent.horizontalCenter;name:key.modelData.icon;font.pixelSize:22;color:key.on ? Theme.base : Theme.primary}
                     MText {anchors.horizontalCenter:parent.horizontalCenter;text:key.on ? "Tap again" : key.modelData.label;role:"labelS";color:key.on ? Theme.base : Theme.text}
                 }
-                MouseArea {id:keyMouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;onClicked:{
+                MouseArea {id:keyMouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;property bool stale:false;onPositionChanged:if(!pressed)stale=false;onExited:stale=false;onClicked:{stale=true;
                     const id=key.modelData.id;
                     if(id==="lock"){Hub.settings("lock");return;}
                     if(key.on){Hub.command({action:"power",verb:id});Hub.close();}

@@ -37,7 +37,7 @@ Rectangle {
         radius: a.radius
         visible: !(a.hoverHalo && a.icon !== "" && !a.filled)
         color: a.contentInk
-        opacity: !a.enabled ? 0 : mouse.pressed ? .14 : mouse.containsMouse || a.activeFocus ? .08 : 0
+        opacity: !a.enabled ? 0 : mouse.pressed ? .14 : mouse.lit || a.activeFocus ? .08 : 0
         Behavior on opacity { NumberAnimation { duration: Theme.motion(120) } }
     }
     // Shape-bounded press pulse. It grows from the centre and fades out.
@@ -75,8 +75,8 @@ Rectangle {
         anchors.centerIn:parent
         visible:a.hoverHalo&&a.icon!==""&&!a.filled
         color:Theme.alpha(Theme.primary,.20)
-        opacity:mouse.containsMouse||a.activeFocus ? 1 : 0
-        scale:mouse.containsMouse||a.activeFocus ? 1 : .70
+        opacity:mouse.lit||a.activeFocus ? 1 : 0
+        scale:mouse.lit||a.activeFocus ? 1 : .70
         Behavior on opacity {NumberAnimation {duration:Theme.motion(130)}}
         Behavior on scale {NumberAnimation {duration:Theme.motion(170);easing.type:Easing.OutCubic}}
     }
@@ -100,6 +100,11 @@ Rectangle {
         id:mouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor
         acceptedButtons:Qt.LeftButton|Qt.RightButton
         property bool held:false
+        // Hover clears on click until the pointer moves again; touch never sends a leave, so it would stay lit.
+        property bool stale:false
+        readonly property bool lit:containsMouse&&!stale
+        onPositionChanged:if(!pressed)stale=false
+        onExited:stale=false
         onWheel:e=>{
             if(!a.scrollable){e.accepted=false;return;}
             // Support mouse-wheel and touchpad deltas, and ignore zero-delta events.
@@ -108,7 +113,7 @@ Rectangle {
             e.accepted=delta!==0;
         }
         onPressed:held=false
-        onClicked:e=>{if(held)return;if(e.button===Qt.RightButton){if(a.menuEntries.length)buttonMenu.item.popupFrom(a,e.x,e.y);else a.contextRequested(e.x,e.y);}else a.clicked();}
+        onClicked:e=>{stale=true;if(held)return;if(e.button===Qt.RightButton){if(a.menuEntries.length)buttonMenu.item.popupFrom(a,e.x,e.y);else a.contextRequested(e.x,e.y);}else a.clicked();}
         // A fast second click arrives as a double click; it counts as one more click.
         onDoubleClicked:e=>{if(e.button===Qt.LeftButton&&!held)a.clicked();}
         onPressAndHold:e=>{if(a.menuEntries.length){held=true;buttonMenu.item.popupFrom(a,e.x,e.y);}}

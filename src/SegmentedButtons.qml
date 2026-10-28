@@ -27,13 +27,18 @@ RowLayout {
             color:selected ? Theme.primary : Theme.alpha(Theme.light ? "#ffffff" : Theme.glassRaised,Theme.light ? .8 : .6)
             opacity:group.enabledAll ? 1 : .45
             Behavior on color {ColorAnimation {duration:Theme.motion(180)}}
-            Rectangle {anchors.fill:parent;topLeftRadius:parent.topLeftRadius;topRightRadius:parent.topRightRadius;bottomLeftRadius:parent.bottomLeftRadius;bottomRightRadius:parent.bottomRightRadius;color:segment.selected ? Theme.onPrimary : Theme.stateLayer;opacity:press.pressed ? .12 : press.containsMouse ? .06 : 0}
+            Rectangle {anchors.fill:parent;topLeftRadius:parent.topLeftRadius;topRightRadius:parent.topRightRadius;bottomLeftRadius:parent.bottomLeftRadius;bottomRightRadius:parent.bottomRightRadius;color:segment.selected ? Theme.onPrimary : Theme.stateLayer;opacity:press.pressed ? .12 : press.lit ? .06 : 0}
             Row {
                 anchors.centerIn:parent;spacing:6
                 Glyph {visible:!!segment.modelData.icon||segment.selected;name:segment.selected&&!segment.modelData.icon ? "check" : segment.modelData.icon||"";font.pixelSize:18;color:segment.selected ? Theme.onPrimary : Theme.text;anchors.verticalCenter:parent.verticalCenter}
                 MText {text:segment.modelData.label;font.pixelSize:13;font.weight:Font.Medium;color:segment.selected ? Theme.onPrimary : Theme.text;anchors.verticalCenter:parent.verticalCenter}
             }
-            MouseArea {id:press;anchors.fill:parent;enabled:group.enabledAll;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;onClicked:group.picked(segment.modelData.value)}
+            MouseArea {id:press;anchors.fill:parent;enabled:group.enabledAll;hoverEnabled:true;cursorShape:Qt.PointingHandCursor
+                property bool stale:false
+                readonly property bool lit:containsMouse&&!stale
+                onPositionChanged:if(!pressed)stale=false
+                onExited:stale=false
+                onClicked:{stale=true;group.picked(segment.modelData.value);}}
             Accessible.role:Accessible.RadioButton;Accessible.name:modelData.label;Accessible.checked:selected
         }
     }

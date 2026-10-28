@@ -36,8 +36,14 @@ Rectangle {
     Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durMedium)}}
     readonly property color ink:current ? Theme.onSecondaryContainer : found ? Theme.onContainer : Theme.text
     readonly property color softInk:current ? Theme.alpha(Theme.onSecondaryContainer,.75) : found ? Theme.alpha(Theme.onContainer,.8) : Theme.subtext
-    Rectangle {anchors.fill:parent;topLeftRadius:row.topLeftRadius;topRightRadius:row.topRightRadius;bottomLeftRadius:row.bottomLeftRadius;bottomRightRadius:row.bottomRightRadius;color:Theme.stateLayer;opacity:mouse.pressed ? .12 : mouse.containsMouse ? .06 : 0}
-    MouseArea {id:mouse;anchors.fill:parent;hoverEnabled:true;enabled:row.enabled;cursorShape:Qt.PointingHandCursor;onClicked:row.activated()}
+    Rectangle {anchors.fill:parent;topLeftRadius:row.topLeftRadius;topRightRadius:row.topRightRadius;bottomLeftRadius:row.bottomLeftRadius;bottomRightRadius:row.bottomRightRadius;color:Theme.stateLayer;opacity:mouse.pressed ? .12 : mouse.lit ? .06 : 0}
+    // Hover clears on click until the pointer moves again; touch never sends a leave, so it would stay lit.
+    MouseArea {id:mouse;anchors.fill:parent;hoverEnabled:true;enabled:row.enabled;cursorShape:Qt.PointingHandCursor
+        property bool stale:false
+        readonly property bool lit:containsMouse&&!stale
+        onPositionChanged:if(!pressed)stale=false
+        onExited:stale=false
+        onClicked:{stale=true;row.activated();}}
     RowLayout {
         anchors.fill:parent;anchors.leftMargin:16;anchors.rightMargin:16;spacing:16
         Image {visible:row.iconSource!=="";Layout.preferredWidth:32;Layout.preferredHeight:32;Layout.leftMargin:4;Layout.rightMargin:4;sourceSize:Qt.size(64,64);asynchronous:true;source:row.iconSource}

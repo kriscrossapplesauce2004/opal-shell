@@ -127,8 +127,8 @@ Item {
                         model:[{slot:"double",title:"Double-press"},{slot:"hold",title:"Hold"},{slot:"chord",title:"Power + volume down"}]
                         Rectangle {
                             required property var modelData
-                            width:presses.width;height:48;radius:16;color:pressMouse.containsMouse ? Theme.alpha(Theme.text,.06) : "transparent"
-                            MouseArea {id:pressMouse;anchors.fill:parent;hoverEnabled:true;onClicked:{page.pressSlot=modelData.slot;page.sheet="press";}}
+                            width:presses.width;height:48;radius:16;color:pressMouse.containsMouse&&!pressMouse.stale ? Theme.alpha(Theme.text,.06) : "transparent"
+                            MouseArea {id:pressMouse;anchors.fill:parent;hoverEnabled:true;property bool stale:false;onPositionChanged:if(!pressed)stale=false;onExited:stale=false;onClicked:{stale=true;page.pressSlot=modelData.slot;page.sheet="press";}}
                             RowLayout {anchors.fill:parent;anchors.leftMargin:12;anchors.rightMargin:12
                                 MText {Layout.fillWidth:true;text:modelData.title;role:"body"}
                                 MText {text:page.pressLabel(modelData.slot);role:"body";color:Theme.subtext}
@@ -225,8 +225,8 @@ Item {
                     model:page.sheet==="app" ? Hub.apps.filter(a=>a.name.toLowerCase().indexOf(appSearch.text.toLowerCase())>=0).slice(0,40) : []
                     Rectangle {
                         required property var modelData
-                        Layout.fillWidth:true;implicitHeight:46;radius:16;color:appMouse.containsMouse ? Theme.alpha(Theme.text,.06) : "transparent"
-                        MouseArea {id:appMouse;anchors.fill:parent;hoverEnabled:true;onClicked:{appSearch.text="";page.add({action:"app",app:modelData.id});}}
+                        Layout.fillWidth:true;implicitHeight:46;radius:16;color:appMouse.containsMouse&&!appMouse.stale ? Theme.alpha(Theme.text,.06) : "transparent"
+                        MouseArea {id:appMouse;anchors.fill:parent;hoverEnabled:true;property bool stale:false;onPositionChanged:if(!pressed)stale=false;onExited:stale=false;onClicked:{stale=true;appSearch.text="";page.add({action:"app",app:modelData.id});}}
                         RowLayout {anchors.fill:parent;anchors.leftMargin:10;spacing:12
                             AppIcon {Layout.preferredWidth:28;Layout.preferredHeight:28;app:modelData}
                             MText {Layout.fillWidth:true;text:modelData.name;role:"body";elide:Text.ElideRight}}
