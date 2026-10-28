@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 
+// Quick Settings tiles in a four-column grid: round 1×1, wide 2×1 and big 2×2 tiles with a live control. Edit mode reorders, resizes, adds and removes.
 ColumnLayout {
     id:deck
     property bool editing:false
-    property bool expanded:true
     readonly property var defaults:["wifi","bluetooth","dnd","awake","theme","saver","mic","keyboard"]
     readonly property var tiles:[
         {id:"wifi",title:"Internet",icon:"wifi"}, {id:"bluetooth",title:"Bluetooth",icon:"bluetooth"},
@@ -14,7 +14,8 @@ ColumnLayout {
         {id:"motion",title:"Reduced motion",icon:"spark"}, {id:"capture",title:"Screenshot",icon:"capture"},
         {id:"autohide",title:"Auto-hide shelf",icon:"desktop"}, {id:"clipboard",title:"Clipboard",icon:"clipboard"},
         {id:"focus",title:"Focus timer",icon:"timer"}, {id:"convergence",title:"Displays",icon:"convergence"},
-        {id:"android",title:"Android",icon:"android"}
+        {id:"android",title:"Android",icon:"android"},
+        {id:"media",title:"Now playing",icon:"music_note"}, {id:"devices",title:"Device batteries",icon:"devices"}
     ]
     readonly property var order:(Hub.prefs.quickTiles||defaults).filter(id=>tiles.some(t=>t.id===id))
     readonly property var shown:order.map(id=>tiles.find(t=>t.id===id))
@@ -50,6 +51,8 @@ ColumnLayout {
         if(id==="clipboard")return Hub.clipboardItems.length+" items";
         if(id==="convergence")return "Layout & docking";
         if(id==="focus")return Math.ceil(Hub.focusSeconds/60)+" minutes";
+        if(id==="media"){const m=Activities.byId["media"];return m ? m.title : "Nothing playing";}
+        if(id==="devices")return HomeData.devices.length ? HomeData.devices.map(d=>d.percent+"%").join(" · ") : "None";
         if(id==="android")return !(Hub.waydroid.installed&&Hub.waydroid.initialized) ? "Set up" : state(id) ? (Hub.waydroid.appCount||0)+" apps · On" : "Off";
         return state(id) ? "On" : "Off";
     }
@@ -69,87 +72,129 @@ ColumnLayout {
         case "clipboard":Hub.toggleClipboard();break;
         case "focus":Hub.timerToggle();break;
         case "convergence":Hub.openSettings("displays");break;
+        case "media":Hub.media("play-pause");break;
+        case "devices":Hub.openSettings("bluetooth");break;
         case "android":if(Hub.waydroid.installed&&Hub.waydroid.initialized)Hub.command({action:"waydroid-session",verb:state(id) ? "stop" : "start"});else Hub.openAndroid("setup");break;
         }
     }
     function change(id) {let next=order.slice();const index=next.indexOf(id);if(index>=0)next.splice(index,1);else next.push(id);Hub.set("quickTiles",next);}
-    function move(id,delta) {let next=order.slice();const index=next.indexOf(id),dest=index+delta;if(index<0||dest<0||dest>=next.length)return;next.splice(index,1);next.splice(dest,0,id);Hub.set("quickTiles",next);}
-    spacing:6
-    RowLayout {visible:deck.editing;Layout.fillWidth:true
-        MText {text:deck.editing ? "Make it yours" : "Quick settings";font.pixelSize:14;font.weight:Font.DemiBold;Layout.fillWidth:true}
-        MButton {text:deck.editing ? "Done" : "Edit";compact:true;tonal:true;onClicked:deck.editing=!deck.editing}
-        MButton {visible:!deck.editing;text:deck.expanded ? "Less" : "More";compact:true;onClicked:deck.expanded=!deck.expanded}
+    function moveTo(id,dest) {let next=order.slice();const index=next.indexOf(id);if(index<0)return;dest=Math.max(0,Math.min(next.length-1,dest));if(dest===index)return;next.splice(index,1);next.splice(dest,0,id);Hub.set("quickTiles",next);}
+    // Sizes: any tile can be round or wide; tiles with a live control can also be big.
+    readonly property var bigTiles:["media","devices","focus"]
+    function allowed(id) {return id==="media"||id==="devices" ? ["wide","big"] : bigTiles.indexOf(id)>=0 ? ["round","wide","big"] : ["round","wide"];}
+    function sizeOf(id) {
+        const chosen=(Hub.prefs.quickTileSizes||{})[id];
+        if(allowed(id).indexOf(chosen)>=0)return chosen;
+        return id==="media"||id==="devices" ? "big" : order.indexOf(id)<4 ? "wide" : "round";
     }
-    // Pixel pattern: two wide rows, then one row of four round tiles, then repeat.
-    readonly property var rows:{
-        const pattern=[2,2,4],out=[];let index=0,step=0;
-        while(index<deck.shown.length){const size=pattern[step%pattern.length];out.push({wide:size===2,tiles:deck.shown.slice(index,index+size)});index+=size;step++;}
-        return out;
-    }
+    function cycleSize(id) {const list=allowed(id),next=list[(list.indexOf(sizeOf(id))+1)%list.length];const sizes=Object.assign({},Hub.prefs.quickTileSizes||{});sizes[id]=next;Hub.set("quickTileSizes",sizes);}
     function enabledFor(id) {return !(id==="keyboard"&&!Hub.systemOskAvailable||id==="saver"&&!Hub.status.profile);}
-    function hasPage(id) {return id==="wifi"||id==="bluetooth";}
-    // Morph: 0 is one row of round tiles, 1 is the full grid. Each tile moves on its own path between the two places.
-    property real t:1
-    property int collapsedCount:6
+    // Tiles with a detail sheet grow into it on long-press or right-click.
+    function pageFor(id) {return id==="wifi" ? "wifi" : id==="bluetooth" ? "bluetooth" : id==="convergence" ? "displays" : "";}
     readonly property real gap:8
     readonly property real rowH:64
-    readonly property real roundSize:Math.min(56,(width-gap*(collapsedCount-1))/collapsedCount)
-    // Places in the full grid, row by row, with the same pattern as before: two wide, two wide, four round.
-    readonly property var gridRects:{
-        const out=[];let y=0;
-        for(const row of deck.rows){
-            const n=row.wide ? 2 : 4;const w=(deck.width-gap*(n-1))/n;
-            row.tiles.forEach((tile,i)=>out.push({x:i*(w+gap),y:y,w:w,h:rowH,wide:row.wide}));
-            y+=rowH+gap;
+    readonly property real unit:(grid.width-3*gap)/4
+    // First-fit packing into four columns. Wide and big tiles start on column 0 or 2.
+    readonly property var rects:{
+        const used=[],out=[];
+        const free=(r,c,w,h)=>{for(let y=r;y<r+h;y++)for(let x=c;x<c+w;x++)if(x>3||(used[y]&&used[y][x]))return false;return true;};
+        const take=(r,c,w,h)=>{for(let y=r;y<r+h;y++){used[y]=used[y]||[];for(let x=c;x<c+w;x++)used[y][x]=true;}};
+        for(const tile of deck.shown){
+            const size=deck.sizeOf(tile.id),w=size==="round" ? 1 : 2,h=size==="big" ? 2 : 1;
+            let placed=false;
+            for(let r=0;!placed&&r<64;r++)for(let c=0;c<4&&!placed;c+=(w===2 ? 2 : 1))if(free(r,c,w,h)){take(r,c,w,h);out.push({x:c*(unit+gap),y:r*(rowH+gap),w:w*unit+(w-1)*gap,h:h*rowH+(h-1)*gap,size:size,row:r+h});placed=true;}
         }
         return out;
     }
-    readonly property real gridHeight:deck.rows.length ? deck.rows.length*(rowH+gap)-gap : 0
-    readonly property real rowWidth:Math.min(collapsedCount,deck.shown.length)*(roundSize+gap)-gap
+    readonly property real gridHeight:rects.reduce((m,r)=>Math.max(m,r.y+r.h),0)
+    spacing:12
     Item {
-        id:morphArea
-        visible:!deck.editing
-        // Tiles that are still arriving stay inside the growing area.
-        clip:deck.t<1
+        id:grid
         Layout.fillWidth:true
-        Layout.preferredHeight:deck.roundSize+(deck.gridHeight-deck.roundSize)*deck.t
+        // Edit badges sit outside the tiles, so the grid steps in to keep them inside the sheet.
+        Layout.topMargin:deck.editing ? 10 : 0;Layout.leftMargin:deck.editing ? 10 : 0;Layout.rightMargin:deck.editing ? 10 : 0
+        Layout.preferredHeight:deck.gridHeight
+        property int dragging:-1
         Repeater {
             model:deck.shown
-            ShadeTile {
-                id:tile
+            Item {
+                id:cell
                 required property var modelData
                 required property int index
-                readonly property var grid:deck.gridRects[index]||{x:0,y:0,w:deck.roundSize,h:deck.rowH,wide:false}
-                readonly property bool inRow:index<deck.collapsedCount
-                readonly property real rowX:(deck.width-deck.rowWidth)/2+index*(deck.roundSize+deck.gap)
-                readonly property real k:deck.t
-                x:inRow ? rowX+(grid.x-rowX)*k : grid.x
-                y:inRow ? grid.y*k : grid.y
-                width:inRow ? deck.roundSize+(grid.w-deck.roundSize)*k : grid.w
-                height:inRow ? deck.roundSize+(grid.h-deck.roundSize)*k : grid.h
-                // Tiles that are not in the short row arrive as the grid opens.
-                opacity:(inRow ? 1 : Math.max(0,(k-.45)/.55))*(enabled ? 1 : .45)
-                scale:inRow ? 1 : .92+.08*k
-                visible:opacity>0.01
-                dense:true;iconOnly:!grid.wide||k<.6
-                icon:modelData.icon;title:modelData.title;subtitle:deck.subtitle(modelData.id);active:deck.state(modelData.id)
-                settings:deck.hasPage(modelData.id)&&k>.6
-                enabled:deck.enabledFor(modelData.id)
-                onToggled:deck.toggle(modelData.id)
-                onClicked:if(deck.hasPage(modelData.id))deck.openPage(modelData.id,tile);else deck.toggle(modelData.id)
-                onOpenSettings:deck.openPage(modelData.id,tile)
+                readonly property var rect:deck.rects[index]||{x:0,y:0,w:deck.unit,h:deck.rowH,size:"round"}
+                readonly property bool lifted:grid.dragging===index
+                x:rect.x;y:rect.y;width:rect.w;height:rect.h
+                z:lifted ? 5 : 0
+                scale:lifted ? 1.05 : 1
+                Behavior on x {enabled:!cell.lifted;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+                Behavior on y {enabled:!cell.lifted;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+                Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+                Behavior on height {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+                Behavior on scale {NumberAnimation {duration:Theme.motion(Theme.durShort)}}
+                readonly property bool big:deck.bigTiles.indexOf(modelData.id)>=0&&(rect.size==="big"||modelData.id!=="focus")
+                ShadeTile {
+                    id:tile
+                    visible:!cell.big
+                    anchors.fill:parent
+                    dense:true;iconOnly:cell.rect.size==="round"
+                    icon:cell.modelData.icon;title:cell.modelData.title;subtitle:deck.subtitle(cell.modelData.id);active:deck.state(cell.modelData.id)
+                    settings:deck.pageFor(cell.modelData.id)!==""&&!deck.editing
+                    enabled:deck.enabledFor(cell.modelData.id)||deck.editing
+                    opacity:deck.enabledFor(cell.modelData.id) ? 1 : .45
+                    onToggled:if(!deck.editing)deck.toggle(cell.modelData.id)
+                    onClicked:if(!deck.editing){if(deck.pageFor(cell.modelData.id)!=="")deck.pageRequested(deck.pageFor(cell.modelData.id),cell);else deck.toggle(cell.modelData.id);}
+                    onOpenSettings:deck.pageRequested(deck.pageFor(cell.modelData.id),cell)
+                }
+                QuickBigTile {visible:cell.big;anchors.fill:parent;kind:cell.modelData.id;wide:cell.rect.size==="wide"}
+                // Right-click opens the sheet, like a long press.
+                TapHandler {enabled:!deck.editing&&deck.pageFor(cell.modelData.id)!=="";acceptedButtons:Qt.RightButton;onTapped:deck.pageRequested(deck.pageFor(cell.modelData.id),cell)}
+                // Edit mode: drag anywhere to move, the corner badge removes, the corner handle changes the size.
+                Rectangle {visible:deck.editing;anchors.fill:parent;anchors.margins:-3;radius:cell.rect.size==="round" ? height/2+3 : 24;color:"transparent";border.width:2;border.color:Theme.alpha(Theme.primary,cell.lifted ? 1 : .45)}
+                MouseArea {
+                    visible:deck.editing;anchors.fill:parent;cursorShape:pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor;preventStealing:true
+                    drag.target:deck.editing ? cell : null
+                    onPressed:grid.dragging=cell.index
+                    onReleased:{
+                        const cx=cell.x+cell.width/2,cy=cell.y+cell.height/2;let best=cell.index,dist=1e9;
+                        deck.rects.forEach((r,i)=>{const d=Math.hypot(r.x+r.w/2-cx,r.y+r.h/2-cy);if(d<dist){dist=d;best=i;}});
+                        grid.dragging=-1;cell.x=Qt.binding(()=>cell.rect.x);cell.y=Qt.binding(()=>cell.rect.y);
+                        deck.moveTo(cell.modelData.id,best);
+                    }
+                    Accessible.role:Accessible.Button;Accessible.name:"Move "+cell.modelData.title
+                }
+                Rectangle {
+                    visible:deck.editing;x:-8;y:-8;width:26;height:26;radius:13;color:Theme.level(5);border.width:1;border.color:Theme.outline
+                    Glyph {anchors.centerIn:parent;name:"remove";font.pixelSize:16}
+                    TapHandler {onTapped:deck.change(cell.modelData.id)}
+                    Accessible.role:Accessible.Button;Accessible.name:"Remove "+cell.modelData.title
+                }
+                Rectangle {
+                    visible:deck.editing&&deck.allowed(cell.modelData.id).length>1;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:-7
+                    width:sizeText.implicitWidth+16;height:26;radius:13;color:Theme.secondaryContainer
+                    MText {id:sizeText;anchors.centerIn:parent;text:cell.rect.size==="round" ? "1×1" : cell.rect.size==="wide" ? "2×1" : "2×2";role:"labelS";font.weight:Font.Bold;color:Theme.onSecondaryContainer}
+                    TapHandler {onTapped:deck.cycleSize(cell.modelData.id)}
+                    Accessible.role:Accessible.Button;Accessible.name:"Change the size of "+cell.modelData.title
+                }
             }
         }
     }
-    ColumnLayout {visible:deck.editing;Layout.fillWidth:true;spacing:6
-        MText {Layout.fillWidth:true;text:"Add or remove tiles. The first four appear in the compact view.";wrapMode:Text.Wrap;color:Theme.subtext;font.pixelSize:12}
-        Repeater {model:deck.order.map(id=>deck.tiles.find(t=>t.id===id)).concat(deck.tiles.filter(t=>deck.order.indexOf(t.id)<0))
-            RowLayout {required property var modelData;Layout.fillWidth:true;spacing:4
-                MButton {Layout.fillWidth:true;text:modelData.title;icon:deck.order.indexOf(modelData.id)>=0 ? "check" : "add";tonal:true;onClicked:deck.change(modelData.id)}
-                MButton {visible:deck.order.indexOf(modelData.id)>=0;icon:"back";tooltip:"Move earlier";enabled:deck.order.indexOf(modelData.id)>0;onClicked:deck.move(modelData.id,-1)}
-                MButton {visible:deck.order.indexOf(modelData.id)>=0;icon:"next";tooltip:"Move later";enabled:deck.order.indexOf(modelData.id)<deck.order.length-1;onClicked:deck.move(modelData.id,1)}
+    // Spare tiles: tap to add.
+    ColumnLayout {
+        visible:deck.editing&&spare.length>0;Layout.fillWidth:true;spacing:8
+        readonly property var spare:deck.tiles.filter(t=>deck.order.indexOf(t.id)<0)
+        MText {text:"Spare tiles";role:"titleS";Layout.leftMargin:4}
+        MText {text:"Tap one to add it. Drag tiles to move them; the size badge changes their size.";role:"labelS";color:Theme.subtext;wrapMode:Text.Wrap;Layout.fillWidth:true;Layout.leftMargin:4}
+        GridLayout {
+            Layout.fillWidth:true;columns:2;columnSpacing:8;rowSpacing:8
+            Repeater {
+                model:parent.parent.spare
+                ShadeTile {
+                    required property var modelData
+                    Layout.fillWidth:true;Layout.preferredHeight:56;dense:true
+                    icon:modelData.icon;title:modelData.title;subtitle:"Add"
+                    onClicked:deck.change(modelData.id);onToggled:deck.change(modelData.id)
+                }
             }
         }
-        MButton {text:"Reset tiles";onClicked:Hub.set("quickTiles",deck.defaults.slice())}
     }
 }

@@ -13,7 +13,7 @@ prefs_lock = threading.Lock()
 JSON_SEPARATORS = (',', ':')
 system_osk = None
 # Quick Settings tile identifiers. The shell can reorder or hide these, but not add unknown ones.
-QUICK_TILE_IDS = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard','motion','capture','autohide','clipboard','focus','convergence','android')
+QUICK_TILE_IDS = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard','motion','capture','autohide','clipboard','focus','convergence','android','media','devices')
 QUICK_TILE_DEFAULT = ('wifi','bluetooth','dnd','awake','theme','saver','mic','keyboard')
 def emit(data):
     with lock:
@@ -57,7 +57,7 @@ def valid_phone_home(value):
 import system_tools
 import activity_signals
 import search_files
-import home_data, weather
+import home_data, weather, calendar_events, shell_prefs
 import floating_mode
 import theme_export
 import omarchy_themes
@@ -433,6 +433,8 @@ def clipboard_open(identity):
     elif entry['kind']=='Image': spawn(['xdg-open',entry['image']])
 from connectivity import Connectivity
 connectivity = Connectivity(emit)
+import display_ddc
+ddc = display_ddc.Ddc(emit)
 from hypr_actions import HyprActions
 from convergence_policy import PREF_KEYS as CONVERGE_KEYS
 from power_status import (connected_bluetooth_devices, cpu_governor,
@@ -495,6 +497,7 @@ def commands():
                 valid = valid or waydroid_bridge.valid_preference(key, value)
                 valid = valid or routines_engine.valid_preference(key, value)
                 valid = valid or key=='lockScramblePin' and type(value)==bool
+                valid = valid or shell_prefs.valid_preference(key, value, QUICK_TILE_IDS)
                 valid = valid or ai_features.valid_preference(key, value)
                 if valid:
                     with prefs_lock: prefs[key]=value; save()
@@ -585,6 +588,7 @@ def commands():
                 if action=='claude-ask': emit({'event':'claude','id':int(c.get('id') or 0),'text':'AI features are turned off.','done':True,'error':True})
             elif assistant.handle(c,emit): pass
             elif action=='connectivity': connectivity.request(c)
+            elif action=='ddc': ddc.request(c)
             elif action=='settings': settings(c.get('which'))
             elif action=='submap-reset':
                 try: hypr_actions.submap_reset()
@@ -713,7 +717,7 @@ def commands():
                 if command: spawn(command)
                 else: emit({'event':'message','text':'No terminal app found'})
             elif action=='desktop-open-folder': spawn(['xdg-open',str(home_data.desktop_dir())])
-            elif action=='home-refresh': home_state.update({'desktop':None,'weatherKey':None,'photo':0,'updates':0})
+            elif action=='home-refresh': home_state.update({'desktop':None,'weatherKey':None,'photo':0,'updates':0,'calendar':None})
             elif action=='clipboard':
                 if shutil.which('wl-copy'): subprocess.run(['wl-copy'],input=str(c.get('text','')).encode('utf-8'),timeout=2)
             elif action=='clipboard-list': clipboard.publish()
@@ -1116,7 +1120,7 @@ def show_desktop():
         state=floating_mode.load(); state['desktopShown']=addresses; floating_mode.save(state)
 
 # Home sources: each one is published only when it changes.
-home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0}
+home_state={'desktop':None,'weatherKey':None,'weatherAt':0,'photo':0,'updates':0,'calendar':None,'calendarAt':0}
 def portal_rule(c):
     rule=c.get('rule') if isinstance(c.get('rule'),dict) else None
     return {k:[v for v in rule.get(k) or [] if isinstance(v,str) and len(v)<200][:64] for k in ('globs','mimes')} if rule else None
@@ -1181,6 +1185,12 @@ def home_watch():
             if key!=home_state['weatherKey'] or now-home_state['weatherAt']>=weather.REFRESH:
                 home_state['weatherKey']=key; home_state['weatherAt']=now
                 emit({'event':'weather','data':weather.update(city,f,force=False) if city else None})
+            # Calendars: on any file change, a change of the paths or zones, and every ten minutes so repeats move along.
+            extra=tuple(p for p in (prefs.get('calendarPaths') or []) if isinstance(p,str)); zones=tuple(prefs.get('worldClocks') or ())
+            ckey=(calendar_events.signature(extra),extra,zones)
+            if ckey!=home_state['calendar'] or now-home_state['calendarAt']>=600:
+                home_state['calendar']=ckey; home_state['calendarAt']=now
+                emit({'event':'calendar','events':calendar_events.upcoming(extra=extra),'clocks':calendar_events.clocks(list(zones))})
             if now-home_state['photo']>=6*3600:
                 home_state['photo']=now
                 emit({'event':'photoMemory','data':home_data.memory(home_data.pictures())})

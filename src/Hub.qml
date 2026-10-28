@@ -10,6 +10,8 @@ Scope {
     property var status: ({workspace:1, workspaces:[], windows:[], title:"Your desktop", volume:0, muted:false, network:"Connecting…", wifi:false, bluetooth:false, track:"", artist:"", art:"", playing:false, battery:-1, batteries:[], charging:false, brightness:-1, cpu:0, memory:0, uptime:"", profile:"", governor:"", hypr:false})
     property var connectivity: ({wifi:{items:[],busy:false,error:"",powered:false},bluetooth:{items:[],busy:false,error:"",powered:false}})
     property string controlDetail: ""
+    // External monitors and their DDC/CI brightness: value -1 means the monitor does not answer.
+    property var ddc: ({items:[],available:true})
     property string settingsSection: ""
     // Old section names still open the page that now holds them.
     readonly property var settingsAliases: ({display:"displays",screens:"displays",convergence:"displays",taskbar:"home",appearance:"style",bluetooth:"devices",schedules:"routines",audio:"sound"})
@@ -879,6 +881,7 @@ Scope {
 
                         h.wallpaperLibrary=e.items;h.wallpaperLibraryError=e.error;h.wallpaperLibraryBusy=false;
                         if(!e.error){h.wallpaperFolders=e.folders||[];h.wallpaperFolder=e.folder||"";h.wallpaperParent=e.parent||"";}
+                    } else if(e.event === "ddc") { ddc = {items:e.items||[],available:e.available!==false};
                     } else if(e.event === "connectivity") {
                         let data=Object.assign({},h.connectivity);
                         data[e.kind]=Object.assign({},data[e.kind],e);h.connectivity=data;
@@ -927,7 +930,7 @@ Scope {
                     else if(e.event === "gamePerf" || e.event === "gameDetail" || e.event === "gameWidgets" || e.event === "gameProfile") GameState.receive(e);
                     else if(e.event === "calculation" && e.query===h.calcExpression(h.query)) h.calculation=e.result;
                     else if(e.event === "fileSearch") h.fileResults={query:e.query||"",items:e.items||[]};
-                    else if(e.event === "desktopFiles"||e.event === "weather"||e.event === "photoMemory"||e.event === "updates") HomeData.ingest(e);
+                    else if(e.event === "desktopFiles"||e.event === "weather"||e.event === "photoMemory"||e.event === "updates"||e.event === "calendar") HomeData.ingest(e);
                     else if(e.event === "clipboard") {
                         h.clipboardItems=e.items||[];h.clipboardPaused=!!e.paused;
                         h.clipboardAvailable=!!e.available;h.clipboardDetail=e.detail||"";

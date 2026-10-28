@@ -15,6 +15,9 @@ Scope {
     property bool dnd: Hub.prefs.dnd === true || Hub.gameSession
     property var popupScreen: null
     property int revision: 0
+    // The newest message the desktop notification pill shows for a moment.
+    property var announced: null
+    property double announcedAt: 0
     function refresh() { entries = entries.slice(); revision++; }
     function age(time) {
         const minutes = Math.max(0, Math.floor((Hub.now.getTime() - time) / 60000));
@@ -30,6 +33,7 @@ Scope {
     function dismiss(entry) { if (entry && entry.notification) entry.notification.dismiss(); }
     function clear() { inbox.slice().forEach(dismiss); }
     function remove(entry) {
+        if (announced === entry) announced = null;
         entries = entries.filter(e => e !== entry);
         entry.notification = null;
         entry.destroy();
@@ -40,8 +44,14 @@ Scope {
         entry.read = centerOpen;
         entry.remaining = entry.notification.urgency === NotificationUrgency.Critical || entry.notification.expireTimeout === 0
             ? -1 : entry.notification.expireTimeout < 0 ? 6500 : Math.max(1000, entry.notification.expireTimeout);
-        entry.popup = !dnd && !centerOpen && !entry.notification.lastGeneration;
-        if (entry.popup && !popups.length) popupScreen = Hub.chooseScreen();
+        // On a desktop the Shelf's notification pill announces new messages instead of a toast. Critical ones still pop up.
+        const screen = Hub.chooseScreen();
+        const pill = !!screen && Hub.layoutFor(screen.width, screen.height, screen.name) !== "phone" && !Activities.off
+            && entry.notification.urgency !== NotificationUrgency.Critical && !entry.notification.transient;
+        const fresh = !dnd && !centerOpen && !entry.notification.lastGeneration;
+        entry.popup = fresh && !pill;
+        if (fresh && pill) { announced = entry; announcedAt = Date.now(); }
+        if (entry.popup && !popups.length) popupScreen = screen;
         entries = [entry].concat(entries.filter(e => e !== entry));
         // Bound bursts without losing the inbox. Excess transient items expire.
         entries.filter(e => e.popup).slice(8).forEach(hidePopup);

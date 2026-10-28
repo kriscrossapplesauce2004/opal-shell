@@ -29,9 +29,11 @@ Item {
     Connections {target:Hub;function onControlDetailChanged(){if(Hub.controlDetail!=="")q.detailKind=Hub.controlDetail;}}
     function openDetail(id,source) {
         if(source){const p=source.mapToItem(q,0,0);detailOrigin=Qt.rect(p.x,p.y,source.width,source.height);}
+        if(id==="displays"){Hub.controlDetail="displays";return;}
         Hub.settings(id==="wifi" ? "network" : "bluetooth");
     }
-    readonly property var sections:Array.isArray(Hub.prefs.sheetSections) ? Hub.prefs.sheetSections.filter(id=>catalog.some(c=>c.id===id)) : ["sliders","tiles","media","notifications"]
+    // On a desktop notifications have their own pill and card, so Quick Settings leaves them out.
+    readonly property var sections:(Array.isArray(Hub.prefs.sheetSections) ? Hub.prefs.sheetSections.filter(id=>catalog.some(c=>c.id===id)) : ["sliders","tiles","media","notifications"]).filter(id=>q.phone||id!=="notifications")
     function title(id) {const c=catalog.find(c=>c.id===id);return c ? c.title : id;}
     function icon(id) {const c=catalog.find(c=>c.id===id);return c ? c.icon : "widgets";}
     function toggleSection(id) {const list=sections.slice();const i=list.indexOf(id);if(i>=0)list.splice(i,1);else list.push(id);Hub.set("sheetSections",list);}
@@ -61,8 +63,26 @@ Item {
         id:main
         visible:q.detail<1;enabled:Hub.controlDetail==="";opacity:1-.6*q.detail;anchors.fill:parent;anchors.margins:14;anchors.bottomMargin:14+padFocus.hintSpace;spacing:10
         Rectangle {visible:q.phone;Layout.alignment:Qt.AlignHCenter;Layout.preferredWidth:40;Layout.preferredHeight:4;radius:2;color:Theme.outline}
-        // Header: large clock and date, status on the right.
-        RowLayout {Layout.fillWidth:true;Layout.leftMargin:6;Layout.rightMargin:4;spacing:8
+        // Desktop header: battery, then edit, lock, power and settings. The clock has its own pill and card.
+        RowLayout {
+            visible:!q.phone;Layout.fillWidth:true;Layout.leftMargin:2;spacing:8
+            Rectangle {
+                visible:Hub.status.battery>=0;implicitWidth:batteryRow.implicitWidth+28;implicitHeight:40;radius:20;color:Theme.alpha(Theme.text,.08)
+                Row {id:batteryRow;anchors.centerIn:parent;spacing:6
+                    Glyph {name:Hub.status.charging ? "charging" : "battery";font.pixelSize:18;anchors.verticalCenter:parent.verticalCenter}
+                    MText {text:Hub.status.battery+"%"+(Hub.status.charging ? " · charging" : "");role:"label";anchors.verticalCenter:parent.verticalCenter}}
+            }
+            MText {visible:q.editing;text:"Edit";role:"title";Layout.leftMargin:6}
+            Item {Layout.fillWidth:true}
+            MButton {visible:!q.editing;icon:"edit";compact:true;implicitWidth:40;implicitHeight:40;contained:true;tooltip:"Edit tiles";onClicked:q.editing=true}
+            MButton {visible:!q.editing;icon:"lock";compact:true;implicitWidth:40;implicitHeight:40;contained:true;tooltip:"Lock";onClicked:{Hub.close();Hub.lock();}}
+            MButton {visible:!q.editing;icon:"power";compact:true;implicitWidth:40;implicitHeight:40;contained:true;tooltip:"Power";onClicked:q.confirm="menu"}
+            MButton {visible:!q.editing;icon:"settings";compact:true;implicitWidth:40;implicitHeight:40;contained:true;tooltip:"Settings";onClicked:Hub.openSettings()}
+            MButton {visible:q.editing;text:"Reset";compact:true;implicitHeight:36;ink:Theme.primary;onClicked:{Hub.set("quickTiles",["wifi","bluetooth","dnd","awake","theme","saver","mic","keyboard"]);Hub.set("quickTileSizes",{});}}
+            MButton {visible:q.editing;text:"Done";compact:true;implicitHeight:36;filled:true;onClicked:q.editing=false}
+        }
+        // Phone header: large clock and date, status on the right.
+        RowLayout {visible:q.phone;Layout.fillWidth:true;Layout.leftMargin:6;Layout.rightMargin:4;spacing:8
             ColumnLayout {spacing:0
                 MText {text:Qt.formatDateTime(Hub.now,"HH:mm");role:"displayS";font.features:{"tnum":1}}
                 MText {text:Qt.formatDateTime(Hub.now,"dddd d MMMM");role:"label";color:Theme.subtext}
@@ -105,7 +125,8 @@ Item {
                     readonly property var pool:Activities.list.filter(a=>a.kind!=="media")
                     readonly property var shown:pool.find(a=>a.id===Activities.focusId)||pool[0]||null
                     readonly property var others:pool.filter(a=>!shown||a.id!==shown.id)
-                    visible:!q.editing&&(shown!==null||others.length>0||Activities.freshChips.length>0)
+                    // On a desktop the Shelf's activity pill and card show these, so the sheet does not repeat them.
+                    visible:q.phone&&!q.editing&&(shown!==null||others.length>0||Activities.freshChips.length>0)
                     Layout.fillWidth:true;spacing:8
                     ActivityCard {visible:liveSection.shown!==null;Layout.fillWidth:true;Layout.preferredWidth:1;Layout.preferredHeight:implicitHeight;a:liveSection.shown||({});compactPlayer:true
                         onOpened:Activities.open(liveSection.shown,Hub.targetScreen)}
@@ -119,7 +140,7 @@ Item {
                 }
                 // Section editor: show, hide and drag to reorder.
                 ColumnLayout {
-                    visible:q.editing;Layout.fillWidth:true;spacing:4
+                    visible:q.editing&&q.phone;Layout.fillWidth:true;spacing:4
                     MText {text:"Sections";role:"titleS";Layout.leftMargin:6}
                     MText {text:"Drag to reorder. Tap to show or hide.";role:"bodyS";color:Theme.subtext;Layout.leftMargin:6;Layout.bottomMargin:4}
                     Item {
@@ -171,6 +192,8 @@ Item {
                     model:q.sections
                     Loader {
                         required property string modelData
+                        // Editing on a desktop is about the tiles, so the other sections step aside.
+                        visible:!(q.editing&&!q.phone&&modelData!=="tiles")
                         Layout.fillWidth:true
                         sourceComponent:modelData==="sliders" ? slidersSection : modelData==="tiles" ? tilesSection : modelData==="media" ? mediaSection : modelData==="notifications" ? inboxSection : modelData==="calendar" ? calendarSection : modelData==="monitor" ? monitorSection : modelData==="clipboard" ? clipboardSection : modelData==="focus" ? focusSection : modelData==="devices" ? devicesSection : batterySection
                     }
@@ -178,7 +201,7 @@ Item {
                 MText {visible:q.sections.length===0&&!q.editing;Layout.fillWidth:true;horizontalAlignment:Text.AlignHCenter;text:"Nothing here yet. Edit to add sections.";role:"bodyS";color:Theme.subtext;Layout.topMargin:12;Layout.bottomMargin:12}
             }
         }
-        RowLayout {Layout.fillWidth:true;spacing:8
+        RowLayout {visible:q.phone;Layout.fillWidth:true;spacing:8
             MButton {text:Hub.dnd ? "Do not disturb" : "";icon:Hub.dnd ? "quiet" : "bell";compact:true;implicitHeight:36;tonal:Hub.dnd;tooltip:Hub.dnd ? "Turn off Do not disturb" : "Do not disturb";onClicked:Hub.set("dnd",!Hub.dnd)}
             Item {Layout.fillWidth:true}
             MButton {icon:q.editing ? "check" : "edit";text:q.editing ? "Done" : "";compact:true;implicitHeight:36;filled:q.editing;tooltip:q.editing ? "Done" : "Customize";onClicked:q.editing=!q.editing}
@@ -282,7 +305,10 @@ Item {
             x:8;y:8;width:q.width-32;height:q.height-32
             active:q.detailKind!==""
             opacity:Math.max(0,(detailSurface.k-.4)/.6)
-            sourceComponent:Component {ConnectionPanel {kind:q.detailKind||"wifi"}}
+            sourceComponent:q.detailKind==="displays" ? displaysPage : connectionPage
+        }
+        Component {id:connectionPage;ConnectionPanel {kind:q.detailKind||"wifi"}}
+        Component {id:displaysPage;DisplaysPanel {}
         }
     }
     Rectangle {property bool controllerModal:true;visible:q.confirm!=="";anchors.fill:parent;radius:28;color:Theme.level(2)

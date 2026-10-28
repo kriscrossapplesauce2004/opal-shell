@@ -4,7 +4,7 @@ import Quickshell.Wayland
 
 Scope {
     id:shadeScope
-    readonly property bool opened:Hub.page==="controls"||Hub.page==="notifications"
+    readonly property bool opened:Hub.page==="controls"||Hub.page==="notifications"||Hub.page==="clock"
     property bool presentCard:false
     property int openedWorkspace:0
     property string openedMonitor:""
@@ -93,7 +93,9 @@ Scope {
             Surface {
             id:shadeCard
             readonly property real fit:shadeContent.item&&shadeContent.item.fitHeight>0 ? shadeContent.item.fitHeight : 460
-            width:shade.phone ? shade.width : Math.min(shade.tablet ? 420 : 380,shade.width-36)
+            // On a desktop the notification pill and the clock pill open their own cards; phones and tablets keep one merged shade.
+            readonly property string card:shade.layoutMode==="phone" ? "controls" : Hub.page==="notifications" ? "notifications" : Hub.page==="clock" ? "clock" : "controls"
+            width:shade.phone ? shade.width : Math.min(shade.tablet ? 420 : card==="notifications" ? 420 : card==="clock" ? 400 : 412,shade.width-36)
             height:shade.phone ? shade.height : shade.tablet ? Math.min(fit,shade.height-shade.barHeight-PhoneState.tabletNavHeight-16) : Math.min(fit,shade.height-92)
             Behavior on height {enabled:shadeCard.reveal>0.99&&!shade.phone;NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
             x:shade.phone ? 0 : shade.width-width-(shade.tablet ? 12 : 18)
@@ -118,7 +120,10 @@ Scope {
             NumberAnimation {id:enter;target:shadeCard;property:"reveal";to:1;duration:Theme.motion(400);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}
             // A closed shade forgets its detail page, so the next open starts at the main sheet.
             NumberAnimation {id:exit;target:shadeCard;property:"reveal";to:0;duration:Theme.motion(200);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedAccelerate;onFinished:if(!shadeScope.opened){shadeScope.presentCard=false;Hub.controlDetail="";}}
-            Loader {id:shadeContent;anchors.fill:parent;anchors.topMargin:shade.phone ? 48 : 0;anchors.bottomMargin:shade.phone ? PhoneState.navHeight : 0;active:shadeScope.presentCard;sourceComponent:Component {QuickSettings {}}}
+            Loader {id:shadeContent;anchors.fill:parent;anchors.topMargin:shade.phone ? 48 : 0;anchors.bottomMargin:shade.phone ? PhoneState.navHeight : 0;active:shadeScope.presentCard;sourceComponent:shadeCard.card==="notifications" ? notificationCard : shadeCard.card==="clock" ? clockCard : controlsCard}
+            Component {id:controlsCard;QuickSettings {}}
+            Component {id:notificationCard;NotificationSheet {}}
+            Component {id:clockCard;ClockCard {}}
             PhoneNavigation {visible:shade.phone;anchors.bottom:parent.bottom;width:parent.width;height:implicitHeight;output:shade.screen}
             Rectangle {visible:Hub.toast!=="";anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:12;height:70;radius:22;color:Theme.surfaceHigh;z:5
                 MText {anchors.fill:parent;anchors.margins:12;text:Hub.toast;font.pixelSize:12;wrapMode:Text.Wrap;maximumLineCount:3;verticalAlignment:Text.AlignVCenter}

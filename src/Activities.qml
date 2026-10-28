@@ -27,6 +27,13 @@ Scope {
     property var deviceSeen: ({})
     // The activity that the shade or the Shelf card shows first. Empty means the top activity.
     property string focusId: ""
+    // How much the contextual pills show: full, calm (icons, two segments, no growing) or off.
+    readonly property string level: ["full", "calm", "off"].indexOf(Hub.prefs.pillLevel) >= 0 ? Hub.prefs.pillLevel : "full"
+    readonly property bool calm: level === "calm"
+    readonly property bool off: level === "off"
+    // The Shelf can fold every contextual pill into one small chip.
+    readonly property bool collapsed: !!Hub.prefs.pillsCollapsed
+    function toggleCollapsed() { Hub.set("pillsCollapsed", !collapsed); }
     // The Shelf card: open state and the output whose Shelf opened it.
     property bool cardOpen: false
     property var cardScreen: null

@@ -67,18 +67,17 @@ Item {
         onPressAndHold:bar.show("convergence")
         Accessible.role:Accessible.Button;Accessible.name:bar.networkTooltip
     }
-    // Live activities: the top one as a chip and a count. Tap opens the shade with that card on top.
-    ActivityChip {
+    // Live activities: the same segmented pill as the Shelf, smaller. Tap a segment to open the shade with that card on top.
+    ActivitySegments {
         id:activityPill
-        visible:Activities.list.length>0
-        a:Activities.primary||({})
-        more:Math.max(0,Activities.list.length-1)
-        width:Math.min(implicitWidth,bar.width*.45)
-        // The slim tablet bar shows the pill a little smaller.
-        scale:bar.compact ? .84 : 1;transformOrigin:Item.Left
+        visible:Activities.list.length>0&&!Activities.off
+        size:bar.compact ? 24 : 28
+        maxSegments:Activities.calm ? 2 : 3
+        maxLabel:bar.width*.22
+        fill:Theme.alpha(Theme.text,.10)
         x:Math.max(10,Math.min(pillSlot.mapToItem(bar,0,0).x,bar.width-width-10))
         y:(bar.height-height)/2
-        onClicked:Activities.show(Activities.primary,bar.output)
+        onPicked:a=>Activities.show(a,bar.output)
     }
 
 }

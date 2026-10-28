@@ -3,13 +3,12 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 
-// The Shelf pill grows up into its card: the chosen activity in full, the others as chips. A click outside closes it.
+// A Shelf segment grows up into its card: the chosen activity in full, every activity as segments above it. A click outside closes it.
 Scope {
     id: scope
     property real reveal: 0
     property bool presenting: false
     readonly property var shown: Activities.byId[Activities.focusId] || Activities.primary
-    readonly property var others: Activities.list.filter(a => !shown || a.id !== shown.id)
     Connections {
         target: Activities
         function onCardOpenChanged() {
@@ -64,10 +63,17 @@ Scope {
                 Scale { origin.x: column.width; origin.y: column.height; xScale: .92 + .08 * scope.reveal; yScale: .85 + .15 * scope.reveal },
                 Translate { y: 16 * (1 - scope.reveal) }
             ]
+            // Every activity as segments; the shown one is selected, so switching is one click.
+            ActivitySegments {
+                visible: Activities.list.length > 1
+                Layout.alignment: Qt.AlignRight
+                items: Activities.list; size: 36; labels: true; calm: false; maxSegments: 5; maxLabel: 120
+                fill: Theme.level(3); selectedId: scope.shown ? scope.shown.id : ""
+                onPicked: a => Activities.focusId = a.id
+            }
             Flow {
-                visible: scope.others.length > 0 || Activities.freshChips.length > 0
+                visible: Activities.freshChips.length > 0
                 Layout.fillWidth: true; layoutDirection: Qt.RightToLeft; spacing: 8
-                Repeater { model: scope.others; ActivityChip { required property var modelData; a: modelData; onClicked: Activities.focusId = modelData.id } }
                 Repeater {
                     model: Activities.freshChips
                     ActivityChip { required property var modelData; a: ({kind: "neutral", icon: modelData.icon, short: modelData.label, title: modelData.label}); onClicked: Activities.runChip(modelData) }

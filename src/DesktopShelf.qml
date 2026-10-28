@@ -127,23 +127,51 @@ Item {
             }
             Accessible.role:Accessible.StaticText;Accessible.name:"Key mode "+name
         }
-        // Live activities: their own pill. Click pops the card up above the Shelf.
+        // ChromeOS-style fold: one button tucks every contextual pill into a small chip and brings them back.
+        readonly property bool contextual:!Activities.off&&shelf.width>=900
+        readonly property int liveCount:Activities.list.length+(Notifier.inbox.length>0 ? 1 : 0)+(HomeData.attention!==null ? 1 : 0)
         Rectangle {
-            id:activity
-            readonly property var lead:Activities.primary
-            readonly property var hint:Activities.freshChips.length ? Activities.freshChips[0] : null
-            visible:(lead!==null||hint!==null)&&shelf.width>=900
-            height:parent.height;radius:height/2;color:shelf.framedParts ? Theme.level(3) : "transparent"
-            width:activityRow.implicitWidth+(shelf.framedParts ? 14 : 4)
+            id:fold
+            visible:rightGroup.contextual&&(Activities.collapsed||rightGroup.liveCount>0)
+            height:parent.height;radius:height/2
+            width:Activities.collapsed ? foldRow.implicitWidth+20 : height
+            color:shelf.framedParts ? Theme.level(3) : "transparent"
             Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+            Rectangle {anchors.fill:parent;radius:parent.radius;color:Theme.stateLayer;opacity:foldTap.pressed ? .12 : foldHover.hovered ? .06 : 0}
             Row {
-                id:activityRow;anchors.centerIn:parent;spacing:6
-                ActivityChip {visible:activity.lead!==null;a:activity.lead||({});more:Math.max(0,Activities.list.length-1)
-                    selected:Activities.cardOpen&&Activities.cardScreen===shelf.output;onClicked:Activities.toggleCard(shelf.output)}
-                ActivityChip {visible:activity.hint!==null&&activity.lead===null;a:activity.hint ? {kind:"neutral",icon:activity.hint.icon,short:activity.hint.label,title:activity.hint.label} : ({})
-                    onClicked:Activities.runChip(activity.hint)}
+                id:foldRow;anchors.centerIn:parent;spacing:6
+                Glyph {name:Activities.collapsed ? "chevron_left" : "chevron_right";font.pixelSize:20;color:Theme.subtext;anchors.verticalCenter:parent.verticalCenter}
+                // Folded: one dot per live thing, so nothing goes unnoticed.
+                Row {visible:Activities.collapsed&&rightGroup.liveCount>0;spacing:4;anchors.verticalCenter:parent.verticalCenter
+                    Repeater {model:Math.min(4,rightGroup.liveCount);Rectangle {required property int index;width:6;height:6;radius:3;color:index===0 ? Theme.primary : Theme.alpha(Theme.text,.5)}}}
             }
+            HoverHandler {id:foldHover;cursorShape:Qt.PointingHandCursor}
+            TapHandler {id:foldTap;onTapped:Activities.toggleCollapsed()}
+            Accessible.role:Accessible.Button
+            Accessible.name:Activities.collapsed ? "Show activities and notifications" : "Fold activities and notifications"
         }
+        // Live activities: one segmented pill. A segment pops its card up above the Shelf; hover labels every segment.
+        Item {
+            id:activity
+            readonly property var hint:Activities.freshChips.length ? Activities.freshChips[0] : null
+            readonly property bool open:Activities.cardOpen&&Activities.cardScreen===shelf.output
+            visible:rightGroup.contextual&&!Activities.collapsed&&(Activities.list.length>0||hint!==null)
+            height:parent.height;width:Activities.list.length ? segments.width : hintChip.width
+            ActivitySegments {
+                id:segments
+                visible:Activities.list.length>0
+                size:parent.height;fill:shelf.framedParts ? Theme.level(3) : Theme.alpha(Theme.text,.06)
+                labels:activityHover.hovered&&!Activities.calm
+                selectedId:activity.open ? (Activities.focused ? Activities.focused.id : "") : ""
+                onPicked:a=>{if(activity.open&&Activities.focusId===a.id){Activities.cardOpen=false;return;}Activities.focusId=a.id;if(!activity.open)Activities.toggleCard(shelf.output);}
+            }
+            HoverHandler {id:activityHover}
+            ActivityChip {id:hintChip;visible:activity.hint!==null&&Activities.list.length===0;anchors.verticalCenter:parent.verticalCenter;height:parent.height-8
+                a:activity.hint ? {kind:"neutral",icon:activity.hint.icon,short:activity.hint.label,title:activity.hint.label} : ({})
+                onClicked:Activities.runChip(activity.hint)}
+        }
+        // Notifications: a new one grows the pill for a moment; a click pops the notification card up.
+        NotificationPill {output:shelf.output;framed:shelf.framedParts;height:parent.height;visible:rightGroup.contextual&&!Activities.collapsed&&Notifier.inbox.length>0}
 
         // Status: tray, battery, sound and network in one pill. Volume changes show here.
         Rectangle {
@@ -199,29 +227,69 @@ Item {
                 }
                 MText {anchors.verticalCenter:parent.verticalCenter;width:30;text:Hub.status.muted ? "Off" : Hub.status.volume;role:"label";font.features:{"tnum":1};color:shelf.ink}
             }
-            Rectangle {visible:Hub.unread>0&&!shelf.osdHere;anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:8;anchors.topMargin:7;width:7;height:7;radius:4;color:Theme.primary}
             Accessible.role:Accessible.Button
-            Accessible.name:"Quick settings · "+(Hub.status.wifi ? Hub.status.network : "Offline")+(Hub.unread>0 ? " · "+Hub.unread+" notifications" : "")
+            Accessible.name:"Quick settings · "+(Hub.status.wifi ? Hub.status.network : "Offline")
         }
 
-        // Clock: the solid anchor of the bar.
-        Rectangle {
-            id:clock
-            readonly property bool withDate:Hub.prefs.taskbarClockDate!==false&&shelf.width>=900
-            height:parent.height;radius:height/2
-            color:Theme.primaryContainer
-            width:(withDate ? dateRow.implicitWidth : timeOnly.implicitWidth)+32
-            Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
-            Rectangle {anchors.fill:parent;radius:parent.radius;color:Theme.onContainer;opacity:clockMouse.pressed ? .12 : clockMouse.containsMouse ? .08 : 0}
-            MText {id:timeOnly;anchors.centerIn:parent;visible:!clock.withDate;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:Theme.onContainer}
-            Row {
-                id:dateRow;visible:clock.withDate;anchors.centerIn:parent;spacing:8
-                MText {anchors.verticalCenter:parent.verticalCenter;text:Qt.formatDateTime(Hub.now,"ddd d");role:"label";color:Theme.alpha(Theme.onContainer,.75)}
-                MText {anchors.verticalCenter:parent.verticalCenter;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:Theme.onContainer}
+        // Clock: the solid anchor of the bar. An event segment joins it only while the next event needs attention.
+        Row {
+            id:clockGroup
+            readonly property var ev:HomeData.attention
+            readonly property bool started:ev!==null&&Hub.now.getTime()>=ev.start
+            readonly property bool showEvent:ev!==null&&rightGroup.contextual&&!Activities.collapsed&&(!Activities.calm||started)
+            readonly property bool open:Hub.page==="clock"&&Hub.targetScreen===shelf.output
+            height:parent.height;spacing:3
+            Rectangle {
+                id:clock
+                readonly property bool withDate:Hub.prefs.taskbarClockDate!==false&&shelf.width>=900&&!clockGroup.showEvent
+                height:parent.height
+                topLeftRadius:height/2;bottomLeftRadius:height/2
+                topRightRadius:clockGroup.showEvent ? 6 : height/2;bottomRightRadius:topRightRadius
+                color:clockGroup.open ? Theme.primary : Theme.primaryContainer
+                readonly property color ink:clockGroup.open ? Theme.onPrimary : Theme.onContainer
+                width:(withDate ? dateRow.implicitWidth : timeOnly.implicitWidth)+32
+                Behavior on width {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+                Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durShort)}}
+                Rectangle {anchors.fill:parent;topLeftRadius:parent.topLeftRadius;bottomLeftRadius:parent.bottomLeftRadius;topRightRadius:parent.topRightRadius;bottomRightRadius:parent.bottomRightRadius
+                    color:clock.ink;opacity:clockMouse.pressed ? .12 : clockMouse.containsMouse ? .08 : 0}
+                MText {id:timeOnly;anchors.centerIn:parent;visible:!clock.withDate;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:clock.ink}
+                Row {
+                    id:dateRow;visible:clock.withDate;anchors.centerIn:parent;spacing:8
+                    MText {anchors.verticalCenter:parent.verticalCenter;text:Qt.formatDateTime(Hub.now,"ddd d");role:"label";color:Theme.alpha(clock.ink,.75)}
+                    MText {anchors.verticalCenter:parent.verticalCenter;text:Qt.formatDateTime(Hub.now,"HH:mm");role:"titleS";font.features:{"tnum":1};color:clock.ink}
+                }
+                MouseArea {id:clockMouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;onClicked:shelf.show("clock")}
+                Accessible.role:Accessible.Button
+                Accessible.name:Qt.formatDateTime(Hub.now,"dddd, d MMMM HH:mm")+". Show clock and calendar"
             }
-            MouseArea {id:clockMouse;anchors.fill:parent;hoverEnabled:true;cursorShape:Qt.PointingHandCursor;onClicked:shelf.show("notifications")}
-            Accessible.role:Accessible.Button
-            Accessible.name:Qt.formatDateTime(Hub.now,"dddd, d MMMM HH:mm")
+            Rectangle {
+                id:eventSeg
+                visible:clockGroup.showEvent
+                readonly property int mins:clockGroup.ev ? Math.max(1,Math.ceil((clockGroup.ev.start-Hub.now.getTime())/60000)) : 0
+                height:parent.height;width:evRow.implicitWidth+26
+                topLeftRadius:6;bottomLeftRadius:6;topRightRadius:height/2;bottomRightRadius:height/2
+                color:Theme.tertiaryContainer
+                Rectangle {anchors.fill:parent;topLeftRadius:6;bottomLeftRadius:6;topRightRadius:parent.topRightRadius;bottomRightRadius:parent.bottomRightRadius
+                    color:Theme.onTertiaryContainer;opacity:evTap.pressed ? .12 : evHover.hovered ? .08 : 0}
+                Row {
+                    id:evRow;anchors.centerIn:parent;spacing:8
+                    Glyph {name:clockGroup.started&&clockGroup.ev&&clockGroup.ev.join ? "videocam" : "event";font.pixelSize:18;color:Theme.onTertiaryContainer;anchors.verticalCenter:parent.verticalCenter}
+                    MText {
+                        anchors.verticalCenter:parent.verticalCenter;role:"label";font.weight:Font.DemiBold;color:Theme.onTertiaryContainer
+                        width:Math.min(implicitWidth,220);elide:Text.ElideRight
+                        text:clockGroup.ev ? (Activities.calm ? (clockGroup.started ? "Now" : eventSeg.mins+" min") : clockGroup.ev.title+(clockGroup.started ? " now" : " in "+eventSeg.mins+" min")) : ""
+                    }
+                    Rectangle {
+                        visible:clockGroup.started&&!!clockGroup.ev&&!!clockGroup.ev.join&&!Activities.calm
+                        width:joinText.implicitWidth+20;height:28;radius:14;color:Theme.tertiary;anchors.verticalCenter:parent.verticalCenter
+                        MText {id:joinText;anchors.centerIn:parent;text:"Join";role:"label";color:Theme.base}
+                    }
+                }
+                HoverHandler {id:evHover;cursorShape:Qt.PointingHandCursor}
+                TapHandler {id:evTap;onTapped:{if(clockGroup.started&&clockGroup.ev.join)Qt.openUrlExternally(clockGroup.ev.join);else shelf.show("clock");}}
+                Accessible.role:Accessible.Button
+                Accessible.name:clockGroup.ev ? clockGroup.ev.title+(clockGroup.started ? ", now" : ", in "+eventSeg.mins+" minutes") : ""
+            }
         }
     }
 }

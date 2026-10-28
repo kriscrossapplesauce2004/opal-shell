@@ -129,4 +129,28 @@ ColumnLayout {
             }
         }
     }
+    // Networks the scan cannot list: hidden ones and enterprise (802.1X) ones.
+    property string joinMode:""
+    RowLayout {
+        visible:p.wifi&&p.state.powered;Layout.fillWidth:true;spacing:8
+        Chip {icon:p.joinMode==="hidden" ? "close" : "visibility_off";text:"Hidden network";selected:p.joinMode==="hidden";onClicked:p.joinMode=p.joinMode==="hidden" ? "" : "hidden"}
+        Chip {icon:p.joinMode==="enterprise" ? "close" : "badge";text:"Enterprise";selected:p.joinMode==="enterprise";onClicked:p.joinMode=p.joinMode==="enterprise" ? "" : "enterprise"}
+        Item {Layout.fillWidth:true}
+    }
+    ColumnLayout {
+        visible:p.wifi&&p.joinMode!=="";Layout.fillWidth:true;spacing:8
+        TextField {id:joinSsid;Layout.fillWidth:true;placeholderText:"Network name";maximumLength:32}
+        RowLayout {visible:p.joinMode==="enterprise";Layout.fillWidth:true;spacing:8
+            TextField {id:joinIdentity;Layout.fillWidth:true;placeholderText:"Username"}
+            SegmentedButtons {id:joinEap;options:[{label:"PEAP",value:"peap"},{label:"TTLS",value:"ttls"}];current:"peap";onPicked:value=>current=value}
+        }
+        TextField {id:joinPassword;Layout.fillWidth:true;placeholderText:"Password";echoMode:TextInput.Password}
+        MButton {
+            Layout.alignment:Qt.AlignRight;text:"Join";filled:true;enabled:joinSsid.text.length>0&&!p.state.busy&&(p.joinMode!=="enterprise"||joinIdentity.text.length>0)
+            onClicked:{
+                Hub.connection("wifi",p.joinMode,{ssid:joinSsid.text,password:joinPassword.text,identity:joinIdentity.text,eap:joinEap.current});
+                joinPassword.clear();p.joinMode="";
+            }
+        }
+    }
 }

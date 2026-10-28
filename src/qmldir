@@ -216,3 +216,9 @@ CaptureEditor 1.0 CaptureEditor.qml
 CaptureMarkup 1.0 CaptureMarkup.qml
 SettingsAI 1.0 SettingsAI.qml
 SwitchContent 1.0 SwitchContent.qml
+ActivitySegments 1.0 ActivitySegments.qml
+NotificationPill 1.0 NotificationPill.qml
+NotificationSheet 1.0 NotificationSheet.qml
+ClockCard 1.0 ClockCard.qml
+QuickBigTile 1.0 QuickBigTile.qml
+DisplaysPanel 1.0 DisplaysPanel.qml

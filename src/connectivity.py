@@ -79,6 +79,26 @@ class Connectivity:
                     args = ['nmcli', '--wait', '25', 'device', 'wifi', 'connect', ssid]
                     if password: args += ['password', password]
                     self.run(*args)
+                elif verb in ('hidden', 'enterprise'):
+                    ssid = c.get('ssid')
+                    password = c.get('password', '')
+                    if not isinstance(ssid, str) or not 0 < len(ssid.encode()) <= 32 or '\x00' in ssid: raise ValueError('Invalid network name')
+                    if not isinstance(password, str) or len(password) > 256 or '\x00' in password: raise ValueError('Invalid password')
+                    if verb == 'hidden':
+                        args = ['nmcli', '--wait', '25', 'device', 'wifi', 'connect', ssid, 'hidden', 'yes']
+                        if password: args += ['password', password]
+                        self.run(*args)
+                    else:
+                        identity = c.get('identity', '')
+                        eap = c.get('eap', 'peap')
+                        if not isinstance(identity, str) or not 0 < len(identity) <= 256 or '\x00' in identity: raise ValueError('Invalid username')
+                        if eap not in ('peap', 'ttls'): raise ValueError('Unsupported sign-in method')
+                        # One profile per network name; replace an older one so retries do not pile up.
+                        self.run('sh', '-c', 'nmcli connection delete id "$1" >/dev/null 2>&1; true', 'sh', ssid)
+                        self.run('nmcli', 'connection', 'add', 'type', 'wifi', 'con-name', ssid, 'ssid', ssid,
+                                 'wifi-sec.key-mgmt', 'wpa-eap', '802-1x.eap', eap, '802-1x.phase2-auth', 'mschapv2',
+                                 '802-1x.identity', identity, '802-1x.password', password)
+                        self.run('nmcli', '--wait', '25', 'connection', 'up', 'id', ssid)
                 elif verb == 'disconnect':
                     device = c.get('device', '')
                     if not isinstance(device, str) or not re.fullmatch(r'[\w.-]{1,64}', device): raise ValueError('Invalid device')
