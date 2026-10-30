@@ -33,6 +33,7 @@ Item {
     }
     // Tablet: full-width islands. With gestures the keys island is left out and the gesture strip sits under the bar.
     Loader {
+        asynchronous:true
         active:nav.tablet
         anchors {left:parent.left;right:parent.right;top:parent.top}
         height:88

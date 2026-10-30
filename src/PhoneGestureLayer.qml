@@ -26,7 +26,7 @@ Scope {
         }
         GestureStage { anchors.fill: parent; visible: !PhoneState.recentsOpen }
         // Built as soon as an upward swipe starts, so its live previews have pictures by the time the finger lifts.
-        Loader { anchors.fill: parent; active: PhoneState.recentsOpen || PhoneState.phase === "home" || PhoneState.phase === "recents"; sourceComponent: Component { RecentsCarousel { screenObj: feedback.screen } } }
+        Loader { anchors.fill: parent; asynchronous: true; active: PhoneState.recentsOpen || PhoneState.phase === "home" || PhoneState.phase === "recents"; sourceComponent: Component { RecentsCarousel { screenObj: feedback.screen } } }
     }
     // Edge zones: thin input strips on both sides of phone outputs.
     Variants {

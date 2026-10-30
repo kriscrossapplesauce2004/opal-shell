@@ -58,8 +58,8 @@ PanelWindow {
         Behavior on y {NumberAnimation {duration:Theme.motion(140);easing.type:Easing.OutCubic}}
         HoverHandler {id:bodyHover;onHoveredChanged:{if(hovered){hideTimer.stop();bar.revealed=true;}else hideTimer.restart();}}
         Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durShort)}}
-        Loader {id:desktopLoader;anchors.fill:parent;active:!bar.phone;sourceComponent:desktopContent}
-        Loader {anchors.fill:parent;active:bar.phone;sourceComponent:phoneContent}
+        Loader {id:desktopLoader;anchors.fill:parent;asynchronous:true;active:!bar.phone;sourceComponent:desktopContent}
+        Loader {anchors.fill:parent;asynchronous:true;active:bar.phone;sourceComponent:phoneContent}
     }
     Component {id:desktopContent;DesktopShelf {
         output:bar.screen;panel:bar;panelHeight:bar.height

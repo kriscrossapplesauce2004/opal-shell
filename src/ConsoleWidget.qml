@@ -56,6 +56,7 @@ Rectangle {
 
     Loader {
         property bool controllerSkip: !w.choices
+        asynchronous: true
         anchors.fill: parent
         sourceComponent: ({updates: updatesView, devices: devicesView, music: musicView, storage: storageView, captures: capturesView,
                            next: nextView, minecraft: minecraftView, toggles: togglesView, claude: claudeView})[w.kind] || null

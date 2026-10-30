@@ -8,7 +8,7 @@ Item {
     readonly property bool hasContent:!!capture.item&&capture.item.hasContent
     clip:true
     Loader {
-        id:capture;anchors.fill:parent;active:p.capturing&&p.handle!==null
+        id:capture;anchors.fill:parent;asynchronous:true;active:p.capturing&&p.handle!==null
         sourceComponent:Component {
             Item {
                 readonly property bool hasContent:view.hasContent

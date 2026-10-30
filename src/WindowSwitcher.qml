@@ -11,6 +11,8 @@ Item {
     property bool active:visible
     property string query:""
     property int selection:0
+    // A kept switcher starts each show at the first window with no filter.
+    onActiveChanged:if(active){selection=0;query="";}
     readonly property bool touchCarousel:false
     readonly property bool gaming:layoutMode==="console"
     readonly property var allWindows:Hub.recentWindows.filter(w=>!(w.workspaceName||"").startsWith("special:")||Hub.minimized(w))
@@ -28,7 +30,7 @@ Item {
         else if(key==="back")Hub.close();
         Hub.navigate(key);
     }
-    Loader {anchors.fill:parent;sourceComponent:s.gaming ? heroView : gridView}
+    Loader {anchors.fill:parent;asynchronous:true;sourceComponent:s.gaming ? heroView : gridView}
 
     // Live preview clipped to a rounded shape.
     component Preview: Item {
@@ -42,7 +44,7 @@ Item {
             layer.enabled:GraphicsInfo.api!==GraphicsInfo.Software
             layer.effect:MultiEffect {maskEnabled:true;maskSource:pvMask;maskThresholdMin:.5;maskSpreadAtMin:1}
             Loader {
-                anchors.fill:parent;active:pv.live&&!!pv.entry&&s.active
+                anchors.fill:parent;asynchronous:true;active:pv.live&&!!pv.entry&&s.active
                 source:Hub.status.hypr ? "HyprWindowPreview.qml" : "WindowPreview.qml"
                 onLoaded:{if(Hub.status.hypr)item.address=Qt.binding(()=>pv.entry ? pv.entry.address||"" : "");else item.handle=Qt.binding(()=>pv.entry ? pv.entry.handle||null : null);}
             }

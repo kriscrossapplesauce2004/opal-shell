@@ -120,7 +120,7 @@ Scope {
                                         Rectangle {
                                             x: 6; y: 6; width: parent.width - 12; height: parent.height - 50; radius: Theme.shapeSm
                                             color: Theme.alpha(Theme.base, .55); clip: true
-                                            Loader { anchors.fill: parent; anchors.margins: 2; active: assist.open; source: "HyprWindowPreview.qml"; onLoaded: item.address = Qt.binding(() => card.modelData.address || "") }
+                                            Loader { anchors.fill: parent; anchors.margins: 2; asynchronous: true; active: assist.open; source: "HyprWindowPreview.qml"; onLoaded: item.address = Qt.binding(() => card.modelData.address || "") }
                                         }
                                         Row {
                                             x: 12; y: parent.height - 38; width: parent.width - 24; spacing: 8

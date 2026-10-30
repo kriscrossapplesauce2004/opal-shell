@@ -6,6 +6,9 @@ Scope {
     id:shadeScope
     readonly property bool opened:Hub.page==="controls"||Hub.page==="notifications"||Hub.page==="clock"
     property bool presentCard:false
+    // Quick settings is built once after startup and kept, so each shade open is a show. Hidden, the window takes no focus.
+    property bool warmed:false
+    Timer {interval:2500;running:Hub.preferencesLoaded&&Hub.prefs.onboarded===true;onTriggered:shadeScope.warmed=true}
     property int openedWorkspace:0
     property string openedMonitor:""
     Connections {
@@ -21,7 +24,7 @@ Scope {
         openedWorkspace=Hub.status.workspace;
         openedMonitor=Hub.status.activeMonitor||"";
         presentCard=true;
-        Qt.callLater(()=>{if(opened)shadeCard.open();});
+        Qt.callLater(()=>{if(opened){shadeCard.open();const it=shadeContent.item;if(it&&typeof it.reopen==="function")it.reopen();}});
     }
     function hideCard() {
         if(presentCard)shadeCard.close();
@@ -120,7 +123,7 @@ Scope {
             NumberAnimation {id:enter;target:shadeCard;property:"reveal";to:1;duration:Theme.motion(400);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedDecelerate}
             // A closed shade forgets its detail page, so the next open starts at the main sheet.
             NumberAnimation {id:exit;target:shadeCard;property:"reveal";to:0;duration:Theme.motion(200);easing.type:Easing.BezierSpline;easing.bezierCurve:Theme.emphasizedAccelerate;onFinished:if(!shadeScope.opened){shadeScope.presentCard=false;Hub.controlDetail="";}}
-            Loader {id:shadeContent;anchors.fill:parent;anchors.topMargin:shade.phone ? 48 : 0;anchors.bottomMargin:shade.phone ? PhoneState.navHeight : 0;active:shadeScope.presentCard;sourceComponent:shadeCard.card==="notifications" ? notificationCard : shadeCard.card==="clock" ? clockCard : controlsCard}
+            Loader {id:shadeContent;asynchronous:true;anchors.fill:parent;anchors.topMargin:shade.phone ? 48 : 0;anchors.bottomMargin:shade.phone ? PhoneState.navHeight : 0;active:shadeScope.presentCard||shadeScope.warmed;sourceComponent:shadeCard.card==="notifications" ? notificationCard : shadeCard.card==="clock" ? clockCard : controlsCard}
             Component {id:controlsCard;QuickSettings {}}
             Component {id:notificationCard;NotificationSheet {}}
             Component {id:clockCard;ClockCard {}}

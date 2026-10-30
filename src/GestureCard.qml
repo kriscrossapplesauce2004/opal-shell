@@ -11,6 +11,7 @@ Rectangle {
     border.color: Theme.outline
     Loader {
         anchors.fill: parent
+        asynchronous: true
         active: !!card.entry && Hub.status.hypr && !!card.entry.address && card.width > 0
         source: "HyprWindowPreview.qml"
         onLoaded: item.address = Qt.binding(() => card.entry.address || "")

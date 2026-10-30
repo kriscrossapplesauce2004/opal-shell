@@ -58,6 +58,7 @@ Item {
     // Home recedes as the drawer rises.
     Loader {
         id:homeLayer
+        asynchronous:true
         anchors.fill:parent
         visible:mobile.progress<1&&!mobile.recents
         opacity:1-mobile.progress*.7

@@ -73,6 +73,8 @@ FocusScope {
     Connections {target:Hub;function onStartSearchRequestChanged(){searchField.forceActiveFocus();searchField.selectAll();}function onQueryChanged(){
         if(searchField.text!==Hub.query)searchField.text=Hub.query;
     }}
+    // A kept Start menu starts each open like a new one: pinned page, top of the list, focus in search.
+    function reopen() {section="pinned";letter="";scope="all";confirmPower="";home.contentY=0;searchField.forceActiveFocus();}
     Component.onCompleted:searchField.forceActiveFocus()
     Keys.onEscapePressed:event=>{goBack();event.accepted=true;}
     Keys.onPressed:event=>{

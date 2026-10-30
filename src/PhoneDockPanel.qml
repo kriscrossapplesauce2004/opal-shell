@@ -35,6 +35,7 @@ Item {
             model: panel.modes
             currentIndex: Math.max(0, panel.modes.indexOf(Hub.phoneDockMode))
             delegate: Loader {
+                asynchronous: true
                 required property string modelData
                 width: pages.width; height: pages.height
                 sourceComponent: modelData === "trackpad" ? trackpad : controls

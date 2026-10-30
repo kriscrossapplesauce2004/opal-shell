@@ -50,6 +50,8 @@ Item {
         function onQueryChanged() {if(search.text!==Hub.query)search.text=Hub.query;}
     }
     onResultsChanged:grid.currentIndex=0
+    // A kept launcher starts each open at the first result with focus in search.
+    function reopen() {grid.currentIndex=0;if(section==="apps"){if(!consoleMode)search.forceActiveFocus();else grid.forceActiveFocus();}}
     Component.onCompleted:if(section==="apps"){if(!consoleMode)search.forceActiveFocus();else grid.forceActiveFocus();}
     RowLayout {
         anchors.fill:parent; spacing:0

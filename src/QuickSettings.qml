@@ -39,7 +39,9 @@ Item {
     function toggleSection(id) {const list=sections.slice();const i=list.indexOf(id);if(i>=0)list.splice(i,1);else list.push(id);Hub.set("sheetSections",list);}
     function moveSection(from,to) {const list=sections.slice();if(from<0||from>=list.length)return;to=Math.max(0,Math.min(list.length-1,to));if(from===to)return;const item=list.splice(from,1)[0];list.splice(to,0,item);Hub.set("sheetSections",list);}
     // A sheet made after the detail request does not get the change signal, so it reads the request at creation.
-    Component.onCompleted:{if(Hub.controlDetail!=="")detailKind=Hub.controlDetail;Hub.connection("wifi","refresh");Hub.connection("bluetooth","refresh");if(Hub.page==="notifications")Qt.callLater(scrollToInbox);if(Hub.page==="clipboard"||sections.indexOf("clipboard")>=0)Hub.refreshClipboard();}
+    // The shade keeps this sheet, so each open refreshes networks and devices again.
+    function reopen() {if(Hub.controlDetail!=="")detailKind=Hub.controlDetail;if(Hub.status.brightness<0&&sections.indexOf("sliders")>=0)Hub.command({action:"ddc",verb:"refresh"});Hub.connection("wifi","refresh");Hub.connection("bluetooth","refresh");if(Hub.page==="notifications")Qt.callLater(scrollToInbox);if(Hub.page==="clipboard"||sections.indexOf("clipboard")>=0)Hub.refreshClipboard();}
+    Component.onCompleted:reopen()
     Connections {target:Hub;function onPageChanged(){if(Hub.page==="notifications")Qt.callLater(q.scrollToInbox);}}
     function scrollToInbox() {
         const item=sectionRepeater.itemAt(sections.indexOf("notifications"));

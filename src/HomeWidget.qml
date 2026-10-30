@@ -11,6 +11,7 @@ Item {
     readonly property bool empty: kind === "live" && live === null || kind === "photos" && !HomeData.photo
     Loader {
         anchors.fill: parent
+        asynchronous: true
         active: !hw.empty || hw.editing
         sourceComponent: hw.empty ? placeholder : hw.kind === "glance" ? glanceView : hw.kind === "media" ? mediaView : hw.kind === "photos" ? photoView
             : hw.kind === "devices" ? devicesView : hw.kind === "clock" ? clockView : hw.kind === "live" ? liveView : glanceView

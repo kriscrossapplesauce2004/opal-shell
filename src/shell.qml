@@ -168,11 +168,11 @@ ShellRoot {
                 // On the home the status bar sits on the wallpaper. With an app in front on a phone it turns solid, like Android, so no strip of wallpaper frames the app.
                 color:output.layoutMode==="phone"&&!PhoneState.isTablet(output.modelData)&&PhoneState.appInFront&&Hub.page==="" ? Theme.base : "transparent"
                 Behavior on color {ColorAnimation {duration:Theme.motion(Theme.durShort)}}
-                Loader {anchors.fill:parent;active:statusbar.visible;sourceComponent:phoneStatusContent}
+                Loader {anchors.fill:parent;asynchronous:true;active:statusbar.visible;sourceComponent:phoneStatusContent}
                 Component {id:phoneStatusContent;PhoneStatus {anchors.fill:parent;output:statusbar.screen;fpsEnabled:root.fpsEnabled;fps:root.fps}}
             }
-            Loader {active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {target:output.modelData}}}
-            Loader {active:output.layoutMode==="desktop"&&Hub.prefs.barStyle==="split";sourceComponent:Component {TopBar {screen:output.modelData}}}
+            Loader {asynchronous:true;active:output.layoutMode!=="console";sourceComponent:Component {Taskbar {target:output.modelData}}}
+            Loader {asynchronous:true;active:output.layoutMode==="desktop"&&Hub.prefs.barStyle==="split";sourceComponent:Component {TopBar {screen:output.modelData}}}
             PanelWindow {
                 screen:output.modelData
                 visible:Hub.toast!==""&&Hub.page===""&&!Hub.audioOpen
@@ -208,7 +208,7 @@ ShellRoot {
         WlrLayershell.namespace:"opal-volume-osd"
         WlrLayershell.keyboardFocus:WlrKeyboardFocus.None
         color:"transparent"
-        Loader {anchors.fill:parent;active:Hub.osd!=="";sourceComponent:Component {VolumeOsd {}}}
+        Loader {anchors.fill:parent;asynchronous:true;active:Hub.osd!=="";sourceComponent:Component {VolumeOsd {}}}
     }
     // Apps' Open and Save dialogs, drawn by Opal. Full screen on phones and tablets, a large sheet on desktops.
     LazyLoader {
@@ -365,10 +365,13 @@ ShellRoot {
         // Reads arrival directly: a binding through leaving can see a stale value for one tick and unmap the window.
         visible:wanted||panel.arrival>0
         onWantedChanged:{
-            if(wanted){lastPage=Hub.page;panelDeparture.stop();panelArrival.restart();if(overlay.tabletLauncher&&tabletLayer.item)tabletLayer.item.prepare();}
+            if(wanted){lastPage=Hub.page;panelDeparture.stop();panelArrival.restart();if(overlay.tabletLauncher&&tabletLayer.item)tabletLayer.item.prepare();Qt.callLater(()=>{const it=overlayContent.item;if(overlay.wanted&&it&&typeof it.reopen==="function")it.reopen();});}
             else {panelArrival.stop();panelDeparture.restart();}
         }
         Connections {target:Hub;function onPageChanged(){if(overlay.wanted)overlay.lastPage=Hub.page;}}
+        // Desktop Start is built once after startup and kept. Hidden, the window takes no keys and no focus.
+        property bool warmed:false
+        Timer {interval:2500;running:Hub.preferencesLoaded&&Hub.prefs.onboarded===true&&overlay.layoutMode==="desktop";onTriggered:{overlay.lastPage="launcher";overlay.warmed=true;}}
         readonly property string layoutMode:Hub.layoutFor(width,height,screen ? screen.name : "")
         anchors {top:true;bottom:true;left:true;right:true}
         exclusionMode:ExclusionMode.Ignore
@@ -421,8 +424,8 @@ ShellRoot {
             MouseArea {anchors.fill:parent;acceptedButtons:Qt.AllButtons}
             Loader {
                 id:overlayContent
-                anchors.fill:parent;anchors.topMargin:panel.phone ? PhoneState.statusFor(overlay.screen) : 0;anchors.bottomMargin:panel.phone ? PhoneState.navHeight : 0;active:overlay.visible&&!overlay.tabletLauncher
-                onLoaded:contentArrival.restart()
+                anchors.fill:parent;anchors.topMargin:panel.phone ? PhoneState.statusFor(overlay.screen) : 0;anchors.bottomMargin:panel.phone ? PhoneState.navHeight : 0;asynchronous:true;active:(overlay.visible||overlay.warmed)&&!overlay.tabletLauncher
+                onLoaded:if(overlay.visible)contentArrival.restart()
                 NumberAnimation {id:contentArrival;target:overlayContent;property:"opacity";from:0;to:1;duration:Theme.motion(180)}
                 sourceComponent:overlay.pg==="search" ? (panel.phone ? mobileComponent : searchComponent) : overlay.pg==="settings" ? settingsComponent : overlay.pg==="launcher" ? (panel.phone ? mobileComponent : panel.game ? consoleComponent : overlay.desktopStart ? startComponent : launcherComponent) : overlay.pg==="clipboard" ? clipboardComponent : overlay.pg==="convergence" ? convergenceComponent : overlay.pg==="wallpaper" ? wallpaperComponent : overlay.pg==="windows" ? windowsComponent : overlay.pg==="welcome" ? welcomeComponent : overlay.pg==="android" ? androidComponent : controlsComponent
             }
@@ -446,8 +449,9 @@ ShellRoot {
         Loader {
             id:tabletLayer
             // Built once per tablet screen and kept, so opening the launcher never decodes the wallpaper or builds the app grid again.
-            anchors.fill:parent;active:overlay.layoutMode==="phone"&&PhoneState.isTablet(overlay.screen)
+            anchors.fill:parent;asynchronous:true;active:overlay.layoutMode==="phone"&&PhoneState.isTablet(overlay.screen)
             visible:overlay.tabletLauncher
+            onLoaded:if(overlay.tabletLauncher)item.prepare();
             sourceComponent:Component {TabletLauncher {screenObj:overlay.screen;arrival:panel.arrival}}
         }
         Component {id:consoleComponent;ConsoleHome {}}

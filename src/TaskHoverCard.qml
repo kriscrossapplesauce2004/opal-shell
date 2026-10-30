@@ -166,6 +166,7 @@ PanelWindow {
                                     layer.effect: MultiEffect { maskEnabled: true; maskSource: previewMask; maskThresholdMin: .5; maskSpreadAtMin: 1 }
                                     Loader {
                                         anchors.fill: parent
+                                        asynchronous: true
                                         active: hoverWin.visible && card.previews
                                         source: Hub.status.hypr ? "HyprWindowPreview.qml" : "WindowPreview.qml"
                                         onLoaded: {

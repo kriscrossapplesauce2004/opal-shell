@@ -3,6 +3,9 @@ import QtQuick.Layouts
 // Recents: a header with the window count, the touch card carousel, and a way back home.
 Item {
     id:recents
+    // The recents carousel is built once after startup and kept, so the tab is a show.
+    property bool recentsBuilt:false
+    Timer {interval:3000;running:true;onTriggered:recents.recentsBuilt=true}
     ColumnLayout {
         anchors.fill:parent;anchors.margins:16;spacing:12
         RowLayout {
@@ -17,8 +20,9 @@ Item {
         }
         Loader {
             Layout.fillWidth:true;Layout.fillHeight:true
-            active:Hub.mobileTab==="recent"
-            sourceComponent:Component {WindowSwitcher {layoutMode:"phone";active:true}}
+            asynchronous:true
+            active:recents.recentsBuilt||Hub.mobileTab==="recent"
+            sourceComponent:Component {WindowSwitcher {layoutMode:"phone";active:Hub.mobileTab==="recent"}}
         }
     }
 }

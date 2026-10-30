@@ -12,6 +12,7 @@ Item {
     height: implicitHeight
     Loader {
         id: loader
+        asynchronous: true
         width: parent.width
         sourceComponent: widget.kind === "glance" ? glance : widget.kind === "stack" ? stack : widget.kind === "media" ? media : widget.kind === "calendar" ? calendar : widget.kind === "battery" ? battery : focus
     }

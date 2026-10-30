@@ -79,6 +79,7 @@ Item {
                             layer.effect:MultiEffect {maskEnabled:true;maskSource:shotMask;maskThresholdMin:.5;maskSpreadAtMin:1}
                             Loader {
                                 anchors.fill:parent
+                                asynchronous:true
                                 active:sw.previews&&Hub.switcherShown
                                 source:Hub.status.hypr ? "HyprWindowPreview.qml" : "WindowPreview.qml"
                                 onLoaded:{if(Hub.status.hypr)item.address=Qt.binding(()=>tile.modelData.address||"");else item.handle=Qt.binding(()=>tile.modelData.handle||null);}
