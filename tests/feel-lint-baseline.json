@@ -1,0 +1,1230 @@
+{
+  "schema": "opal-feel-lint-v1",
+  "totals": {
+    "canvas": 4,
+    "loaders": 60,
+    "sync_loader": 36,
+    "repeaters": 271,
+    "dynamic_repeater": 207,
+    "list_views": 32,
+    "list_models": 1,
+    "json_parse": 20,
+    "json_stringify": 35,
+    "behaviors": 284,
+    "number_animations": 300,
+    "animators": 3,
+    "spring_animations": 1,
+    "timers": 97,
+    "multi_effects": 21
+  },
+  "files": {
+    "src/Activities.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ActivityCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ActivityCardWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ActivityChip.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ActivityPill.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/ActivitySegment.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ActivitySegments.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ActivityStyle.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AmbientClock.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AnalogClock.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AndroidHub.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/AndroidStore.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 2
+    },
+    "src/AppIcon.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AppSwitcher.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/AppTile.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Appearance.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 3
+    },
+    "src/AssistantChip.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AssistantPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/AssistantState.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AssistantSteps.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/AssistantWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AudioCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AudioDrawer.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/AudioPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/BatteryStats.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/CalendarWidget.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/CaptureEditor.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/CaptureMarkup.qml": {
+      "canvas": 1,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/CaptureOverlay.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/CapturePreviewToast.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/CaptureStudio.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/Chip.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ChoiceGroup.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ClipThumb.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ClipboardCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ClipboardEntry.qml": {
+      "canvas": 0,
+      "sync_loader": 2,
+      "dynamic_repeater": 1
+    },
+    "src/ClipboardPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ClockCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 4
+    },
+    "src/Compositor.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ConnectionPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/ConsoleCover.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ConsoleHome.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 7
+    },
+    "src/ConsoleLibrary.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/ConsoleWidget.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 3
+    },
+    "src/ContextMenuBody.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 4
+    },
+    "src/ContinuityStrip.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ControllerFocus.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ControllerHints.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ControllerNav.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Convergence.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/ConvergenceController.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ConvergenceSettings.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/Dashboard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/DesktopHome.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 3
+    },
+    "src/DesktopShelf.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/DesktopSplitDivider.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/DesktopWidgets.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/DisplaysPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/DockScene.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 2
+    },
+    "src/DockTrackpad.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/DockWelcome.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/DockWelcomeWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/DockWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/ExpressiveSlider.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/FilePicker.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/FloatingToolbar.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/Flower.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/FocusCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/FpsSteps.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/Frost.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GameCover.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GameDetail.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GameState.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GameTile.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GestureCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GestureStage.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GlanceWidget.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Glass.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Glyph.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/GreeterController.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/HomeData.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/HomeWidget.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/HorizontalScroller.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Hub.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/HyprWindowPreview.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Island.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/KeyedListModel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Launcher.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 5
+    },
+    "src/LayoutMorph.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LinearProgress.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LinkDevices.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/LoadingIndicator.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LockClock.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LockController.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LockExtras.qml": {
+      "canvas": 1,
+      "sync_loader": 1,
+      "dynamic_repeater": 3
+    },
+    "src/LockGlance.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LockScene.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 6
+    },
+    "src/LockScreen.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/LockWidgets.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 3
+    },
+    "src/MButton.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/MSwitch.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/MText.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/MediaCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/MediaPlayerCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/MobileHome.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ModeArt.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/MorphChip.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/MorphShape.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/NavTriangle.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/NotificationCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/NotificationCenter.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/NotificationGroups.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/NotificationPill.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/NotificationSheet.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Notifier.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Onboarding.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 1
+    },
+    "src/Oobe.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/OobeContent.qml": {
+      "canvas": 0,
+      "sync_loader": 2,
+      "dynamic_repeater": 5
+    },
+    "src/OpalField.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/OpalMenu.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/OpalSearch.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 4
+    },
+    "src/OpalSpring.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PenWatcher.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneAppIcon.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneBackdrop.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneDock.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneDockPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/PhoneDrawer.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 3
+    },
+    "src/PhoneGestureLayer.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneHome.qml": {
+      "canvas": 0,
+      "sync_loader": 3,
+      "dynamic_repeater": 7
+    },
+    "src/PhoneNavigation.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneRecents.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneState.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneStatus.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneTabletDock.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneTorch.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PhoneWidget.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/PolkitCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/PolkitDialog.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/PostureLayout.qml": {
+      "canvas": 0,
+      "sync_loader": 2,
+      "dynamic_repeater": 0
+    },
+    "src/PowerKey.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PowerMenu.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/PowerMenuRow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PowerMenuWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/PowerProfileWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/ProgressRing.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/QaRow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/QuickAccess.qml": {
+      "canvas": 0,
+      "sync_loader": 2,
+      "dynamic_repeater": 5
+    },
+    "src/QuickBigTile.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/QuickSettings.qml": {
+      "canvas": 0,
+      "sync_loader": 2,
+      "dynamic_repeater": 8
+    },
+    "src/QuickTile.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/QuickTileDeck.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/RecentsCarousel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/RoundedImage.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SearchKeyboard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/SearchPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SearchPill.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SegmentGroup.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SegmentedButtons.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingRow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingToggle.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Settings.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 5
+    },
+    "src/SettingsAI.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsAbout.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsAccessibility.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsAppTheme.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsApps.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsDevices.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsGames.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsGestures.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/SettingsGroup.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsHome.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsLabel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsLink.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsLock.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsLook.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/SettingsNotifications.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsPage.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsPhone.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsPower.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsPowerKey.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 6
+    },
+    "src/SettingsProfiles.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsRoutines.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsSchedules.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsScreens.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsSound.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SettingsStyle.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SettingsSystem.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/ShadeTile.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ShadeWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SmartStack.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SnapAssist.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/SnapLayouts.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SnapLayoutsCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/SnapPreview.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Spaces.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SpatialPanel.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SpatialScene.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SplitButton.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SplitDivider.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Squiggle.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/StartMenu.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 4
+    },
+    "src/StorageBar.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/SuggestionChips.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/Surface.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/SwitchContent.qml": {
+      "canvas": 0,
+      "sync_loader": 2,
+      "dynamic_repeater": 9
+    },
+    "src/SystemServices.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/TabletBar.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/TabletDockTray.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/TabletLauncher.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/TaskAwareSection.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/TaskHoverCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/TaskStrip.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Taskbar.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/TaskbarContextWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Theme.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/ThemeGallery.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/ThemeReveal.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/TopBar.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/UndoToast.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/VolumeOsd.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/Wallpaper.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WallpaperPicker.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WavyProgress.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WaydroidSetup.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 2
+    },
+    "src/WearShell.qml": {
+      "canvas": 2,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/WindowPreview.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WindowSwitcher.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WorkspaceCard.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 6
+    },
+    "src/WorkspaceCardWindow.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WorkspaceOsd.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/WorkspacePill.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 4
+    },
+    "src/WorkspaceShelfPill.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 2
+    },
+    "src/WorkspaceSwitcher.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 1
+    },
+    "src/game-session.qml": {
+      "canvas": 0,
+      "sync_loader": 1,
+      "dynamic_repeater": 0
+    },
+    "src/greeter.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/polkit.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/safe-mode.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    },
+    "src/shell.qml": {
+      "canvas": 0,
+      "sync_loader": 3,
+      "dynamic_repeater": 1
+    },
+    "src/switch.qml": {
+      "canvas": 0,
+      "sync_loader": 0,
+      "dynamic_repeater": 0
+    }
+  },
+  "allowlist": [
+    {
+      "file": "src/CaptureMarkup.qml",
+      "rule": "canvas",
+      "max": 1,
+      "reason": "Paint tool: the markup brush needs a CPU canvas."
+    }
+  ]
+}

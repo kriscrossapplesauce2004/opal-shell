@@ -1,0 +1,72 @@
+{
+  "schema": "opal-framelab-v1",
+  "created": "2026-10-29T03:37:36Z",
+  "budget_ms": 16.7,
+  "caveat": "Offscreen software timings from one machine. They show regressions between runs, not real GPU or compositor frame times.",
+  "environment": {
+    "python": "3.14.8",
+    "platform": "Linux-7.3.0-2-cachyos-bore-x86_64-with-glibc2.44",
+    "machine": "x86_64",
+    "cpus": 12,
+    "cpu": "AMD Ryzen 5 5600X 6-Core Processor",
+    "quickshell": "Quickshell 0.3.2 (revision , distributed by Arch Linux)",
+    "backend": "software",
+    "qpa_platform": "offscreen",
+    "cycles": 8,
+    "clock": "Date.now"
+  },
+  "scenarios": [
+    {
+      "name": "quicksettings",
+      "surface": "qs",
+      "cycles": 8,
+      "flickable": false,
+      "frames": 127,
+      "median_ms": 16,
+      "p95_ms": 769,
+      "p99_ms": 770,
+      "max_ms": 771,
+      "over_budget": 32,
+      "over_budget_pct": 25.2
+    },
+    {
+      "name": "start-menu",
+      "surface": "start",
+      "cycles": 8,
+      "flickable": true,
+      "frames": 457,
+      "median_ms": 16,
+      "p95_ms": 324,
+      "p99_ms": 475,
+      "max_ms": 500,
+      "over_budget": 153,
+      "over_budget_pct": 33.48
+    },
+    {
+      "name": "launcher",
+      "surface": "launcher",
+      "cycles": 8,
+      "flickable": true,
+      "frames": 73,
+      "median_ms": 114,
+      "p95_ms": 525,
+      "p99_ms": 526,
+      "max_ms": 526,
+      "over_budget": 43,
+      "over_budget_pct": 58.9
+    },
+    {
+      "name": "notifications",
+      "surface": "notes",
+      "cycles": 8,
+      "flickable": false,
+      "frames": 16,
+      "median_ms": 712.0,
+      "p95_ms": 1015,
+      "p99_ms": 1015,
+      "max_ms": 1015,
+      "over_budget": 15,
+      "over_budget_pct": 93.75
+    }
+  ]
+}
