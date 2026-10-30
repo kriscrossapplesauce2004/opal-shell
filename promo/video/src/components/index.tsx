@@ -238,3 +238,77 @@ export const Flash: React.FC<{at: number; dur?: number; strength?: number}> = ({
   const o = interpolate(f, [at, at + 2, at + dur], [0, strength, 0], clamp);
   return o > 0 ? <AbsoluteFill style={{background: '#fff', opacity: o, mixBlendMode: 'screen'}} /> : null;
 };
+
+// ---------------------------------------------------------------- crops and keys
+
+// One region of a clip shown at a given width, as its own card.
+export const Crop: React.FC<{
+  src: string; from: number; region: [number, number, number, number]; width: number; srcW?: number; srcH?: number;
+  rate?: number; radius?: number; shadow?: boolean; style?: React.CSSProperties;
+}> = ({src, from, region: [rx, ry, rw, rh], width, srcW = 2560, srcH = 1440, rate = 1, radius = 26, shadow = true, style}) => {
+  const {fps} = useVideoConfig();
+  const k = width / rw;
+  return (
+    <div style={{width, height: rh * k, borderRadius: radius, overflow: 'hidden', position: 'relative', background: C.ink,
+      boxShadow: shadow ? '0 40px 110px rgba(0,0,0,0.55), 0 0 0 1.5px rgba(255,255,255,0.10)' : undefined, ...style}}>
+      <OffthreadVideo src={staticFile(`clips/${src}`)} startFrom={Math.round(from * fps)} playbackRate={rate} muted
+        style={{position: 'absolute', left: -rx * k, top: -ry * k, width: srcW * k, height: srcH * k, maxWidth: 'none'}} />
+    </div>
+  );
+};
+
+// A keyboard key that sinks while pressed. `down` lists [pressFrame, releaseFrame] pairs.
+export const Keycap: React.FC<{label: string; width?: number; down: [number, number][]; x: number; y: number; delay?: number}> = ({label, width = 150, down, x, y, delay = 0}) => {
+  const f = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const enter = spring({frame: f - delay, fps, config: {damping: 15, stiffness: 160}});
+  const pressed = down.some(([a, b]) => f >= a && f < b);
+  const lastEdge = Math.max(...down.flatMap(([a, b]) => [a, b]).filter((e) => e <= f), -999);
+  const p = spring({frame: f - lastEdge, fps, config: {damping: 18, stiffness: 420}});
+  const depth = pressed ? p : 1 - p;
+  return (
+    <div style={{position: 'absolute', left: x, top: y, transform: `translate(-50%, -50%) translateY(${(1 - enter) * 80}px) scale(${0.9 + 0.1 * enter})`, opacity: enter}}>
+      <div style={{width, height: 120, borderRadius: 30, background: '#0c0f1c', paddingBottom: 12 * (1 - depth), boxSizing: 'border-box', transform: `translateY(${12 * depth}px)`}}>
+        <div style={{height: 108, borderRadius: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontSize: 44,
+          fontVariationSettings: "'wght' 620, 'ROND' 100", color: pressed ? C.primaryInk : C.text,
+          background: pressed ? C.primary : 'linear-gradient(180deg, #2b3049, #1d2134)', border: '1.5px solid rgba(255,255,255,0.14)',
+          boxShadow: pressed ? `0 0 50px ${C.primary}88` : '0 18px 40px rgba(0,0,0,0.45)'}}>{label}</div>
+      </div>
+    </div>
+  );
+};
+
+// An M3 connected button group; the selected segment changes colour only.
+export const Segmented: React.FC<{items: [string, string][]; selected: number; x: number; y: number; start?: number}> = ({items, selected, x, y, start = 0}) => {
+  const f = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const e = spring({frame: f - start, fps, config: {damping: 16, stiffness: 150}});
+  return (
+    <div style={{position: 'absolute', left: x, top: y, transform: `translate(-50%, -50%) translateY(${(1 - e) * 50}px)`, opacity: e, display: 'flex', gap: 6}}>
+      {items.map(([icon, label], i) => {
+        const on = i === selected;
+        return (
+          <div key={label} style={{display: 'flex', alignItems: 'center', gap: 14, padding: '18px 34px', fontFamily: FONT, fontSize: 38,
+            fontVariationSettings: "'wght' 600, 'ROND' 100", color: on ? C.primaryInk : C.text, background: on ? C.primary : 'rgba(32, 37, 58, 0.85)',
+            borderRadius: i === 0 ? '999px 14px 14px 999px' : i === items.length - 1 ? '14px 999px 999px 14px' : 14,
+            transition: 'none', border: '1.5px solid rgba(255,255,255,0.10)'}}>
+            <span style={{fontFamily: ICON, fontSize: 44, fontVariationSettings: "'FILL' 1"}}>{icon}</span>{label}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Plain caption text that fades and rises in, then holds.
+export const Caption: React.FC<{text: string; start: number; x?: number; y: number; size?: number; color?: string; align?: 'left' | 'center'; weight?: number; exit?: number; maxWidth?: number}> = ({
+  text, start, x = 960, y, size = 40, color = C.dim, align = 'center', weight = 450, exit, maxWidth = 900,
+}) => {
+  const f = useCurrentFrame();
+  const t = emphasized(interpolate(f, [start, start + 24], [0, 1], clamp));
+  const out = exit !== undefined ? interpolate(f, [exit, exit + 14], [0, 1], clamp) : 0;
+  return (
+    <div style={{position: 'absolute', left: align === 'center' ? x - maxWidth / 2 : x, top: y, width: maxWidth, textAlign: align, fontFamily: FONT, fontSize: size, color,
+      fontVariationSettings: `'wght' ${weight}, 'ROND' 100`, lineHeight: 1.25, opacity: t * (1 - out), transform: `translateY(${(1 - t) * 24}px)`}}>{text}</div>
+  );
+};
