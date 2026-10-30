@@ -1,0 +1,481 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lunaos.dev/schema/luna-wm-config/1",
+  "title": "Luna window manager config",
+  "description": "Compositor-neutral window manager config. Written by hypr_import.py and the Luna presets. See opal/docs/luna-wm-config.md.",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": 1},
+    "source": {"$ref": "#/$defs/source"},
+    "policy": {"$ref": "#/$defs/policy"},
+    "keybinds": {"type": "array", "items": {"$ref": "#/$defs/keybind"}},
+    "window_rules": {"type": "array", "items": {"$ref": "#/$defs/window_rule"}},
+    "layer_rules": {"type": "array", "items": {"$ref": "#/$defs/layer_rule"}},
+    "spaces": {"type": "array", "items": {"$ref": "#/$defs/space"}},
+    "monitors": {"type": "array", "items": {"$ref": "#/$defs/monitor"}},
+    "input": {"$ref": "#/$defs/input"},
+    "cursor": {"$ref": "#/$defs/cursor"},
+    "layout": {"$ref": "#/$defs/layout"},
+    "animations": {"$ref": "#/$defs/animations"},
+    "gestures": {"type": "array", "items": {"$ref": "#/$defs/gesture"}},
+    "environment": {"type": "object", "additionalProperties": {"type": "string"}},
+    "autostart": {"type": "array", "items": {"$ref": "#/$defs/autostart"}}
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compositor": {"type": "string"},
+        "files": {"type": "array", "items": {"type": "string"}},
+        "preset": {"type": "string", "enum": ["luna", "windows", "macos", "tiling"]}
+      }
+    },
+    "policy": {
+      "description": "Luna behaviour rules from section 7.1. They are defaults, not imports.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor_warps": {"type": "boolean", "default": false, "description": "The pointer moves with focus or space changes only when true."},
+        "unexpected_float": {"enum": ["tile", "float"], "default": "tile", "description": "A window that floats without a rule is tiled at once."},
+        "mode_exit": {"enum": ["restore_windows"], "default": "restore_windows", "description": "Leaving a mode restores every window."}
+      }
+    },
+    "mods": {
+      "type": "string",
+      "enum": ["super", "shift", "ctrl", "alt", "mod2", "mod3", "mod5"]
+    },
+    "direction": {"enum": ["left", "right", "up", "down"]},
+    "keybind": {
+      "type": "object",
+      "required": ["mods", "key", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "mods": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/mods"}},
+        "key": {"type": "string", "minLength": 1, "maxLength": 64, "description": "Keysym name, or mouse:N, or code:N."},
+        "action": {"$ref": "#/$defs/action"},
+        "flags": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repeat": {"type": "boolean"},
+            "locked": {"type": "boolean"},
+            "release": {"type": "boolean"},
+            "mouse": {"type": "boolean"}
+          }
+        },
+        "mode": {"type": ["string", "null"], "description": "Name of the mode (submap) that holds the bind. Null is the default mode."},
+        "description": {"type": "string"},
+        "source": {"type": "string", "description": "File and line of the source bind."}
+      }
+    },
+    "space_target": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["id", "name", "relative", "empty", "special"]},
+        "value": {"type": ["string", "integer"]}
+      }
+    },
+    "action": {
+      "description": "A typed action. Each Hyprland dispatcher maps to one of these.",
+      "oneOf": [
+        {"$ref": "#/$defs/action_close_window"},
+        {"$ref": "#/$defs/action_focus"},
+        {"$ref": "#/$defs/action_focus_window_edge"},
+        {"$ref": "#/$defs/action_focus_monitor"},
+        {"$ref": "#/$defs/action_move_focused"},
+        {"$ref": "#/$defs/action_move_to_monitor"},
+        {"$ref": "#/$defs/action_space"},
+        {"$ref": "#/$defs/action_resize"},
+        {"$ref": "#/$defs/action_move_mouse"},
+        {"$ref": "#/$defs/action_resize_mouse"},
+        {"$ref": "#/$defs/action_float"},
+        {"$ref": "#/$defs/action_fullscreen"},
+        {"$ref": "#/$defs/action_pin"},
+        {"$ref": "#/$defs/action_center"},
+        {"$ref": "#/$defs/action_raise"},
+        {"$ref": "#/$defs/action_snap"},
+        {"$ref": "#/$defs/action_minimize"},
+        {"$ref": "#/$defs/action_group"},
+        {"$ref": "#/$defs/action_layout"},
+        {"$ref": "#/$defs/action_switch_window"},
+        {"$ref": "#/$defs/action_exec"},
+        {"$ref": "#/$defs/action_shell"},
+        {"$ref": "#/$defs/action_mode"},
+        {"$ref": "#/$defs/action_display_power"},
+        {"$ref": "#/$defs/action_session"},
+        {"$ref": "#/$defs/action_unbind"}
+      ]
+    },
+    "action_close_window": {
+      "type": "object", "required": ["type"], "additionalProperties": false,
+      "properties": {"type": {"const": "close_window"}, "force": {"type": "boolean", "default": false}}
+    },
+    "action_focus": {
+      "type": "object", "required": ["type", "direction"], "additionalProperties": false,
+      "properties": {"type": {"const": "focus"}, "direction": {"$ref": "#/$defs/direction"}}
+    },
+    "action_focus_window_edge": {
+      "type": "object", "required": ["type", "edge"], "additionalProperties": false,
+      "properties": {"type": {"const": "focus_window_edge"}, "edge": {"enum": ["first", "last"]}}
+    },
+    "action_focus_monitor": {
+      "type": "object", "required": ["type", "direction"], "additionalProperties": false,
+      "properties": {"type": {"const": "focus_monitor"}, "direction": {"$ref": "#/$defs/direction"}}
+    },
+    "action_move_focused": {
+      "type": "object", "required": ["type", "direction"], "additionalProperties": false,
+      "properties": {"type": {"const": "move_focused"}, "direction": {"$ref": "#/$defs/direction"}}
+    },
+    "action_move_to_monitor": {
+      "type": "object", "required": ["type", "direction"], "additionalProperties": false,
+      "properties": {"type": {"const": "move_to_monitor"}, "direction": {"$ref": "#/$defs/direction"}}
+    },
+    "action_space": {
+      "type": "object", "required": ["type", "target"], "additionalProperties": false,
+      "properties": {
+        "type": {"const": "space"},
+        "target": {"$ref": "#/$defs/space_target"},
+        "move_window": {"type": "boolean", "default": false, "description": "Send the focused window to the space."},
+        "follow": {"type": "boolean", "default": true, "description": "Focus the space after a move."}
+      }
+    },
+    "action_resize": {
+      "type": "object", "required": ["type", "relative"], "additionalProperties": false,
+      "properties": {
+        "type": {"const": "resize"},
+        "relative": {"type": "boolean"},
+        "dx": {"type": "integer"},
+        "dy": {"type": "integer"},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1}
+      }
+    },
+    "action_move_mouse": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "move_mouse"}}},
+    "action_resize_mouse": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "resize_mouse"}}},
+    "action_float": {
+      "type": "object", "required": ["type", "mode"], "additionalProperties": false,
+      "properties": {"type": {"const": "float"}, "mode": {"enum": ["toggle", "enable", "disable"]}}
+    },
+    "action_fullscreen": {
+      "type": "object", "required": ["type", "mode"], "additionalProperties": false,
+      "properties": {
+        "type": {"const": "fullscreen"},
+        "mode": {"enum": ["fullscreen", "maximize"]},
+        "action": {"enum": ["toggle", "set", "unset"], "default": "toggle"}
+      }
+    },
+    "action_pin": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "pin"}}},
+    "action_center": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "center"}}},
+    "action_raise": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "raise"}}},
+    "action_snap": {
+      "type": "object", "required": ["type", "edge"], "additionalProperties": false,
+      "properties": {"type": {"const": "snap"}, "edge": {"enum": ["left", "right", "up", "down", "max", "restore"]}}
+    },
+    "action_minimize": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "minimize"}}},
+    "action_group": {
+      "type": "object", "required": ["type", "op"], "additionalProperties": false,
+      "properties": {"type": {"const": "group"}, "op": {"enum": ["toggle", "next", "prev", "lock"]}}
+    },
+    "action_layout": {
+      "type": "object", "required": ["type", "op"], "additionalProperties": false,
+      "properties": {
+        "type": {"const": "layout"},
+        "op": {"enum": ["toggle_split", "preselect", "pseudo"]},
+        "direction": {"$ref": "#/$defs/direction"}
+      }
+    },
+    "action_switch_window": {
+      "type": "object", "required": ["type", "direction"], "additionalProperties": false,
+      "properties": {"type": {"const": "switch_window"}, "direction": {"enum": ["next", "previous"]}}
+    },
+    "action_exec": {
+      "type": "object", "required": ["type", "command"], "additionalProperties": false,
+      "properties": {"type": {"const": "exec"}, "command": {"type": "string", "minLength": 1}}
+    },
+    "action_shell": {
+      "description": "Luna shell intent, resolved by the shell. Presets use these.",
+      "type": "object", "required": ["type", "intent"], "additionalProperties": false,
+      "properties": {
+        "type": {"const": "shell"},
+        "intent": {"enum": ["launcher", "overview", "controls", "notifications", "settings", "lock", "power_menu", "screenshot", "capture", "clipboard", "terminal", "show_desktop", "snap_layouts", "files", "task_manager", "app_windows", "assistant", "record", "stack_menu"]}
+      }
+    },
+    "action_mode": {
+      "type": "object", "required": ["type", "op"], "additionalProperties": false,
+      "properties": {
+        "type": {"const": "mode"},
+        "op": {"enum": ["enter", "leave"]},
+        "name": {"type": "string", "minLength": 1, "maxLength": 32}
+      }
+    },
+    "action_display_power": {
+      "type": "object", "required": ["type", "action"], "additionalProperties": false,
+      "properties": {"type": {"const": "display_power"}, "action": {"enum": ["toggle", "on", "off"]}}
+    },
+    "action_session": {
+      "type": "object", "required": ["type", "op"], "additionalProperties": false,
+      "properties": {"type": {"const": "session"}, "op": {"enum": ["exit"]}}
+    },
+    "action_unbind": {"type": "object", "required": ["type"], "additionalProperties": false, "properties": {"type": {"const": "unbind"}}},
+    "window_rule": {
+      "type": "object",
+      "required": ["match", "effects"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "source": {"type": "string"},
+        "match": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "class": {"type": "string", "description": "Regex."},
+            "title": {"type": "string", "description": "Regex."},
+            "initial_class": {"type": "string", "description": "Regex."},
+            "initial_title": {"type": "string", "description": "Regex."},
+            "floating": {"type": "boolean"},
+            "fullscreen": {"type": "boolean"},
+            "pinned": {"type": "boolean"},
+            "xwayland": {"type": "boolean"},
+            "focused": {"type": "boolean"}
+          }
+        },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "float": {"type": "boolean"},
+            "tile": {"type": "boolean"},
+            "size": {"type": "object", "required": ["width", "height"], "additionalProperties": false, "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}}},
+            "position": {"type": "object", "required": ["x", "y"], "additionalProperties": false, "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}}},
+            "center": {"type": "boolean"},
+            "space": {"type": "object", "required": ["id"], "additionalProperties": false, "properties": {"id": {"type": "string"}, "focus": {"type": "boolean", "default": true}}},
+            "opacity": {"type": "object", "additionalProperties": false, "properties": {"active": {"type": "number", "minimum": 0, "maximum": 1}, "inactive": {"type": "number", "minimum": 0, "maximum": 1}}},
+            "pin": {"type": "boolean"},
+            "no_focus": {"type": "boolean"},
+            "fullscreen": {"type": "boolean"},
+            "rounding": {"type": "integer", "minimum": 0},
+            "opaque": {"type": "boolean"},
+            "no_anim": {"type": "boolean"},
+            "border_width": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "layer_rule": {
+      "type": "object",
+      "required": ["match", "effects"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string"},
+        "source": {"type": "string"},
+        "match": {"type": "object", "required": ["namespace"], "additionalProperties": false, "properties": {"namespace": {"type": "string", "description": "Regex."}}},
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "no_anim": {"type": "boolean"},
+            "blur": {"type": "boolean"},
+            "ignore_alpha": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+    "space": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["number", "named", "special"]},
+        "monitor": {"type": "string", "description": "Output name that holds the space by default."},
+        "default": {"type": "boolean"},
+        "persistent": {"type": "boolean"},
+        "source": {"type": "string"}
+      }
+    },
+    "monitor": {
+      "type": "object",
+      "required": ["match"],
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "name": {"type": "string", "description": "Output name, such as DP-1."},
+            "description": {"type": "string", "description": "Monitor make and model text."},
+            "fallback": {"type": "boolean", "description": "Applies to every output without its own entry."}
+          }
+        },
+        "enabled": {"type": "boolean", "default": true},
+        "mode": {
+          "oneOf": [
+            {"const": "preferred"},
+            {"type": "object", "required": ["width", "height"], "additionalProperties": false, "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}, "refresh": {"type": "number", "minimum": 0}}}
+          ]
+        },
+        "position": {
+          "oneOf": [
+            {"const": "auto"},
+            {"type": "object", "required": ["x", "y"], "additionalProperties": false, "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}}}
+          ]
+        },
+        "scale": {"type": "number", "minimum": 0.1},
+        "rotation": {"enum": [0, 90, 180, 270]},
+        "flipped": {"type": "boolean"},
+        "vrr": {"enum": ["off", "on", "fullscreen_only"]},
+        "mirror": {"type": "string"},
+        "source": {"type": "string"}
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "layout": {"type": "string"},
+        "variant": {"type": "string"},
+        "options": {"type": "string"},
+        "numlock_on": {"type": "boolean"},
+        "repeat": {"type": "object", "additionalProperties": false, "properties": {"rate": {"type": "integer", "minimum": 0}, "delay_ms": {"type": "integer", "minimum": 0}}},
+        "touchpad": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "natural_scroll": {"type": "boolean"},
+            "tap_to_click": {"type": "boolean"},
+            "disable_while_typing": {"type": "boolean"}
+          }
+        },
+        "pointer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sensitivity": {"type": "number", "minimum": -1, "maximum": 1},
+            "accel_profile": {"enum": ["flat", "adaptive"]}
+          }
+        },
+        "focus_follows_mouse": {"type": "boolean"}
+      }
+    },
+    "cursor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "theme": {"type": "string"},
+        "size": {"type": "integer", "minimum": 1},
+        "hide_on_touch": {"type": "boolean"}
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {"enum": ["dwindle", "master", "scrolling"]},
+        "gaps": {"type": "object", "additionalProperties": false, "properties": {"inner": {"type": "integer", "minimum": 0}, "outer": {"type": "integer", "minimum": 0}}},
+        "border": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "width": {"type": "integer", "minimum": 0},
+            "active_color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"},
+            "inactive_color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"}
+          }
+        },
+        "rounding": {"type": "integer", "minimum": 0},
+        "opacity": {"type": "object", "additionalProperties": false, "properties": {"active": {"type": "number", "minimum": 0, "maximum": 1}, "inactive": {"type": "number", "minimum": 0, "maximum": 1}}},
+        "shadow": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "range": {"type": "integer", "minimum": 0},
+            "render_power": {"type": "integer", "minimum": 1, "maximum": 4},
+            "offset": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer"}},
+            "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"}
+          }
+        },
+        "blur": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "size": {"type": "integer", "minimum": 0},
+            "passes": {"type": "integer", "minimum": 0}
+          }
+        },
+        "dwindle": {"type": "object", "additionalProperties": false, "properties": {"preserve_split": {"type": "boolean"}}},
+        "master": {"type": "object", "additionalProperties": false, "properties": {"factor": {"type": "number", "minimum": 0, "maximum": 1}}}
+      }
+    },
+    "animations": {
+      "description": "Luna uses springs. Hyprland bezier curves and leaf speeds are recorded here for reference only.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "engine": {"const": "springs"},
+        "enabled": {"type": "boolean"},
+        "recorded": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "curves": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "points"],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {"type": "string"},
+                  "points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}}
+                }
+              }
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["leaf"],
+                "additionalProperties": false,
+                "properties": {
+                  "leaf": {"type": "string"},
+                  "enabled": {"type": "boolean"},
+                  "speed": {"type": "number"},
+                  "curve": {"type": "string"},
+                  "style": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "note": {"type": "string"}
+      }
+    },
+    "gesture": {
+      "type": "object",
+      "required": ["fingers", "direction", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "fingers": {"type": "integer", "minimum": 2, "maximum": 5},
+        "direction": {"enum": ["horizontal", "vertical", "pinch"]},
+        "action": {"enum": ["space_swipe"]}
+      }
+    },
+    "autostart": {
+      "type": "object",
+      "required": ["command", "when"],
+      "additionalProperties": false,
+      "properties": {
+        "command": {"type": "string", "minLength": 1},
+        "when": {"enum": ["login", "reload"], "description": "login runs once per session. reload runs on each config reload."},
+        "source": {"type": "string"}
+      }
+    }
+  }
+}

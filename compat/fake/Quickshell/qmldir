@@ -1,0 +1,12 @@
+module Quickshell
+PanelWindow 1.0 ../../Luna/Shell/PanelWindow.qml
+FloatingWindow 1.0 ../../Luna/Shell/FloatingWindow.qml
+PopupWindow 1.0 ../../Luna/Shell/PopupWindow.qml
+ShellRoot 1.0 ../../Luna/Shell/ShellRoot.qml
+Scope 1.0 ../../Luna/Shell/Scope.qml
+Variants 1.0 ../../Luna/Shell/Variants.qml
+Region 1.0 ../../Luna/Shell/Region.qml
+Singleton 1.0 ../../Luna/Shell/Singleton.qml
+singleton Quickshell 1.0 ../../Luna/Shell/QuickshellGlobal.qml
+singleton ExclusionMode 1.0 ../../Luna/Shell/ExclusionMode.qml
+singleton Intersection 1.0 ../../Luna/Shell/Intersection.qml
