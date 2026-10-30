@@ -1,0 +1,312 @@
+# Compat Lab app list (moonshot 13.1). One [[app]] table per app.
+#
+# source:        fdroid            hash is read from the F-Droid index at fetch time
+#                apk-url           sha256 is pinned here and checked on every fetch and run
+#                play-placeholder  listed only; not fetched or run yet
+# abi:           x86_64-capable    x86_64 native code or pure Java
+#                arm-only          needs the phone lane; skipped on the x86_64 lane
+# test_account:  a placeholder name only; this file holds no credentials
+# smoke:         launch, settle:SECONDS, monkey:EVENTS (a fixed seed is used)
+#                "launch" is added first when it is missing.
+#
+# Example of a pinned entry (not active):
+# [[app]]
+# package = "org.example.app"
+# name = "Example"
+# source = "apk-url"
+# url = "https://example.org/app-1.0.apk"
+# sha256 = "<64 hex characters>"
+# abi = "x86_64-capable"
+# category = "other"
+# test_account = "none"
+# smoke = ["launch", "settle:8"]
+
+schema = 1
+
+# browser
+
+[[app]]
+package = "org.mozilla.fennec_fdroid"
+name = "Fennec F-Droid Browser"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "browser"
+test_account = "none"
+smoke = ["launch", "settle:10", "monkey:200"]
+
+[[app]]
+package = "acr.browser.lightning"
+name = "Lightning"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "browser"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "com.duckduckgo.mobile.android"
+name = "DuckDuckGo Privacy Browser"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "browser"
+test_account = "none"
+smoke = ["launch", "settle:12", "monkey:200"]
+
+# maps
+
+[[app]]
+package = "app.organicmaps"
+name = "Organic Maps"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "maps"
+test_account = "none"
+smoke = ["launch", "settle:10", "monkey:200"]
+
+[[app]]
+package = "net.osmand.plus"
+name = "Maps & GPS Navigation OsmAnd+"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "maps"
+test_account = "none"
+smoke = ["launch", "settle:12", "monkey:200"]
+
+[[app]]
+package = "de.westnordost.streetcomplete"
+name = "StreetComplete"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "maps"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+# messaging
+
+[[app]]
+package = "im.vector.app"
+name = "Element Classic"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "messaging"
+test_account = "lab-messaging-01"
+smoke = ["launch", "settle:12", "monkey:200"]
+
+[[app]]
+package = "eu.siacs.conversations"
+name = "Conversations"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "messaging"
+test_account = "lab-messaging-02"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "chat.fluffy.fluffychat"
+name = "FluffyChat Matrix Messenger"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "messaging"
+test_account = "lab-messaging-03"
+smoke = ["launch", "settle:15", "monkey:200"]
+
+# media
+
+[[app]]
+package = "org.videolan.vlc"
+name = "VLC"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "media"
+test_account = "none"
+smoke = ["launch", "settle:10", "monkey:200"]
+
+[[app]]
+package = "org.schabi.newpipe"
+name = "NewPipe"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "media"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "de.danoeh.antennapod"
+name = "AntennaPod - Podcast Player"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "media"
+test_account = "none"
+smoke = ["launch", "settle:10", "monkey:200"]
+
+[[app]]
+package = "com.github.libretube"
+name = "LibreTube"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "media"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+# notes
+
+[[app]]
+package = "net.gsantner.markor"
+name = "Markor"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "notes"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "it.feio.android.omninotes.foss"
+name = "Omni Notes"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "notes"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "org.qownnotes.mobile"
+name = "QOwnNotes"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "notes"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "com.nononsenseapps.notepad"
+name = "NoNonsense Notes"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "notes"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+# keyboard
+
+[[app]]
+package = "rkr.simplekeyboard.inputmethod"
+name = "Simple Keyboard"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "keyboard"
+test_account = "none"
+smoke = ["launch", "settle:6", "monkey:200"]
+
+[[app]]
+package = "com.menny.android.anysoftkeyboard"
+name = "AnySoftKeyboard"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "keyboard"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "helium314.keyboard"
+name = "HeliBoard"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "keyboard"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+# files
+
+[[app]]
+package = "org.fossify.filemanager"
+name = "Fossify File Manager"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "files"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "com.amaze.filemanager"
+name = "Amaze File Manager"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "files"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "me.zhanghai.android.files"
+name = "Material Files"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "files"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+# game
+
+[[app]]
+package = "org.secuso.privacyfriendlysudoku"
+name = "Sudoku (Privacy Friendly)"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "game"
+test_account = "none"
+smoke = ["launch", "settle:6", "monkey:200"]
+
+[[app]]
+package = "org.secuso.privacyfriendly2048"
+name = "2048 (Privacy Friendly)"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "game"
+test_account = "none"
+smoke = ["launch", "settle:6", "monkey:200"]
+
+[[app]]
+package = "org.secuso.privacyfriendlybattleship"
+name = "Battleship Game (Privacy Friendly)"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "game"
+test_account = "none"
+smoke = ["launch", "settle:6", "monkey:200"]
+
+[[app]]
+package = "dev.lonami.klooni"
+name = "1010! Klooni"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "game"
+test_account = "none"
+smoke = ["launch", "settle:6", "monkey:200"]
+
+# system
+
+[[app]]
+package = "org.fdroid.fdroid"
+name = "F-Droid"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "system"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "com.aurora.store"
+name = "Aurora Store"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "system"
+test_account = "none"
+smoke = ["launch", "settle:8", "monkey:200"]
+
+[[app]]
+package = "org.connectbot"
+name = "ConnectBot"
+source = "fdroid"
+abi = "x86_64-capable"
+category = "system"
+test_account = "none"
+smoke = ["launch", "settle:6", "monkey:200"]

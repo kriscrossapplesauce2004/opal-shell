@@ -1,0 +1,181 @@
+# lunaOS VM matrix (moonshot section 26).
+# One VM is one value from each axis. A profile picks a subset of values.
+# Axis values must not contain dots. Keep names short: they appear in VM ids.
+
+[host]
+qemu = "qemu-system-x86_64"
+qemu_img = "qemu-img"
+swtpm = "swtpm"
+ssh = "ssh"
+ssh_keygen = "ssh-keygen"
+scp = "scp"
+xorriso = "xorriso"
+# Arch edk2-ovmf names. Verify with: pacman -Ql edk2-ovmf
+ovmf_code = "/usr/share/edk2/x64/OVMF_CODE.4m.fd"
+ovmf_vars = "/usr/share/edk2/x64/OVMF_VARS.4m.fd"
+ovmf_secboot_code = "/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd"
+ovmf_secboot_vars = "/usr/share/edk2/x64/OVMF_VARS.secboot.4m.fd"
+disk_size = "40G"
+ssh_port_base = 2200
+ssh_port_span = 2000
+
+# Firmware. BIOS uses SeaBIOS, which is built into QEMU.
+[firmware.uefi]
+kind = "uefi"
+secure_boot = false
+
+[firmware.bios]
+kind = "bios"
+secure_boot = false
+
+[firmware.uefi-sb]
+kind = "uefi"
+secure_boot = true
+
+# TPM 2.0 comes from swtpm over a unix socket.
+[tpm.none]
+enabled = false
+
+[tpm.swtpm2]
+enabled = true
+
+# Boot disk bus. NVMe is the default for lunaOS on real phones and PCs.
+[disk.nvme]
+bus = "nvme"
+
+[disk.sata]
+bus = "ahci"
+
+[disk.virtio]
+bus = "virtio"
+
+# GPU. Virtio GPUs take max_outputs from the outputs axis. std VGA has one head.
+[gpu.virtio-gpu]
+vga = "none"
+device = "virtio-vga"
+display = "none"
+
+[gpu.virtio-gpu-gl]
+vga = "none"
+device = "virtio-vga-gl"
+display = "egl-headless"
+
+[gpu.std-vga]
+vga = "std"
+device = ""
+display = "none"
+
+# Outputs. Each head has a mode and a guest scale. The guest applies the scale.
+# QEMU gets the size of head 0 only. Other head sizes need a guest EDID step (not built yet).
+[outputs.one-1080p]
+heads = [{ size = "1920x1080", scale = 1, refresh = 60 }]
+
+[outputs.one-4k-x2]
+heads = [{ size = "3840x2160", scale = 2, refresh = 60 }]
+
+[outputs.two-mixed]
+heads = [
+  { size = "1920x1080", scale = 1, refresh = 60 },
+  { size = "2560x1440", scale = 1.5, refresh = 144 },
+]
+
+[outputs.two-same]
+heads = [
+  { size = "1920x1080", scale = 1, refresh = 60 },
+  { size = "1920x1080", scale = 1, refresh = 60 },
+]
+
+# RAM and vCPUs.
+[resources.small]
+ram_mb = 2048
+cpus = 2
+
+[resources.std]
+ram_mb = 4096
+cpus = 4
+
+[resources.large]
+ram_mb = 8192
+cpus = 8
+
+# Guests. Files live in $XDG_CACHE_HOME/luna-rig/images/ under these exact names.
+# Rename each download to the file name here.
+[guest.opal-iso]
+kind = "iso"
+file = "opal.iso"
+
+[guest.arch]
+kind = "qcow2"
+file = "Arch-Linux-x86_64-cloudimg.qcow2"
+format = "qcow2"
+
+[guest.fedora]
+kind = "qcow2"
+file = "Fedora-Cloud-Base-Generic.x86_64.qcow2"
+format = "qcow2"
+
+[guest.ubuntu]
+kind = "qcow2"
+file = "noble-server-cloudimg-amd64.img"
+format = "qcow2"
+
+[guest.debian]
+kind = "qcow2"
+file = "debian-13-genericcloud-amd64.qcow2"
+format = "qcow2"
+
+# Rules that drop impossible or unwanted combinations. All keys must match.
+[[exclude]]
+when = { firmware = "bios", disk = "nvme" }
+reason = "SeaBIOS does not boot NVMe in this rig"
+
+[[exclude]]
+when = { firmware = "bios", tpm = "swtpm2" }
+reason = "Rig policy: TPM cases run under UEFI only"
+
+[[exclude]]
+when = { firmware = "uefi-sb", guest = "opal-iso" }
+reason = "The Opal ISO has no signed shim yet"
+
+[[exclude]]
+when = { firmware = "uefi-sb", guest = "arch" }
+reason = "Arch cloud images are not Secure Boot signed"
+
+[[exclude]]
+when = { gpu = "std-vga", outputs = "two-mixed" }
+reason = "std VGA has one head"
+
+[[exclude]]
+when = { gpu = "std-vga", outputs = "two-same" }
+reason = "std VGA has one head"
+
+# Profiles. Each lists axis values to keep. An axis left out keeps all values.
+# cover = "pairwise" gives every pair of values at least once.
+# cover = "full" gives the whole product and stops at max_vms.
+
+[profiles.smoke]
+description = "Fast gate on the Opal ISO and Ubuntu: firmware, TPM, disk, GPU and outputs pairs."
+cover = "pairwise"
+max_vms = 16
+guest = ["opal-iso", "ubuntu"]
+resources = ["std"]
+outputs = ["one-1080p", "two-mixed"]
+
+[profiles.nightly]
+description = "All guests and axes, pairwise, for the nightly run."
+cover = "pairwise"
+max_vms = 80
+
+# Hotplug. The virtual monitor is a second virtio GPU card on a hotplug root port.
+[hotplug]
+root_port = "rp-hot"
+size = "1920x1080"
+settle_seconds = 2.0
+event_timeout_seconds = 30
+# Guest command that prints the number of open windows. The compositor test interface defines it (not built yet).
+window_count_cmd = "luna-test windows count"
+
+[suite]
+# Set this when opal/tests/desktop-suite/ lands.
+command = ""
+report_dir = "/home/rig/suite-reports"

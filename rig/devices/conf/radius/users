@@ -1,0 +1,3 @@
+# Rig test user for PEAP and TTLS (moonshot section 26). Identity matches opal/src/connectivity.py.
+rig.user	Cleartext-Password := "rig-user-pass-01"
+	Reply-Message := "Luna rig test user"

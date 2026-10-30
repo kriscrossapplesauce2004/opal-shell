@@ -1,0 +1,1193 @@
+# Luna desktop suite (moonshot section 10, exit at M6). 100 tasks in 19 areas.
+# Each [[task]] has id, area, title, steps, expected, needs and automation.
+# Auto tasks also have actions (run in order) and checks (must all hold after the actions).
+# Action verbs: spawn, workspace, window, layout, output, ipc, notify, clip-set, screenshot, sleep, wait.
+# Check form: QUERY OP VALUE, with OP one of == != >= <= > < contains. Quote values with quotes if needed.
+# needs values: nested-hyprland, real-hw (a real laptop or desktop), vm (VM matrix), rig-devices (devices named in opal/rig/devices).
+
+# ---------- windows (12) ----------
+
+[[task]]
+id = "win-tile-three"
+area = "windows"
+title = "Three windows tile on space 2 with focus on the newest"
+steps = ["Switch to space 2.", "Open three kitty windows titled suite-1, suite-2 and suite-3."]
+expected = ["Layout is dwindle.", "All three windows are tiled and inside the output.", "suite-3 is the active window."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 2",
+  "spawn kitty --title suite-1",
+  "wait 10 clients.count[ws=2] == 1",
+  "spawn kitty --title suite-2",
+  "wait 10 clients.count[ws=2] == 2",
+  "spawn kitty --title suite-3",
+  "wait 10 clients.count[ws=2] == 3",
+]
+checks = [
+  'layout == dwindle',
+  'clients.count[ws=2,floating=false] == 3',
+  'clients.outside[ws=2] == 0',
+  'active.title == suite-3',
+  'window[title=suite-1].workspace == 2',
+]
+
+[[task]]
+id = "win-float-toggle"
+area = "windows"
+title = "Toggle a window between tiled and floating"
+steps = ["Open a kitty window titled suite-f.", "Press the float toggle on it, then press it again."]
+expected = ["It floats after the first toggle.", "It tiles again after the second toggle."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-f",
+  "wait 10 window[title=suite-f].floating == false",
+  "window title=suite-f float on",
+  "wait 5 window[title=suite-f].floating == true",
+  "window title=suite-f float toggle",
+]
+checks = ["window[title=suite-f].floating == false"]
+
+[[task]]
+id = "win-float-place"
+area = "windows"
+title = "A floating window takes exact geometry"
+steps = ["Open a kitty window titled suite-p and float it.", "Place it at 200,150 with size 640x480."]
+expected = ["The window floats.", "Its position is 200,150 and its size is 640x480."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-p",
+  "wait 10 window[title=suite-p].floating == false",
+  "window title=suite-p place 200 150 640 480",
+]
+checks = [
+  "window[title=suite-p].floating == true",
+  "window[title=suite-p].x == 200",
+  "window[title=suite-p].y == 150",
+  "window[title=suite-p].width == 640",
+  "window[title=suite-p].height == 480",
+]
+
+[[task]]
+id = "win-fullscreen"
+area = "windows"
+title = "Fullscreen covers the monitor and returns to its size"
+steps = ["Open a kitty window titled suite-fs.", "Set it fullscreen, then turn fullscreen off."]
+expected = ["Fullscreen state is 2 and the window matches the monitor size.", "After turning it off the window is smaller than the monitor."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-fs",
+  "wait 10 window[title=suite-fs].floating == false",
+  "window title=suite-fs fullscreen 2",
+  "wait 5 window[title=suite-fs].fullscreen == 2",
+  "wait 5 window[title=suite-fs].width == monitor[WAYLAND-1].width",
+  "window title=suite-fs fullscreen 0",
+  "wait 5 window[title=suite-fs].fullscreen == 0",
+]
+checks = [
+  "window[title=suite-fs].fullscreen == 0",
+  "window[title=suite-fs].width < monitor[WAYLAND-1].width",
+]
+
+[[task]]
+id = "win-close-retile"
+area = "windows"
+title = "Closing a window retiles the rest with no gap"
+steps = ["Open three kitty windows on space 2.", "Close suite-2."]
+expected = ["Two windows remain on space 2.", "Both remaining windows are inside the output.", "suite-3 keeps focus."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 2",
+  "spawn kitty --title suite-1",
+  "wait 10 clients.count[ws=2] == 1",
+  "spawn kitty --title suite-2",
+  "wait 10 clients.count[ws=2] == 2",
+  "spawn kitty --title suite-3",
+  "wait 10 clients.count[ws=2] == 3",
+  "window title=suite-2 close",
+  "wait 5 clients.count[ws=2] == 2",
+]
+checks = [
+  "clients.count[ws=2] == 2",
+  "clients.outside[ws=2] == 0",
+  "active.title == suite-3",
+]
+
+[[task]]
+id = "win-move-silent"
+area = "windows"
+title = "Move a window to space 3 without following it"
+steps = ["Open kitty titled suite-m on space 1.", "Move it to space 3 without switching."]
+expected = ["The window is on space 3.", "The current space is still 1."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-m",
+  "wait 10 window[title=suite-m].workspace == 1",
+  "window title=suite-m move 3",
+  "wait 5 window[title=suite-m].workspace == 3",
+]
+checks = [
+  "window[title=suite-m].workspace == 3",
+  "workspace.current == 1",
+]
+
+[[task]]
+id = "win-move-follow"
+area = "windows"
+title = "Move a window to space 4 and follow it"
+steps = ["Open kitty titled suite-mf on space 1.", "Move it to space 4 and follow it."]
+expected = ["Space 4 is the current space.", "suite-mf is the active window."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-mf",
+  "wait 10 window[title=suite-mf].workspace == 1",
+  "window title=suite-mf move 4 follow",
+  "wait 5 workspace.current == 4",
+]
+checks = [
+  "window[title=suite-mf].workspace == 4",
+  "active.title == suite-mf",
+]
+
+[[task]]
+id = "win-master-layout"
+area = "windows"
+title = "Master layout keeps every window inside the output"
+steps = ["Open three kitty windows on space 1.", "Switch the space layout to master."]
+expected = ["Layout is master.", "All three windows are inside the output."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-l1",
+  "wait 10 clients.count[ws=1] == 1",
+  "spawn kitty --title suite-l2",
+  "wait 10 clients.count[ws=1] == 2",
+  "spawn kitty --title suite-l3",
+  "wait 10 clients.count[ws=1] == 3",
+  "layout master",
+  "wait 5 layout == master",
+]
+checks = [
+  "layout == master",
+  "clients.count[ws=1] == 3",
+  "clients.outside[ws=1] == 0",
+]
+
+[[task]]
+id = "win-minimize-restore"
+area = "windows"
+title = "Minimise to the hidden space and restore to the same space"
+steps = ["Open kitty titled suite-min on space 1.", "Minimise it, then restore it."]
+expected = ["Minimised, the window sits on the opal-minimized special space.", "Restored, it is back on space 1 and focused."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-min",
+  "wait 10 window[title=suite-min].workspace == 1",
+  "window title=suite-min minimize",
+  "wait 5 window[title=suite-min].workspace_name == special:opal-minimized",
+  "window title=suite-min restore 1",
+  "wait 5 window[title=suite-min].workspace == 1",
+]
+checks = [
+  "window[title=suite-min].workspace == 1",
+  "active.title == suite-min",
+]
+
+[[task]]
+id = "win-snap-left"
+area = "windows"
+title = "Snap a floating window to the left half from the shell"
+steps = ["Open kitty titled suite-snap and float it.", "Snap it left with the Opal shortcut."]
+expected = ["The window sits at x 0.", "Its width is about half the output."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-snap",
+  "wait 10 window[title=suite-snap].floating == false",
+  "window title=suite-snap float on",
+  "window title=suite-snap focus",
+  "wait 5 window[title=suite-snap].floating == true",
+  "ipc snapLeft",
+]
+checks = [
+  "window[title=suite-snap].x <= 16",
+  "window[title=suite-snap].width >= 700",
+  "window[title=suite-snap].width <= 900",
+]
+
+[[task]]
+id = "win-rule-from-window"
+area = "windows"
+title = "Make a rule from a window and apply it to a new window"
+steps = ["Open a kitty window and use Make a rule from this window.", "Set the rule to float and open another window of the same app."]
+expected = ["The rule is saved in the window-rules editor.", "The new window floats at once."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "win-drag-drop-targets"
+area = "windows"
+title = "Dragging a window shows live drop targets"
+steps = ["Drag a window slowly across the screen.", "Hover over the left edge, a window centre and another space."]
+expected = ["Drop targets appear for tile left or right, swap, split, tab, float and move to space.", "Dropping on a target applies it."]
+needs = ["vm"]
+automation = "manual"
+
+# ---------- spaces (8) ----------
+
+[[task]]
+id = "spc-number-switch"
+area = "spaces"
+title = "Switching to a numbered space leaves other spaces alone"
+steps = ["Open kitty titled suite-s1 on space 1.", "Switch to space 2."]
+expected = ["Space 2 is current.", "suite-s1 stays on space 1.", "Space 2 has no windows."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-s1",
+  "wait 10 window[title=suite-s1].workspace == 1",
+  "workspace 2",
+  "wait 5 workspace.current == 2",
+]
+checks = [
+  "workspace.current == 2",
+  "clients.count[ws=1] == 1",
+  "clients.count[ws=2] == 0",
+]
+
+[[task]]
+id = "spc-empty-space"
+area = "spaces"
+title = "The empty-space shortcut goes to the first empty space"
+steps = ["Open kitty titled suite-e1 on space 1.", "Use the go-to-empty-space shortcut."]
+expected = ["Current space is 2.", "Space 2 has no windows."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-e1",
+  "wait 10 window[title=suite-e1].workspace == 1",
+  "workspace empty",
+  "wait 5 workspace.current == 2",
+]
+checks = [
+  "workspace.current == 2",
+  "clients.count[ws=2] == 0",
+]
+
+[[task]]
+id = "spc-named-project"
+area = "spaces"
+title = "A named project space holds its windows and can be left"
+steps = ["Switch to the project space.", "Open kitty titled suite-p1 there.", "Return to space 1."]
+expected = ["The current space name is project.", "suite-p1 is on the project space.", "Space 1 is current again."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace name:project",
+  "wait 5 workspace.name == project",
+  "spawn kitty --title suite-p1",
+  "wait 10 window[title=suite-p1].workspace_name == project",
+  "workspace 1",
+  "wait 5 workspace.current == 1",
+]
+checks = [
+  "window[title=suite-p1].workspace_name == project",
+  "workspace.current == 1",
+  "clients.count[ws=project] == 1",
+]
+
+[[task]]
+id = "spc-overview-super-tab"
+area = "spaces"
+title = "Super+Tab overview shows every space and window live"
+steps = ["Open two windows on different spaces.", "Press Super+Tab."]
+expected = ["Every space and window is shown live.", "Typing filters windows, apps and files."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "spc-alt-tab-recent"
+area = "spaces"
+title = "Alt+Tab strip follows recent order"
+steps = ["Use three windows in order A, B, C.", "Press Alt+Tab once, then hold Alt and press Tab twice."]
+expected = ["The first Alt+Tab selects the previous window.", "The strip shows recent order."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "spc-alt-grave-app-cycle"
+area = "spaces"
+title = "Alt+grave cycles the windows of one app only"
+steps = ["Open two kitty windows and one browser window.", "Press Alt+grave in a kitty window."]
+expected = ["Focus moves between the kitty windows only."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "spc-overview-drag-monitor"
+area = "spaces"
+title = "Drag a window between spaces and monitors in the overview"
+steps = ["Open the overview with two monitors connected.", "Drag a window to a space on the other monitor."]
+expected = ["The window moves to that space and monitor.", "The overview stays open until dismissed."]
+needs = ["real-hw", "rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "spc-touchpad-gestures"
+area = "spaces"
+title = "Touchpad gestures move one to one with momentum"
+steps = ["Swipe three fingers left and right slowly.", "Swipe four fingers up, then pinch."]
+expected = ["Spaces follow the fingers with momentum.", "Four fingers open the overview.", "A pinch shows the desktop."]
+needs = ["real-hw"]
+automation = "manual"
+
+# ---------- shelf (7) ----------
+
+[[task]]
+id = "shelf-launcher-open"
+area = "shelf"
+title = "The launcher opens through the shell IPC"
+steps = ["Run the launcher IPC call."]
+expected = ["The shell page is launcher."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = ["ipc launcher", "wait 5 ipc[inspect].page == launcher"]
+checks = ["ipc[inspect].page == launcher"]
+
+[[task]]
+id = "shelf-launcher-close"
+area = "shelf"
+title = "Close returns the shell to no page"
+steps = ["Open the launcher through IPC.", "Call close."]
+expected = ["The page is empty after close."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "ipc launcher",
+  "wait 5 ipc[inspect].page == launcher",
+  "ipc close",
+  'wait 5 ipc[inspect].page == ""',
+]
+checks = ['ipc[inspect].page == ""']
+
+[[task]]
+id = "shelf-search-calc"
+area = "shelf"
+title = "Start search takes a calculator query"
+steps = ["Run search with =2+2."]
+expected = ["The search query is =2+2."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = ["ipc search =2+2", "wait 5 ipc[inspect].query == =2+2"]
+checks = ["ipc[inspect].query == =2+2"]
+
+[[task]]
+id = "shelf-jump-list"
+area = "shelf"
+title = "Jump lists show recent files and app actions"
+steps = ["Open a file in an app that has a Shelf icon.", "Right-click the Shelf icon."]
+expected = ["The recent file appears in the jump list.", "App actions from the SDK manifest appear."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "shelf-autohide"
+area = "shelf"
+title = "Shelf auto-hides and returns on the edge"
+steps = ["Leave the pointer away from the Shelf for 3 seconds.", "Move the pointer to the Shelf edge."]
+expected = ["The Shelf hides.", "It returns at once on the edge."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "shelf-search-files"
+area = "shelf"
+title = "Start search finds files and windows"
+steps = ["Open Start and type the name of a file in the home folder.", "Type the title of an open window."]
+expected = ["The file appears with its folder.", "The window appears and selecting it focuses it."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "shelf-drop-file-icon"
+area = "shelf"
+title = "Dropping a file on a Shelf icon opens it"
+steps = ["Drag a text file onto the editor icon on the Shelf."]
+expected = ["The editor opens the file."]
+needs = ["vm"]
+automation = "manual"
+
+# ---------- displays (9) ----------
+
+[[task]]
+id = "disp-headless-add"
+area = "displays"
+title = "A virtual monitor appears when added"
+steps = ["Create a headless output."]
+expected = ["Two outputs are listed.", "One output is named HEADLESS."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = ["output create headless", "wait 5 monitors.count == 2"]
+checks = [
+  "monitors.count == 2",
+  "monitors.names contains HEADLESS",
+]
+
+[[task]]
+id = "disp-headless-remove"
+area = "displays"
+title = "Removing a virtual monitor leaves one output"
+steps = ["Create a headless output.", "Remove it."]
+expected = ["Only WAYLAND-1 remains."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "output create headless",
+  "wait 5 monitors.count == 2",
+  "output remove last",
+  "wait 5 monitors.count == 1",
+]
+checks = [
+  "monitors.count == 1",
+  "monitors.names contains WAYLAND-1",
+]
+
+[[task]]
+id = "disp-headless-rotate"
+area = "displays"
+title = "Rotate a virtual output to portrait"
+steps = ["Create a headless output.", "Rotate it 90 degrees."]
+expected = ["The output reports transform 1."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "output create headless",
+  "wait 5 monitors.count == 2",
+  "output rotate last 1",
+  "wait 5 monitor[last].transform == 1",
+]
+checks = ["monitor[last].transform == 1"]
+
+[[task]]
+id = "disp-hotplug-windows-return"
+area = "displays"
+title = "Windows survive unplug and return to a re-added monitor"
+steps = ["Open kitty titled suite-h on the built-in output.", "Move it to a virtual monitor.", "Remove that monitor, then add one back."]
+expected = ["suite-h is still open after the unplug.", "suite-h returns to the monitor that was re-added."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 1",
+  "spawn kitty --title suite-h",
+  "wait 10 window[title=suite-h].workspace == 1",
+  "output create headless",
+  "wait 5 monitors.count == 2",
+  "window title=suite-h to-monitor last",
+  "wait 5 window[title=suite-h].monitor_name contains HEADLESS",
+  "output remove last",
+  "wait 5 monitors.count == 1",
+  "output create headless",
+  "wait 5 monitors.count == 2",
+]
+checks = [
+  "clients.count[title=suite-h] == 1",
+  "window[title=suite-h].monitor_name contains HEADLESS",
+]
+
+[[task]]
+id = "disp-mixed-dpi"
+area = "displays"
+title = "Mixed DPI outputs keep fractional scaling and Xwayland apps sharp"
+steps = ["Connect a 1x and a 1.5x monitor.", "Open an Xwayland app on each."]
+expected = ["Each monitor uses its own scale.", "The Xwayland app is not blurry."]
+needs = ["real-hw"]
+automation = "semi"
+
+[[task]]
+id = "disp-hdr-vrr"
+area = "displays"
+title = "HDR and VRR switch per output and per app"
+steps = ["Enable HDR on the external monitor.", "Enable VRR and run a game full screen."]
+expected = ["HDR changes only that output.", "VRR applies to the full-screen app only."]
+needs = ["real-hw", "rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "disp-sleep-keeps-shell"
+area = "displays"
+title = "A sleeping monitor never takes shell surfaces with it"
+steps = ["Let the external monitor sleep for 10 minutes.", "Wake it and open the Shelf."]
+expected = ["Shell panels are still there after waking.", "Windows are where they were."]
+needs = ["real-hw", "rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "disp-mirror-cast"
+area = "displays"
+title = "Mirror, extend and cast from one place"
+steps = ["Open display settings.", "Switch between mirror and extend, then cast to a second output."]
+expected = ["Each mode applies and can be reverted."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "disp-night-light"
+area = "displays"
+title = "Night light applies per monitor"
+steps = ["Turn on night light for one monitor only."]
+expected = ["Only that monitor warms."]
+needs = ["real-hw"]
+automation = "semi"
+
+# ---------- sessions (7) ----------
+
+[[task]]
+id = "sess-restore-reboot"
+area = "sessions"
+title = "Windows come back on their space and monitor after reboot"
+steps = ["Arrange windows on two spaces and two monitors.", "Reboot the desktop and log in."]
+expected = ["Every window is back on its space and monitor.", "Geometry matches within 4 pixels."]
+needs = ["real-hw", "rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "sess-restore-logout"
+area = "sessions"
+title = "Log out and back in restores windows"
+steps = ["Arrange windows on two spaces.", "Log out and log in again."]
+expected = ["Windows return on their spaces.", "Non-Luna apps relaunch with their geometry."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "sess-android-restore"
+area = "sessions"
+title = "Android apps come back through the container after reboot"
+steps = ["Open an Android app in a window.", "Reboot and log in."]
+expected = ["The Android app window returns with its size."]
+needs = ["vm"]
+automation = "manual"
+
+[[task]]
+id = "sess-phone-notifications"
+area = "sessions"
+title = "Calls, texts and notifications from the phone show on the desktop"
+steps = ["Pair the phone with Luna link.", "Receive a text and a call on the phone."]
+expected = ["The text appears as a desktop notification.", "The call rings on the desktop."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "sess-continue-from-phone"
+area = "sessions"
+title = "Continue a browser tab from the phone"
+steps = ["Open a page in the phone browser.", "Use the continue option on the desktop."]
+expected = ["The same page opens on the desktop at the same scroll position."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "sess-rdp-share"
+area = "sessions"
+title = "Built-in RDP server and client connect"
+steps = ["Enable the RDP server on desktop A.", "Connect from desktop B with the RDP client."]
+expected = ["The session opens and accepts input.", "Closing the client ends the share."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "sess-screenshare-indicator"
+area = "sessions"
+title = "Sharing one window shows a privacy indicator and turns on Do not disturb"
+steps = ["Share one window with the screen-share tool.", "Check the indicator and the notification state."]
+expected = ["A privacy indicator shows on the shared window.", "Do not disturb is on while sharing."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- apps (4) ----------
+
+[[task]]
+id = "apps-new-window-on-active-space"
+area = "apps"
+title = "A new app window opens on the active space"
+steps = ["Switch to space 3.", "Open kitty titled suite-app."]
+expected = ["suite-app opens on space 3.", "Space 3 is current."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "workspace 3",
+  "wait 5 workspace.current == 3",
+  "spawn kitty --title suite-app",
+  "wait 10 clients.count[ws=3] == 1",
+]
+checks = [
+  "window[title=suite-app].workspace == 3",
+  "workspace.current == 3",
+]
+
+[[task]]
+id = "apps-flathub-install"
+area = "apps"
+title = "Install a Flathub app from the Luna store"
+steps = ["Open the store and install a Flathub app.", "Launch it from Start."]
+expected = ["The install completes.", "The app opens in its own window."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "apps-windows-exe"
+area = "apps"
+title = "Double-clicking an .exe runs it through Proton in a managed prefix"
+steps = ["Double-click a Windows installer in Files.", "Launch the installed program."]
+expected = ["The program runs in its own managed prefix.", "The game overlay and per-app settings are available."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "apps-files-terminal-dropdown"
+area = "apps"
+title = "Files and Terminal open with the flagship layouts"
+steps = ["Open Files and check the sidebar.", "Open the drop-down Terminal and toggle it."]
+expected = ["Files shows the expected layout and sidebar.", "The drop-down Terminal slides in and out."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- printing (4) ----------
+
+[[task]]
+id = "prn-add-network-printer"
+area = "printing"
+title = "Add a network printer through the add-printer flow"
+steps = ["Open printers and add a network printer by its IPP address."]
+expected = ["The printer is listed as ready.", "Its queue shows in CUPS."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "prn-usb-printer"
+area = "printing"
+title = "A USB printer is found and set up on connect"
+steps = ["Connect a USB printer.", "Accept the offered driver."]
+expected = ["The printer appears in the list without a restart."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "prn-print-test-page"
+area = "printing"
+title = "Print a test page from an app"
+steps = ["Print a text document to the test printer."]
+expected = ["The job completes.", "The page matches the document."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "prn-scanner-sane"
+area = "printing"
+title = "Scan a page through SANE"
+steps = ["Open the scan dialog and scan one page at 300 dpi."]
+expected = ["The scan finishes.", "The image is the page and not blank."]
+needs = ["rig-devices"]
+automation = "manual"
+
+# ---------- network (6) ----------
+
+[[task]]
+id = "net-wifi-hidden"
+area = "network"
+title = "Join a hidden network from the shell"
+steps = ["Add a hidden network with its SSID and WPA2 password."]
+expected = ["The network connects and reports the hidden flag."]
+needs = ["real-hw"]
+automation = "manual"
+
+[[task]]
+id = "net-enterprise-8021x"
+area = "network"
+title = "Join an enterprise 802.1X network"
+steps = ["Add an 802.1X network with PEAP and a username and password."]
+expected = ["The network authenticates and gets an address."]
+needs = ["real-hw"]
+automation = "manual"
+
+[[task]]
+id = "net-wifi-scan"
+area = "network"
+title = "Scan and join a visible network"
+steps = ["Open Wi-Fi and wait for a scan.", "Join a visible network with a password."]
+expected = ["Networks list within 10 seconds.", "The join succeeds."]
+needs = ["real-hw"]
+automation = "semi"
+
+[[task]]
+id = "net-wireguard"
+area = "network"
+title = "Bring a WireGuard VPN up and down"
+steps = ["Import a WireGuard profile.", "Connect, then disconnect."]
+expected = ["The tunnel is up and traffic goes through it.", "Disconnect restores the default route."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "net-openvpn"
+area = "network"
+title = "Connect an OpenVPN profile"
+steps = ["Import an OpenVPN profile.", "Connect."]
+expected = ["The tunnel is up."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "net-proxy"
+area = "network"
+title = "A system proxy applies to browsers and apps"
+steps = ["Set a manual HTTP proxy in network settings.", "Load a page in a browser."]
+expected = ["The request goes through the proxy."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- bluetooth (4) ----------
+
+[[task]]
+id = "bt-pair-passkey"
+area = "bluetooth"
+title = "Pair a device with a passkey"
+steps = ["Start pairing with a keyboard that shows a passkey.", "Type the passkey on the keyboard."]
+expected = ["Pairing completes without a terminal.", "The device shows as connected."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "bt-pair-pin"
+area = "bluetooth"
+title = "Pair a device with a PIN"
+steps = ["Start pairing with a speaker that asks for a PIN.", "Enter the PIN."]
+expected = ["Pairing completes in the shell."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "bt-codec-choice"
+area = "bluetooth"
+title = "Choose the codec for connected headphones"
+steps = ["Open the headphone entry.", "Switch between the offered codecs."]
+expected = ["Each codec applies and the audio stream changes."]
+needs = ["rig-devices"]
+automation = "semi"
+
+[[task]]
+id = "bt-reconnect-after-sleep"
+area = "bluetooth"
+title = "Paired devices reconnect after suspend"
+steps = ["Connect the headphones.", "Suspend the laptop for 5 minutes and resume."]
+expected = ["The headphones reconnect within 10 seconds."]
+needs = ["real-hw", "rig-devices"]
+automation = "manual"
+
+# ---------- audio (5) ----------
+
+[[task]]
+id = "aud-per-app-volume"
+area = "audio"
+title = "Per-app volume is set from the mixer"
+steps = ["Play audio in two apps.", "Lower one app to 30 percent."]
+expected = ["Only that app gets quieter."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "aud-route-app"
+area = "audio"
+title = "Route one app to another output"
+steps = ["Play audio in an app.", "Route it to a second output."]
+expected = ["The audio moves to the second output.", "The first output keeps other apps."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "aud-device-profile"
+area = "audio"
+title = "Switch a sound card device profile"
+steps = ["Open the card's profiles.", "Switch from stereo to a surround profile."]
+expected = ["The new profile applies and the outputs update."]
+needs = ["rig-devices"]
+automation = "semi"
+
+[[task]]
+id = "aud-mic-monitor"
+area = "audio"
+title = "Monitor the microphone through the speakers"
+steps = ["Turn on microphone monitoring.", "Speak into the microphone."]
+expected = ["The voice is heard with little delay."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "aud-no-pavucontrol"
+area = "audio"
+title = "Advanced audio opens inside the shell, not pavucontrol"
+steps = ["Open the advanced audio entry."]
+expected = ["The shell shows the advanced view.", "No pavucontrol window opens."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- brightness (3) ----------
+
+[[task]]
+id = "bri-ddc-slider"
+area = "brightness"
+title = "External monitor brightness uses DDC/CI"
+steps = ["Move the brightness slider while the external monitor is selected."]
+expected = ["The external monitor changes brightness."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "bri-ddc-same-slider"
+area = "brightness"
+title = "The DDC monitor shares the slider with the built-in panel"
+steps = ["Select all outputs in the brightness slider.", "Move the slider."]
+expected = ["Both panels change together.", "Values match within one step."]
+needs = ["rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "bri-builtin-panel"
+area = "brightness"
+title = "Built-in panel brightness keys and slider agree"
+steps = ["Press the brightness keys.", "Read the slider."]
+expected = ["The slider follows the keys."]
+needs = ["real-hw"]
+automation = "semi"
+
+# ---------- power (6) ----------
+
+[[task]]
+id = "pow-lid-close-suspend"
+area = "power"
+title = "Closing the lid suspends, and opening it resumes"
+steps = ["Close the laptop lid for 1 minute.", "Open the lid."]
+expected = ["The machine suspends and resumes.", "Windows are unchanged."]
+needs = ["real-hw"]
+automation = "manual"
+
+[[task]]
+id = "pow-suspend-cycles"
+area = "power"
+title = "100 real suspend cycles keep every window"
+steps = ["Run 100 suspend and resume cycles with windows open."]
+expected = ["No window is lost.", "The shell still answers after each resume."]
+needs = ["real-hw", "rig-devices"]
+automation = "manual"
+
+[[task]]
+id = "pow-charge-limit"
+area = "power"
+title = "Battery charge limit stops charging at the set level"
+steps = ["Set the charge limit to 80 percent.", "Charge until the limit is reached."]
+expected = ["Charging stops at 80 percent."]
+needs = ["real-hw"]
+automation = "semi"
+
+[[task]]
+id = "pow-profile-switch"
+area = "power"
+title = "Power profiles change the CPU policy"
+steps = ["Switch between power saver, balanced and performance."]
+expected = ["Each profile is shown as the current profile."]
+needs = ["real-hw"]
+automation = "semi"
+
+[[task]]
+id = "pow-kbd-backlight"
+area = "power"
+title = "Keyboard backlight keys and slider"
+steps = ["Press the backlight keys."]
+expected = ["The backlight steps through its levels."]
+needs = ["real-hw"]
+automation = "semi"
+
+[[task]]
+id = "pow-fingerprint-login"
+area = "power"
+title = "Fingerprint login at the lock screen"
+steps = ["Lock the session.", "Log in with a fingerprint."]
+expected = ["The session unlocks with the fingerprint."]
+needs = ["real-hw"]
+automation = "manual"
+
+# ---------- accessibility (4) ----------
+
+[[task]]
+id = "acc-screen-reader-overview"
+area = "accessibility"
+title = "Screen reader announces the overview"
+steps = ["Turn on the screen reader.", "Open the overview and move through windows."]
+expected = ["Each window title is read out."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "acc-high-contrast"
+area = "accessibility"
+title = "High contrast applies to the shell and apps"
+steps = ["Turn on high contrast in appearance settings."]
+expected = ["Shell surfaces use the high-contrast palette."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "acc-text-scale"
+area = "accessibility"
+title = "Text scale changes shell text without clipping"
+steps = ["Set text scale to 150 percent.", "Open Start and Settings."]
+expected = ["Text is larger and nothing is clipped."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "acc-keyboard-only-tiling"
+area = "accessibility"
+title = "Tile and move windows with the keyboard alone"
+steps = ["Use only the keyboard to open, tile and move three windows."]
+expected = ["Every action is reachable without a pointer."]
+needs = ["vm"]
+automation = "manual"
+
+# ---------- input (4) ----------
+
+[[task]]
+id = "inp-layout-switch-hotkey"
+area = "input"
+title = "Switch keyboard layouts with the hotkey"
+steps = ["Configure two layouts.", "Press the layout switch hotkey."]
+expected = ["The layout changes and the shell shows it."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "inp-ime-cjk"
+area = "input"
+title = "Input method types CJK text in apps"
+steps = ["Enable an input method.", "Type in a text field and in a search field."]
+expected = ["Candidates appear and the text is committed."]
+needs = ["vm"]
+automation = "manual"
+
+[[task]]
+id = "inp-shortcut-preset-macos"
+area = "input"
+title = "The macOS-like shortcut preset binds the expected keys"
+steps = ["Choose the macOS-like preset.", "Press the preset's switcher and close keys."]
+expected = ["The keys act as the preset describes."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "inp-touchpad-pen"
+area = "input"
+title = "Touchpad and pen settings apply"
+steps = ["Change touchpad speed and natural scroll.", "Draw with the pen on a canvas app."]
+expected = ["Each setting applies at once.", "Pen pressure is recognised."]
+needs = ["real-hw"]
+automation = "manual"
+
+# ---------- portal (3) ----------
+
+[[task]]
+id = "portal-file-chooser"
+area = "portal"
+title = "An app's file chooser uses the Opal dialog"
+steps = ["Open a file picker from a portal-aware app."]
+expected = ["The Opal dialog opens.", "Choosing a file returns it to the app."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "portal-screencast-picker"
+area = "portal"
+title = "Screen-share picker lists windows and monitors"
+steps = ["Start a screen share from a browser."]
+expected = ["The picker lists windows and monitors.", "The chosen source is shared."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "portal-open-uri"
+area = "portal"
+title = "Opening a link uses the default browser through the portal"
+steps = ["Open a link from a sandboxed app."]
+expected = ["The default browser opens the link."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- notifications (4) ----------
+
+[[task]]
+id = "notif-arrives-in-inbox"
+area = "notifications"
+title = "A notification from notify-send reaches the inbox"
+steps = ["Send a notification with the summary suite-note-1."]
+expected = ["The notification is listed in the Opal inbox."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "notify Suite-App-1 suite-note-1 hello",
+  "wait 5 ipc[listNotifications] contains suite-note-1",
+]
+checks = ["ipc[listNotifications] contains suite-note-1"]
+
+[[task]]
+id = "notif-app-name-kept"
+area = "notifications"
+title = "The sending app name is kept with the notification"
+steps = ["Send a notification from app Suite-App-2."]
+expected = ["The inbox entry names Suite-App-2."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = [
+  "notify Suite-App-2 suite-note-2 body",
+  "wait 5 ipc[listNotifications] contains Suite-App-2",
+]
+checks = ["ipc[listNotifications] contains Suite-App-2"]
+
+[[task]]
+id = "notif-dnd-presenting"
+area = "notifications"
+title = "Do not disturb hides toasts while presenting"
+steps = ["Start a presentation in full screen.", "Send a notification."]
+expected = ["No toast appears.", "The notification still lands in the inbox."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "notif-action-buttons"
+area = "notifications"
+title = "Notification action buttons do what they say"
+steps = ["Send a notification with an action button.", "Press the button."]
+expected = ["The action runs and the notification closes."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- clipboard (3) ----------
+
+[[task]]
+id = "clip-copy-paste-roundtrip"
+area = "clipboard"
+title = "Text copied in one client pastes in another"
+steps = ["Copy the text suite-clip-A."]
+expected = ["The Wayland clipboard holds suite-clip-A."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = ["clip-set suite-clip-A", "wait 5 clipboard.text == suite-clip-A"]
+checks = ["clipboard.text == suite-clip-A"]
+
+[[task]]
+id = "clip-history-ipc"
+area = "clipboard"
+title = "Clipboard history lists the newest text first"
+steps = ["Copy suite-clip-B after suite-clip-A."]
+expected = ["The history lists suite-clip-B first."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = ["clip-set suite-clip-B", "wait 5 ipc[clipboardHistory] contains suite-clip-B"]
+checks = ["ipc[clipboardHistory].0.text == suite-clip-B"]
+
+[[task]]
+id = "clip-image-history"
+area = "clipboard"
+title = "Copied images appear in clipboard history"
+steps = ["Copy an image from a viewer.", "Open clipboard history."]
+expected = ["The image is listed with a thumbnail."]
+needs = ["vm"]
+automation = "semi"
+
+# ---------- capture (4) ----------
+
+[[task]]
+id = "cap-output-screenshot"
+area = "capture"
+title = "A full-output screenshot has the output size"
+steps = ["Take a screenshot of the whole output."]
+expected = ["The file is a PNG.", "Its size matches the output."]
+needs = ["nested-hyprland"]
+automation = "auto"
+actions = ["screenshot full"]
+checks = [
+  "shot[full].png == true",
+  "shot[full].width == monitor[WAYLAND-1].width",
+  "shot[full].height == monitor[WAYLAND-1].height",
+]
+
+[[task]]
+id = "cap-capture-studio-open"
+area = "capture"
+title = "Capture Studio opens from the shell"
+steps = ["Open Capture Studio from the shell.", "Check that the capture overlay is shown."]
+expected = ["The capture overlay opens on the focused screen.", "Escape closes it."]
+needs = ["nested-hyprland"]
+automation = "semi"
+
+[[task]]
+id = "cap-record-audio"
+area = "capture"
+title = "Record the screen with microphone audio"
+steps = ["Start a recording with audio.", "Stop after 10 seconds and play it back."]
+expected = ["The file plays with video and audio."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "cap-region-capture"
+area = "capture"
+title = "Capture a region with a live preview"
+steps = ["Start a region capture and drag a rectangle."]
+expected = ["The preview follows the rectangle and the saved image matches it."]
+needs = ["real-hw"]
+automation = "manual"
+
+# ---------- day one (3) ----------
+
+[[task]]
+id = "day-one-setup-layout"
+area = "day-one"
+title = "Setup offers a starting layout from the bar styles"
+steps = ["Run setup on a new profile.", "Choose one of islands, dock, split or edge."]
+expected = ["The chosen bar style is applied.", "Every choice can change later."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "day-one-switch-assistant"
+area = "day-one"
+title = "The switch assistant brings wallpaper, theme, pins and layouts"
+steps = ["Run the switch assistant from an old desktop profile."]
+expected = ["Wallpaper, theme, pins, keyboard layouts and scroll direction come over."]
+needs = ["vm"]
+automation = "semi"
+
+[[task]]
+id = "day-one-shortcut-preset"
+area = "day-one"
+title = "A shortcut preset is chosen at setup and feels familiar"
+steps = ["Choose the Windows-like preset.", "Use the common shortcuts for copy, close and switch."]
+expected = ["Common shortcuts work as expected."]
+needs = ["vm"]
+automation = "manual"
