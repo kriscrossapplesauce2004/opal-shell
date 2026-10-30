@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 // M3 Expressive loading indicator: one shape that morphs through the expressive set and turns, for waits of a few seconds.
 Item {
     id: li
@@ -13,31 +14,32 @@ Item {
     property real turn: 0
     NumberAnimation on t { running: li.running && !Theme.reduceMotion; from: 0; to: li.shapes.length; duration: li.shapes.length * 650; loops: Animation.Infinite }
     NumberAnimation on turn { running: li.running && !Theme.reduceMotion; from: 0; to: 360; duration: 4550; loops: Animation.Infinite }
-    onTChanged: shape.requestPaint()
-    onTurnChanged: shape.requestPaint()
-    onInkChanged: shape.requestPaint()
     Rectangle { visible: li.contained; anchors.fill: parent; radius: width / 2; color: li.container }
-    Canvas {
+    // Outline of the shape at the current step and turn, 180 samples around.
+    function outline(w, h) {
+        const n = shapes.length, i = Math.floor(t) % n, j = (i + 1) % n;
+        // Each step holds the shape briefly, then eases into the next one.
+        const raw = t - Math.floor(t), k = raw < .35 ? 0 : (1 - Math.cos((raw - .35) / .65 * Math.PI)) / 2;
+        const a = shapes[i], b = shapes[j], cx = w / 2, cy = h / 2, base = w * .5 / 1.18;
+        const off = turn * Math.PI / 180, pts = [];
+        for (let s = 0; s <= 180; s++) {
+            const ang = s / 180 * Math.PI * 2;
+            const ra = 1 + a[1] * Math.cos(a[0] * (ang - off)), rb = 1 + b[1] * Math.cos(b[0] * (ang - off));
+            // The two-lobe shapes stretch into a pill instead of a peanut.
+            const r = base * (ra + (rb - ra) * k);
+            pts.push(Qt.point(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r));
+        }
+        return pts;
+    }
+    Shape {
         id: shape
         anchors.centerIn: parent
         width: parent.width * (li.contained ? .66 : 1); height: width
-        onPaint: {
-            const c = getContext("2d"); c.reset();
-            const n = li.shapes.length, i = Math.floor(li.t) % n, j = (i + 1) % n;
-            // Each step holds the shape briefly, then eases into the next one.
-            const raw = li.t - Math.floor(li.t), k = raw < .35 ? 0 : (1 - Math.cos((raw - .35) / .65 * Math.PI)) / 2;
-            const a = li.shapes[i], b = li.shapes[j], cx = width / 2, cy = height / 2, base = width * .5 / 1.18;
-            const off = li.turn * Math.PI / 180;
-            c.beginPath();
-            for (let s = 0; s <= 180; s++) {
-                const ang = s / 180 * Math.PI * 2;
-                const ra = 1 + a[1] * Math.cos(a[0] * (ang - off)), rb = 1 + b[1] * Math.cos(b[0] * (ang - off));
-                // The two-lobe shapes stretch into a pill instead of a peanut.
-                const r = base * (ra + (rb - ra) * k);
-                const x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r;
-                if (s === 0) c.moveTo(x, y); else c.lineTo(x, y);
-            }
-            c.closePath(); c.fillStyle = li.ink; c.fill();
+        clip: true
+        preferredRendererType: Shape.CurveRenderer; antialiasing: true
+        ShapePath {
+            fillColor: li.ink; strokeColor: "transparent"; strokeWidth: 0; fillRule: ShapePath.WindingFill
+            PathPolyline { path: li.outline(shape.width, shape.height) }
         }
     }
     Accessible.role: Accessible.ProgressBar

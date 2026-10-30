@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 // Smart Stack: several widgets in one slot. Swipe vertically to flip; it moves to music or a running timer by itself.
 Item {
     id:stack
@@ -68,15 +69,21 @@ Item {
             visible:face.shown==="focus";anchors.fill:parent;radius:32;color:Theme.tertiaryContainer
             RowLayout {
                 anchors.fill:parent;anchors.margins:20;spacing:18
-                Canvas {
+                Item {
                     id:ring;Layout.preferredWidth:parent.height-40;Layout.preferredHeight:Layout.preferredWidth
                     readonly property real progress:Hub.focusSeconds/(25*60)
-                    onProgressChanged:requestPaint()
-                    onVisibleChanged:if(visible)requestPaint()
-                    onPaint:{
-                        const c=getContext("2d"),r=width/2-7;c.reset();c.lineWidth=10;c.lineCap="round";
-                        c.strokeStyle=Theme.alpha(Theme.text,.25);c.beginPath();c.arc(width/2,height/2,r,0,Math.PI*2);c.stroke();
-                        c.strokeStyle=Theme.tertiary;c.beginPath();c.arc(width/2,height/2,r,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,progress)));c.stroke();
+                    readonly property real sweep:Math.max(0,Math.min(1,progress))
+                    readonly property real arcR:width/2-7
+                    Shape {
+                        anchors.fill:parent;preferredRendererType:Shape.CurveRenderer
+                        ShapePath {
+                            strokeColor:Theme.alpha(Theme.text,.25);strokeWidth:10;fillColor:"transparent";capStyle:ShapePath.RoundCap
+                            PathAngleArc {centerX:ring.width/2;centerY:ring.height/2;radiusX:ring.arcR;radiusY:ring.arcR;startAngle:0;sweepAngle:360}
+                        }
+                        ShapePath {
+                            strokeColor:ring.sweep>0 ? Theme.tertiary : "transparent";strokeWidth:10;fillColor:"transparent";capStyle:ShapePath.RoundCap
+                            PathAngleArc {centerX:ring.width/2;centerY:ring.height/2;radiusX:ring.arcR;radiusY:ring.arcR;startAngle:-90;sweepAngle:360*ring.sweep}
+                        }
                     }
                     MText {anchors.centerIn:parent;text:Math.floor(Hub.focusSeconds/60)+":"+String(Hub.focusSeconds%60).padStart(2,"0");font.pixelSize:20;font.weight:Font.Medium;color:Theme.text}
                 }

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 
 // A 2×2 or wide Quick Settings tile with a live control: now playing, the timer, or device batteries.
 Rectangle {
@@ -38,16 +39,23 @@ Rectangle {
     // Timer: a ring and quick controls.
     Item {
         visible: bt.kind === "focus"; anchors.fill: parent; anchors.margins: 12
-        Canvas {
+        Item {
             id: ring
             width: bt.wide ? parent.height : 64; height: width; anchors.verticalCenter: parent.verticalCenter
             property real value: Hub.focusRunning ? 1 - Hub.focusSeconds / Math.max(1, Hub.focusTotal || 1500) : 0
             property color ink: Theme.tertiary
-            onValueChanged: requestPaint(); onInkChanged: requestPaint()
-            onPaint: {
-                const c = getContext("2d"), r = width / 2 - 4; c.reset(); c.lineWidth = bt.wide ? 4 : 6; c.lineCap = "round";
-                c.strokeStyle = Theme.alpha(ink, .25); c.beginPath(); c.arc(width / 2, height / 2, r, 0, Math.PI * 2); c.stroke();
-                if (value > 0) { c.strokeStyle = ink; c.beginPath(); c.arc(width / 2, height / 2, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, value)); c.stroke(); }
+            readonly property real arcR: width / 2 - 4
+            Shape {
+                anchors.fill: parent
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    strokeColor: Theme.alpha(ring.ink, .25); strokeWidth: bt.wide ? 4 : 6; fillColor: "transparent"; capStyle: ShapePath.RoundCap
+                    PathAngleArc { centerX: ring.width / 2; centerY: ring.height / 2; radiusX: ring.arcR; radiusY: ring.arcR; startAngle: 0; sweepAngle: 360 }
+                }
+                ShapePath {
+                    strokeColor: ring.value > 0 ? ring.ink : "transparent"; strokeWidth: bt.wide ? 4 : 6; fillColor: "transparent"; capStyle: ShapePath.RoundCap
+                    PathAngleArc { centerX: ring.width / 2; centerY: ring.height / 2; radiusX: ring.arcR; radiusY: ring.arcR; startAngle: -90; sweepAngle: 360 * Math.min(1, ring.value) }
+                }
             }
             Glyph { visible: bt.wide; anchors.centerIn: parent; name: "timer"; font.pixelSize: 18 }
             MText { visible: !bt.wide; anchors.centerIn: parent; text: Math.floor(Hub.focusSeconds / 60) + ":" + bt.pad(Hub.focusSeconds % 60); role: "label"; font.weight: Font.Bold; font.features: {"tnum": 1} }

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 
 // One activity: lead icon or ring, text and optional controls. Used inside ActivityPill.
 Item {
@@ -28,18 +29,19 @@ Item {
             visible: !seg.hasArt && seg.progress < 0; anchors.fill: parent; radius: 14
             color: seg.a.kind === "recording" ? Theme.alpha(Theme.error, .22) : Theme.alpha(seg.ink, .14)
         }
-        Canvas {
+        Shape {
             id: ring
             anchors.fill: parent; visible: seg.progress >= 0
+            preferredRendererType: Shape.CurveRenderer
             property real value: seg.progress
             property color stroke: seg.ink
-            onValueChanged: requestPaint()
-            onStrokeChanged: requestPaint()
-            onPaint: {
-                const c = getContext("2d"); c.reset(); c.lineWidth = 3; c.lineCap = "round";
-                c.strokeStyle = Theme.alpha(stroke, .25); c.beginPath(); c.arc(14, 14, 11.5, 0, Math.PI * 2); c.stroke();
-                if (value <= 0) return;
-                c.strokeStyle = stroke; c.beginPath(); c.arc(14, 14, 11.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, value)); c.stroke();
+            ShapePath {
+                strokeColor: Theme.alpha(ring.stroke, .25); strokeWidth: 3; fillColor: "transparent"; capStyle: ShapePath.RoundCap
+                PathAngleArc { centerX: 14; centerY: 14; radiusX: 11.5; radiusY: 11.5; startAngle: 0; sweepAngle: 360 }
+            }
+            ShapePath {
+                strokeColor: ring.value > 0 ? ring.stroke : "transparent"; strokeWidth: 3; fillColor: "transparent"; capStyle: ShapePath.RoundCap
+                PathAngleArc { centerX: 14; centerY: 14; radiusX: 11.5; radiusY: 11.5; startAngle: -90; sweepAngle: 360 * Math.min(1, ring.value) }
             }
         }
         Glyph {

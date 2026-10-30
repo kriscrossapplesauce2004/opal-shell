@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 // Large M3 Expressive shape for hero art: set shape to morph to another polar shape, and it turns slowly while spin is on.
 Item {
     id: ms
@@ -18,31 +19,32 @@ Item {
     Component.onCompleted: { from = shape; to = shape; }
     NumberAnimation { id: morph; target: ms; property: "k"; from: 0; to: 1; duration: Theme.motion(720); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasized }
     NumberAnimation on turn { running: ms.spin && ms.visible && !Theme.reduceMotion; from: 0; to: 360; duration: ms.spinMs; loops: Animation.Infinite }
-    onKChanged: canvas.requestPaint()
-    onTurnChanged: canvas.requestPaint()
-    onFillChanged: canvas.requestPaint()
-    onFill2Changed: canvas.requestPaint()
-    onWidthChanged: canvas.requestPaint()
-    onHeightChanged: canvas.requestPaint()
-    Canvas {
-        id: canvas
+    // Outline of the morph between the two shapes, 240 samples around, squashed when set.
+    function outline(w, h) {
+        const a = ms.shapes[ms.from] || ms.shapes[0], b = ms.shapes[ms.to] || ms.shapes[0];
+        const cx = w / 2, cy = h / 2, base = Math.min(w, h) * .5 / 1.34, off = ms.turn * Math.PI / 180;
+        const pts = [];
+        for (let s = 0; s <= 240; s++) {
+            const ang = s / 240 * Math.PI * 2;
+            const ra = 1 + a[1] * Math.cos(a[0] * (ang - off)), rb = 1 + b[1] * Math.cos(b[0] * (ang - off));
+            const r = base * (ra + (rb - ra) * ms.k);
+            pts.push(Qt.point(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r * ms.squash));
+        }
+        return pts;
+    }
+    Shape {
+        id: body
         anchors.fill: parent
-        onPaint: {
-            const c = getContext("2d"); c.reset();
-            const a = ms.shapes[ms.from] || ms.shapes[0], b = ms.shapes[ms.to] || ms.shapes[0];
-            const cx = width / 2, cy = height / 2, base = Math.min(width, height) * .5 / 1.34, off = ms.turn * Math.PI / 180;
-            c.beginPath();
-            for (let s = 0; s <= 240; s++) {
-                const ang = s / 240 * Math.PI * 2;
-                const ra = 1 + a[1] * Math.cos(a[0] * (ang - off)), rb = 1 + b[1] * Math.cos(b[0] * (ang - off));
-                const r = base * (ra + (rb - ra) * ms.k);
-                const x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r * ms.squash;
-                if (s === 0) c.moveTo(x, y); else c.lineTo(x, y);
+        clip: true
+        preferredRendererType: Shape.CurveRenderer; antialiasing: true
+        ShapePath {
+            strokeColor: "transparent"; strokeWidth: 0; fillRule: ShapePath.WindingFill
+            fillGradient: LinearGradient {
+                x1: 0; y1: 0; x2: body.width; y2: body.height
+                GradientStop { position: 0; color: ms.fill }
+                GradientStop { position: 1; color: ms.fill2 }
             }
-            c.closePath();
-            const g = c.createLinearGradient(0, 0, width, height);
-            g.addColorStop(0, ms.fill); g.addColorStop(1, ms.fill2);
-            c.fillStyle = g; c.fill();
+            PathPolyline { path: ms.outline(body.width, body.height) }
         }
     }
 }

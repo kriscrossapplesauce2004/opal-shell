@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 
 // One row of the power key menu. sel runs 0..1 so the ink can blend while the drum rolls.
 Item {
@@ -24,17 +25,19 @@ Item {
             }
             Glyph {anchors.centerIn:parent;visible:!avatar.visible;name:r.entry.icon||"";font.pixelSize:22;color:r.entry.danger ? Theme.error : r.sel>.5 ? r.ink : Theme.primary;opacity:r.blocked ? .45 : 1}
             // Countdown to sleep around the icon.
-            Canvas {
-                id:ringCanvas
+            Shape {
+                id:ringShape
                 anchors.fill:parent;anchors.margins:-4;visible:r.ring>=0
-                property real value:r.ring
-                onValueChanged:requestPaint()
-                onPaint:{
-                    const c=getContext("2d");c.reset();if(value<0)return;
-                    const lw=3.2, rad=Math.min(width,height)/2-lw/2-1;
-                    c.lineWidth=lw;c.lineCap="round";c.strokeStyle=String(Theme.containerInk);
-                    c.globalAlpha=.25;c.beginPath();c.arc(width/2,height/2,rad,0,2*Math.PI);c.stroke();
-                    c.globalAlpha=1;c.beginPath();c.arc(width/2,height/2,rad,-Math.PI/2,-Math.PI/2+2*Math.PI*value);c.stroke();
+                preferredRendererType:Shape.CurveRenderer
+                readonly property real value:r.ring
+                readonly property real arcR:Math.min(width,height)/2-1.6-1
+                ShapePath {
+                    strokeColor:Theme.alpha(Theme.containerInk,.25);strokeWidth:3.2;fillColor:"transparent";capStyle:ShapePath.RoundCap
+                    PathAngleArc {centerX:ringShape.width/2;centerY:ringShape.height/2;radiusX:ringShape.arcR;radiusY:ringShape.arcR;startAngle:0;sweepAngle:360}
+                }
+                ShapePath {
+                    strokeColor:ringShape.value>0 ? Theme.containerInk : "transparent";strokeWidth:3.2;fillColor:"transparent";capStyle:ShapePath.RoundCap
+                    PathAngleArc {centerX:ringShape.width/2;centerY:ringShape.height/2;radiusX:ringShape.arcR;radiusY:ringShape.arcR;startAngle:-90;sweepAngle:360*Math.max(0,Math.min(1,ringShape.value))}
                 }
             }
         }

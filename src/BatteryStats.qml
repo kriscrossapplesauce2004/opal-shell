@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 // Battery page: level, time left, draw, health and a history chart for this session.
 Item {
     id: page
@@ -24,7 +25,6 @@ Item {
     }
     Component.onCompleted: PhoneState.refreshBattery()
     Timer { interval: 15000; repeat: true; running: page.visible; onTriggered: PhoneState.refreshBattery() }
-    onHistoryChanged: chart.requestPaint()
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 16; spacing: 14
         RowLayout {
@@ -73,23 +73,26 @@ Item {
             Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 120; Layout.maximumHeight: 260; radius: 28; color: Theme.level(2)
             MText { x: 18; y: 14; text: "Since you opened this page"; font.pixelSize: 12; color: Theme.subtext }
             MText { anchors.centerIn: parent; visible: page.history.length < 2; text: "Collecting readings…"; color: Theme.subtext; font.pixelSize: 13 }
-            Canvas {
+            Shape {
                 id: chart
                 anchors.fill: parent; anchors.margins: 18; anchors.topMargin: 40
                 visible: page.history.length >= 2
-                onPaint: {
-                    const ctx = getContext("2d");
-                    ctx.reset();
+                preferredRendererType: Shape.CurveRenderer
+                // History points mapped into the chart box.
+                readonly property var pts: {
                     const h = page.history;
-                    if (h.length < 2) return;
+                    if (h.length < 2) return [];
                     const lo = Math.max(0, Math.min.apply(null, h.map(p => p.percent)) - 3), hi = Math.min(100, Math.max.apply(null, h.map(p => p.percent)) + 3);
                     const t0 = h[0].t, span = Math.max(1, h[h.length - 1].t - t0);
-                    const x = p => (p.t - t0) / span * width, y = p => height - (p.percent - lo) / Math.max(1, hi - lo) * height;
-                    ctx.beginPath();
-                    h.forEach((p, i) => i ? ctx.lineTo(x(p), y(p)) : ctx.moveTo(x(p), y(p)));
-                    ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.strokeStyle = Theme.primary; ctx.stroke();
-                    ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath();
-                    ctx.fillStyle = Theme.alpha(Theme.primary, .16); ctx.fill();
+                    return h.map(p => Qt.point((p.t - t0) / span * width, height - (p.percent - lo) / Math.max(1, hi - lo) * height));
+                }
+                ShapePath {
+                    strokeColor: "transparent"; fillColor: Theme.alpha(Theme.primary, .16)
+                    PathPolyline { path: chart.pts.concat([Qt.point(chart.width, chart.height), Qt.point(0, chart.height)]) }
+                }
+                ShapePath {
+                    strokeColor: Theme.primary; strokeWidth: 3; fillColor: "transparent"; joinStyle: ShapePath.RoundJoin; capStyle: ShapePath.RoundCap
+                    PathPolyline { path: chart.pts }
                 }
             }
         }
