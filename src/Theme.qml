@@ -67,6 +67,16 @@ QtObject {
     readonly property var standard: [0.2,0,0,1,1,1]
     // Springy curve with overshoot, used only by the convergence experience.
     readonly property var springy: [0.34,1.56,0.64,1,1,1]
+    // M3 Expressive springs for OpalSpring: stiffness at mass 1 and damping ratio; OpalSpring converts them to Qt step units.
+    // duration is the Animator fallback: the measured 2 % settle time of the same spring in Qt, in ms.
+    readonly property var springs: ({
+        spatialFast:{stiffness:800,ratio:0.6,duration:190},
+        spatialDefault:{stiffness:380,ratio:0.8,duration:220},
+        spatialSlow:{stiffness:200,ratio:0.8,duration:290},
+        effectsFast:{stiffness:3800,ratio:1,duration:80},
+        effectsDefault:{stiffness:1600,ratio:1,duration:130},
+        effectsSlow:{stiffness:800,ratio:1,duration:260}
+    })
     readonly property int durShort: 140
     readonly property int durMedium: 240
     readonly property int durLong: 360

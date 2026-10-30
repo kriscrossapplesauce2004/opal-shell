@@ -47,9 +47,9 @@ Rectangle {
     color: critical ? Theme.mix(Theme.level(3), Theme.error, .12) : Theme.level(popup ? 3 : 2)
     // Popups slide in from the right edge and fade in.
     property real arrival: popup ? 0 : 1
-    opacity: arrival
     transform: Translate { x: (1 - card.arrival) * 24 }
-    NumberAnimation on arrival { running: card.popup; from: 0; to: 1; duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasizedDecelerate }
+    OpalSpring { target: card; property: "arrival"; token: "spatialDefault"; running: card.popup; from: 0; to: 1 }
+    OpacityAnimator { target: card; running: card.popup; from: 0; to: 1; duration: Theme.motion(Theme.durMedium); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasizedDecelerate }
     HoverHandler { id: hover; onHoveredChanged: if (card.entry) card.entry.hovered = hovered }
     Component.onDestruction: if (entry) entry.hovered = false
     Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.stateLayer; opacity: bodyMouse.pressed ? .10 : hover.hovered ? .04 : 0 }
@@ -156,7 +156,7 @@ Rectangle {
             Layout.alignment: Qt.AlignTop
             spacing: 2
             opacity: !card.popup || hover.hovered ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durShort) } }
+            Behavior on opacity { OpacityAnimator { duration: Theme.motion(Theme.durShort) } }
             MButton { icon: "close"; compact: true; implicitWidth: 30; implicitHeight: 30; ink: Theme.subtext; tooltip: "Dismiss"; onClicked: Notifier.dismiss(card.entry) }
             MButton {
                 visible: !card.popup && (bodyText.truncated || summaryText.truncated || card.expanded)

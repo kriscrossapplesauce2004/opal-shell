@@ -224,3 +224,4 @@ ClockCard 1.0 ClockCard.qml
 QuickBigTile 1.0 QuickBigTile.qml
 DisplaysPanel 1.0 DisplaysPanel.qml
 OpalField 1.0 OpalField.qml
+OpalSpring 1.0 OpalSpring.qml
