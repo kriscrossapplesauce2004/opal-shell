@@ -1,0 +1,89 @@
+From 5eff9a273f6f6b8551d0340765dd609f6a935b6c Mon Sep 17 00:00:00 2001
+From: melissa <kriscrossapplesauce2004@gmail.com>
+Date: Thu, 29 Oct 2026 20:18:09 +0000
+Subject: [PATCH 2/2] waylib: send presentation-time feedback for rendered
+ surfaces
+
+waylib sent frame callbacks but never marked a surface buffer as sampled,
+so wp_presentation feedback was never answered with 'presented'. After a
+render pass, and before the output commit, call
+wlr_presentation_surface_textured_on_output() for each surface that was
+drawn; wlroots then sends 'presented' with the time of that commit.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ waylib/src/server/kernel/wlr_all.h         |  1 +
+ waylib/src/server/qtquick/wsurfaceitem.cpp | 17 +++++++++++++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/waylib/src/server/kernel/wlr_all.h b/waylib/src/server/kernel/wlr_all.h
+index b9b559ef..4f2c6c94 100644
+--- a/waylib/src/server/kernel/wlr_all.h
++++ b/waylib/src/server/kernel/wlr_all.h
+@@ -107,6 +107,7 @@ extern "C" {
+ #include <wlr/types/wlr_output_power_management_v1.h>
+ #include <wlr/types/wlr_pointer.h>
+ #include <wlr/types/wlr_pointer_constraints_v1.h>
++#include <wlr/types/wlr_presentation_time.h>
+ #include <wlr/types/wlr_pointer_gestures_v1.h>
+ #include <wlr/types/wlr_primary_selection.h>
+ #include <wlr/types/wlr_primary_selection_v1.h>
+diff --git a/waylib/src/server/qtquick/wsurfaceitem.cpp b/waylib/src/server/qtquick/wsurfaceitem.cpp
+index 953a032a..bcd3affb 100644
+--- a/waylib/src/server/qtquick/wsurfaceitem.cpp
++++ b/waylib/src/server/qtquick/wsurfaceitem.cpp
+@@ -220,6 +220,8 @@ public:
+ 
+         if (frameDoneConnection)
+             QObject::disconnect(frameDoneConnection);
++        if (presentationConnection)
++            QObject::disconnect(presentationConnection);
+ 
+         Q_ASSERT(!updateTextureConnection);
+ 
+@@ -274,6 +276,8 @@ public:
+ 
+         if (frameDoneConnection)
+             QObject::disconnect(frameDoneConnection);
++        if (presentationConnection)
++            QObject::disconnect(presentationConnection);
+         if (!q->window()) // maybe null due to item not fully initialized
+             return;
+ 
+@@ -290,6 +294,16 @@ public:
+                                                            rendered = false;
+                                                        }
+                                                    }); // if signal is emitted from seperated rendering thread, default QueuedConnection is used
++            // presentation-time: mark the buffer as sampled before the output commit, so wlroots
++            // sends the client its "presented" event with the time of that commit.
++            presentationConnection = QObject::connect(rw, &WOutputRenderWindow::afterRendering,
++                                                      q, [this] {
++                                                          if (!rendered || !live || !surface)
++                                                              return;
++                                                          if (auto output = surface->framePacingOutput())
++                                                              wlr_presentation_surface_textured_on_output(surface->handle(),
++                                                                                                          output->handle());
++                                                      }, Qt::DirectConnection);
+         } else {
+             qCFatal(lcWlSurface) << "Needs a WOutputRenderWindow to render the WSurfaceItemContent, "
+                                       "but the current window is:" << q->window();
+@@ -358,6 +372,7 @@ public:
+     qreal alphaModifier = 1.0;
+ 
+     QMetaObject::Connection frameDoneConnection;
++    QMetaObject::Connection presentationConnection;
+     mutable WSGTextureProvider *textureProvider = nullptr;
+     BufferRef buffer;
+     BufferRef pendingBuffer;
+@@ -385,6 +400,8 @@ WSurfaceItemContent::~WSurfaceItemContent()
+ 
+     if (d->frameDoneConnection)
+         QObject::disconnect(d->frameDoneConnection);
++    if (d->presentationConnection)
++        QObject::disconnect(d->presentationConnection);
+ 
+     //`d->window` will become nullptr in ~QQuickItem
+     // Don't move this to private class
+-- 
+2.56.0
+

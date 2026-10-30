@@ -1,0 +1,54 @@
+From 08c02350bfe3c03198f6c10f00c9b17ddc79f712 Mon Sep 17 00:00:00 2001
+From: melissa <kriscrossapplesauce2004@gmail.com>
+Date: Thu, 29 Oct 2026 16:00:37 +0000
+Subject: [PATCH 1/2] build: make the standalone waylib install usable
+
+With NAMELINK_ONLY, CMake 4 puts no target in the WaylibServerTargets
+export set and installs no PUBLIC_HEADER files, so an installed
+WaylibServer package had neither targets nor public headers. Install the
+libraries with EXPORT and no NAMELINK option, and the public headers with
+install(FILES).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ waylib/src/server/CMakeLists.txt | 7 +++++--
+ wlroots/CMakeLists.txt           | 2 +-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/waylib/src/server/CMakeLists.txt b/waylib/src/server/CMakeLists.txt
+index e5d0b24d..05ebb4ff 100644
+--- a/waylib/src/server/CMakeLists.txt
++++ b/waylib/src/server/CMakeLists.txt
+@@ -494,8 +494,11 @@ if(TREELAND_INSTALL_DEV)
+             WaylibServerTargets
+         LIBRARY
+             DESTINATION ${CMAKE_INSTALL_LIBDIR}
+-            NAMELINK_ONLY
+-        PUBLIC_HEADER
++    )
++
++    # With NAMELINK_ONLY, CMake 4 put no target in the export set and no public header in the
++    # prefix; install the whole library with EXPORT, and the public headers here.
++    install(FILES ${HEADERS}
+             COMPONENT Development
+             DESTINATION ${WAYLIB_INCLUDE_INSTALL_DIR}
+     )
+diff --git a/wlroots/CMakeLists.txt b/wlroots/CMakeLists.txt
+index afa88b13..eb95d1b8 100644
+--- a/wlroots/CMakeLists.txt
++++ b/wlroots/CMakeLists.txt
+@@ -547,10 +547,10 @@ install(TARGETS waylib-wlroots
+ )
+ 
+ if(TREELAND_INSTALL_DEV)
++    # Without NAMELINK_ONLY, so CMake 4 adds the target to the export set.
+     install(TARGETS waylib-wlroots
+         EXPORT WaylibServerTargets
+         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+-            NAMELINK_ONLY
+     )
+ 
+     # Install the wlroots headers so consumers of the exported
+-- 
+2.56.0
+

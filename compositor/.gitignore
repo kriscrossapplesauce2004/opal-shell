@@ -1,0 +1,8 @@
+build/
+build-*/
+vendor-build/
+vendor-prefix/
+# Fork checkouts are fetched by vendor/fetch.sh; only the pins and our patches live in the repo.
+vendor/treeland/
+vendor/treeland-protocols/
+vendor/wlr-protocols/
