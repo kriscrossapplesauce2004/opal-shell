@@ -226,4 +226,12 @@ ClockCard 1.0 ClockCard.qml
 QuickBigTile 1.0 QuickBigTile.qml
 DisplaysPanel 1.0 DisplaysPanel.qml
 OpalField 1.0 OpalField.qml
+LockClock 1.0 LockClock.qml
+LockGlance 1.0 LockGlance.qml
+LockWidgets 1.0 LockWidgets.qml
+SettingsLock 1.0 SettingsLock.qml
+WearShell 1.0 WearShell.qml
 OpalSpring 1.0 OpalSpring.qml
+SpatialPanel 1.0 SpatialPanel.qml
+SpatialScene 1.0 SpatialScene.qml
+PostureLayout 1.0 PostureLayout.qml
