@@ -224,7 +224,9 @@ ShellRoot {
             {name:"assistant-phone-dark",ui:"assistant",w:390,h:760,layout:"phone",phone:true,chat:true,confirm:true},
             {name:"assistant-phone-light",ui:"assistant",w:390,h:760,layout:"phone",phone:true,chat:true,light:true},
             {name:"assistant-console",ui:"assistant",w:960,h:640,layout:"console",confirm:true},
-            {name:"assistant-auto-dark",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,auto:true}
+            {name:"assistant-auto-dark",ui:"assistant",w:470,h:780,layout:"desktop",chat:true,auto:true},
+            // Last on purpose: it changes the sheet sections and tiles that later shade cases would see.
+            {name:"shade-desktop-sections",ui:"shade",w:490,h:1100,music:true,desktopSections:true}
         ]
         Rectangle {anchors.fill:parent;color:Opal.Theme.base}
         Loader {id:view;anchors.fill:parent}
@@ -272,6 +274,10 @@ ShellRoot {
         }
         Timer {interval:80;repeat:true;running:fixture.step<fixture.cases.length&&fixture.cases[fixture.step].name.startsWith("compact-control-panel")
             onTriggered:Opal.Hub.status=Object.assign({},Opal.Hub.status,{brightness:62,volume:48,muted:false,wifi:true,network:"Home Wi-Fi",bluetooth:true,profile:"balanced",track:""})
+        }
+        // The isolated backend answers DDC with no monitors, so this case keeps its fixture monitors and battery state.
+        Timer {interval:80;repeat:true;running:fixture.step<fixture.cases.length&&!!fixture.cases[fixture.step].desktopSections
+            onTriggered:{if(Opal.Hub.ddc.items.length!==2)Opal.Hub.ddc={items:[{bus:5,connector:"DP-1",model:"DELL U2720Q",ddc:true,value:70,max:100},{bus:6,connector:"HDMI-A-1",model:"LG 27GL850",ddc:true,value:40,max:100}],available:true};if(Opal.Hub.status.battery!==-1||Opal.Hub.status.brightness!==-1)Opal.Hub.status=Object.assign({},Opal.Hub.status,{battery:-1,brightness:-1,batteries:[{name:"soundcore Q20i",percent:30,charging:false}]});}
         }
         Component {id:osdView;Opal.VolumeOsd {}}
         Component {id:shapeView;Item {
@@ -586,6 +592,8 @@ ShellRoot {
             Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{barStyle:test.barStyle||"islands"});
             if(test.ui==="bars")Opal.Hub.compositorActive=true,Opal.Hub.compositorWindows=[{title:"Project notes",className:"code",address:"fixture-project",workspace:2},{title:"Mozilla Firefox",className:"firefox",address:"fixture-web",workspace:1}];
             Opal.Hub.osdScreen=null;Opal.Hub.osd=test.osd ? "Volume" : "";
+            // A desktop without a battery: tiles that repeat a section step aside, and DDC monitors get brightness sliders.
+            if(test.desktopSections){Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{sheetSections:["sliders","tiles","media","battery"],quickTiles:["wifi","bluetooth","dnd","awake","theme","saver","keyboard","autohide","convergence","android","media","devices"]});Opal.Hub.status=Object.assign({},Opal.Hub.status,{battery:-1,brightness:-1,batteries:[{name:"soundcore Q20i",percent:30,charging:false}]});Opal.Hub.ddc={items:[{bus:5,connector:"DP-1",model:"DELL U2720Q",ddc:true,value:70,max:100},{bus:6,connector:"HDMI-A-1",model:"LG 27GL850",ddc:true,value:40,max:100}],available:true};}
             if(test.music)Opal.Hub.status=Object.assign({},Opal.Hub.status,{track:"A little evening music",artist:"Local player",art:"file://"+Quickshell.env("HOME")+"/Pictures/Wallpapers/Fixture-1.png",playing:true,volume:40,audioOutput:"Headphones"});
             if(test.ui==="osd")Opal.Hub.status=Object.assign({},Opal.Hub.status,{volume:64,muted:false,audioOutput:"Speakers · Built-in audio"});
             if(test.ui==="start") {
@@ -662,7 +670,7 @@ ShellRoot {
             if(test.ui==="tiles") {
                 view.sourceComponent=tilesView;
                 Opal.Hub.prefs=Object.assign({},Opal.Hub.prefs,{quickTiles:["wifi","theme","bluetooth"]});
-                view.item.move("bluetooth",-1);
+                view.item.moveTo("bluetooth",view.item.order.indexOf("bluetooth")-1);
                 if(view.item.order.join(",")!=="wifi,bluetooth,theme")console.error("ASSERTION_FAILED: quick tile reorder");
                 view.item.change("wifi");
                 if(view.item.order.indexOf("wifi")!==-1)console.error("ASSERTION_FAILED: quick tile removal");

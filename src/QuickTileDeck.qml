@@ -18,7 +18,12 @@ ColumnLayout {
         {id:"media",title:"Now playing",icon:"music_note"}, {id:"devices",title:"Device batteries",icon:"devices"}
     ]
     readonly property var order:(Hub.prefs.quickTiles||defaults).filter(id=>tiles.some(t=>t.id===id))
-    readonly property var shown:order.map(id=>tiles.find(t=>t.id===id))
+    // Tiles that a visible sheet section already shows. They stay in the order and come back in edit mode.
+    property var suppressed:[]
+    readonly property var shown:order.filter(id=>editing||suppressed.indexOf(id)<0).map(id=>tiles.find(t=>t.id===id))
+    // Without a system battery the saver tile is about power use, not battery life.
+    function titleFor(tile) {return tile.id==="saver"&&Hub.status.battery<0 ? "Power saver" : tile.title;}
+    function iconFor(tile) {return tile.id==="saver"&&Hub.status.battery<0 ? "energy_savings_leaf" : tile.icon;}
     // The Android tile shows the live session, so it asks for a fresh status when the sheet opens.
     Component.onCompleted:if(order.indexOf("android")>=0)Hub.command({action:"waydroid-status"})
     // A tile with a page asks the sheet to grow that page out of the tile.
@@ -137,7 +142,7 @@ ColumnLayout {
                     visible:!cell.big
                     anchors.fill:parent
                     dense:true;iconOnly:cell.rect.size==="round"
-                    icon:cell.modelData.icon;title:cell.modelData.title;subtitle:deck.subtitle(cell.modelData.id);active:deck.state(cell.modelData.id)
+                    icon:deck.iconFor(cell.modelData);title:deck.titleFor(cell.modelData);subtitle:deck.subtitle(cell.modelData.id);active:deck.state(cell.modelData.id)
                     settings:deck.pageFor(cell.modelData.id)!==""&&!deck.editing
                     enabled:deck.enabledFor(cell.modelData.id)||deck.editing
                     opacity:deck.enabledFor(cell.modelData.id) ? 1 : .45
@@ -191,7 +196,7 @@ ColumnLayout {
                 ShadeTile {
                     required property var modelData
                     Layout.fillWidth:true;Layout.preferredHeight:56;dense:true
-                    icon:modelData.icon;title:modelData.title;subtitle:"Add"
+                    icon:deck.iconFor(modelData);title:deck.titleFor(modelData);subtitle:"Add"
                     onClicked:deck.change(modelData.id);onToggled:deck.change(modelData.id)
                 }
             }

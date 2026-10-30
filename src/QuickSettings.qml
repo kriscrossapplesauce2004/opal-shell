@@ -34,6 +34,8 @@ Item {
     }
     // On a desktop notifications have their own pill and card, so Quick Settings leaves them out.
     readonly property var sections:(Array.isArray(Hub.prefs.sheetSections) ? Hub.prefs.sheetSections.filter(id=>catalog.some(c=>c.id===id)) : ["sliders","tiles","media","notifications"]).filter(id=>q.phone||id!=="notifications")
+    // A tile that repeats a visible section steps aside: the section is the larger view of the same thing.
+    readonly property var duplicateTiles:(sections.indexOf("media")>=0 ? ["media"] : []).concat(sections.indexOf("battery")>=0 ? ["devices"] : [])
     function title(id) {const c=catalog.find(c=>c.id===id);return c ? c.title : id;}
     function icon(id) {const c=catalog.find(c=>c.id===id);return c ? c.icon : "widgets";}
     function toggleSection(id) {const list=sections.slice();const i=list.indexOf(id);if(i>=0)list.splice(i,1);else list.push(id);Hub.set("sheetSections",list);}
@@ -211,17 +213,40 @@ Item {
     }
     Component {id:slidersSection;ColumnLayout {spacing:8
         RowLayout {visible:Hub.status.brightness>=0;Layout.fillWidth:true;spacing:8
-            ExpressiveSlider {Layout.fillWidth:true;implicitHeight:52;compact:true;trackHeight:44;icon:"sun";iconAtHandle:true;value:Hub.status.brightness;onMoved:Hub.command({action:"brightness",value:Math.round(value)});Accessible.name:"Brightness"}
+            ExpressiveSlider {Layout.fillWidth:true;implicitHeight:52;compact:true;trackHeight:44;stopIndicator:true;icon:"sun";iconAtHandle:true;value:Hub.status.brightness;onMoved:Hub.command({action:"brightness",value:Math.round(value)});Accessible.name:"Brightness"}
+        }
+        // Without a backlight, external monitors that answer DDC/CI get a brightness slider each.
+        Repeater {
+            // The model follows only the DDC list, so a status change never rebuilds a slider during a drag.
+            model:Hub.ddc.items
+            ColumnLayout {
+                id:ddcRow
+                required property var modelData
+                readonly property bool named:Hub.ddc.items.filter(d=>d.value>=0).length>1
+                visible:Hub.status.brightness<0&&modelData.value>=0
+                Layout.fillWidth:true;spacing:2
+                MText {visible:ddcRow.named;text:ddcRow.modelData.model||"Display";role:"labelS";color:Theme.subtext;Layout.leftMargin:8}
+                ExpressiveSlider {
+                    id:ddcSlider
+                    Layout.fillWidth:true;implicitHeight:52;compact:true;trackHeight:44;stopIndicator:true;icon:"sun";iconAtHandle:true
+                    from:0;to:ddcRow.modelData.max>0 ? ddcRow.modelData.max : 100;value:ddcRow.modelData.value
+                    // DDC is slow and its reply rebuilds this row, so the monitor hears the value after a drag ends or the wheel stops.
+                    onMoved:if(!pressed)ddcSend.restart()
+                    onPressedChanged:if(!pressed)ddcSend.restart()
+                    Timer {id:ddcSend;interval:350;onTriggered:Hub.command({action:"ddc",verb:"set",bus:ddcRow.modelData.bus,value:Math.round(ddcSlider.value*100/ddcSlider.to)})}
+                    Accessible.name:"Brightness of "+(ddcRow.modelData.model||"display")
+                }
+            }
         }
         RowLayout {Layout.fillWidth:true;spacing:8
-            ExpressiveSlider {Layout.fillWidth:true;implicitHeight:52;compact:true;trackHeight:44;icon:Hub.status.muted ? "mute" : "volume";iconAtHandle:true;value:Hub.status.volume;activeColor:Hub.status.muted ? Theme.subtext : Theme.primary;onMoved:Hub.volume(value);Accessible.name:"Volume"
+            ExpressiveSlider {Layout.fillWidth:true;implicitHeight:52;compact:true;trackHeight:44;stopIndicator:true;icon:Hub.status.muted ? "mute" : "volume";iconAtHandle:true;value:Hub.status.volume;activeColor:Hub.status.muted ? Theme.subtext : Theme.primary;onMoved:Hub.volume(value);Accessible.name:"Volume"
                 TapHandler {acceptedButtons:Qt.RightButton;onTapped:Hub.command({action:"mute"})}
             }
             MButton {icon:"next";implicitWidth:44;implicitHeight:44;contained:true;tooltip:"Sound";onClicked:Hub.openAudio(Hub.targetScreen)}
         }
     }}
     // Phone and desktop share the same tile grid.
-    Component {id:tilesSection;QuickTileDeck {editing:q.editing;onPageRequested:(id,source)=>q.openDetail(id,source)}}
+    Component {id:tilesSection;QuickTileDeck {editing:q.editing;suppressed:q.duplicateTiles;onPageRequested:(id,source)=>q.openDetail(id,source)}}
     // Now playing: the same player as the pills and the audio panel.
     Component {id:mediaSection;Item {implicitHeight:media.players.length ? media.implicitHeight : 0;MediaPlayerCard {id:media;width:parent.width;visible:players.length>0;small:true}}}
     Component {id:inboxSection;ColumnLayout {spacing:8
