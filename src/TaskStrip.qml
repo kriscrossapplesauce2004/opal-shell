@@ -16,6 +16,9 @@ Item {
     property real dragWidth:0
     property var dragItem:null
     property var groups:[]
+    // Rows keyed by app or window group, so delegates survive each Hub update.
+    KeyedListModel {id:taskModel;key:"key"}
+    onGroupsChanged:taskModel.sync(groups)
     readonly property bool uniformTaskWidth:!labels||width<=500||groups.every(group=>group.windows.length>0)
     readonly property real taskWidth:islandStyle ? (labels ? 160 : 44) : labels&&width>500 ? Math.max(100,Math.min(184,width/Math.max(1,repeater.count))) : 44
     // Natural width of all tasks, so a container can hug its content.
@@ -54,26 +57,30 @@ Item {
         interactive:!s.dragging;boundsBehavior:Flickable.StopAtBounds;flickableDirection:Flickable.HorizontalFlick
         Row {
             id:row;height:scroller.height;spacing:s.islandStyle ? 6 : 4
+            add:Transition {NumberAnimation {properties:"scale";from:.6;to:1;duration:Theme.motion(Theme.durShort);easing.type:Easing.OutCubic}}
             Repeater {
-                id:repeater;model:s.groups
+                id:repeater;model:taskModel
                 Item {
                     id:task
                     required property var modelData
+                    readonly property var group:modelData.data.value
                     required property int index
-                    readonly property bool dragged:s.draggingKey===modelData.key
-                    readonly property bool urgent:modelData.windows.some(w=>Hub.urgent(w))
-                    readonly property bool focused:modelData.windows.some(w=>Hub.active(w))
+                    readonly property bool dragged:s.draggingKey===group.key
+                    readonly property bool urgent:group.windows.some(w=>Hub.urgent(w))
+                    readonly property bool focused:group.windows.some(w=>Hub.active(w))
                     // Every window of the app is minimized: the button dims until one comes back.
-                    readonly property bool allMinimized:modelData.windows.length>0&&modelData.windows.every(w=>Hub.minimized(w))
+                    readonly property bool allMinimized:group.windows.length>0&&group.windows.every(w=>Hub.minimized(w))
                     opacity:allMinimized ? .55 : 1
                     Behavior on opacity {NumberAnimation {duration:Theme.motion(Theme.durShort)}}
-                    readonly property bool labeled:s.labels&&modelData.windows.length>0&&(s.islandStyle||s.width>500)
+                    // Positioner moves and displacement both animate x here.
+                    Behavior on x {NumberAnimation {duration:Theme.motion(Theme.durMedium);easing.type:Easing.OutCubic}}
+                    readonly property bool labeled:s.labels&&group.windows.length>0&&(s.islandStyle||s.width>500)
                     function openMenu(x,y) {
-                        const wins=modelData.windows;const entries=modelData.app ? Hub.appMenu(modelData.app) : wins.length===1 ? Hub.windowMenu(wins[0]) : [{text:"Close all",icon:"close",quick:true,danger:true,run:()=>wins.forEach(w=>Hub.closeWindow(w))}].concat(wins.map(w=>({text:w.title,icon:"desktop",run:()=>Hub.focusWindow(w)})));
+                        const wins=group.windows;const entries=group.app ? Hub.appMenu(group.app) : wins.length===1 ? Hub.windowMenu(wins[0]) : [{text:"Close all",icon:"close",quick:true,danger:true,run:()=>wins.forEach(w=>Hub.closeWindow(w))}].concat(wins.map(w=>({text:w.title,icon:"desktop",run:()=>Hub.focusWindow(w)})));
                         if(!entries.length)return;
                         const origin=visual.mapToItem(null,0,0);
-                        const title=modelData.name||(modelData.app ? modelData.app.name : "Windows");
-                        const icon=modelData.windows.length ? "desktop" : "apps";
+                        const title=group.name||(group.app ? group.app.name : "Windows");
+                        const icon=group.windows.length ? "desktop" : "apps";
                         Hub.openTaskbarContext(s.output,origin.x+visual.width/2,s.output.height-s.panelHeight+origin.y,entries,true,title,icon);
                     }
                     width:labeled ? s.taskWidth : 44
@@ -114,16 +121,16 @@ Item {
                             Behavior on opacity {NumberAnimation {duration:Theme.motion(130)}}
                             Behavior on scale {NumberAnimation {duration:Theme.motion(170);easing.type:Easing.OutCubic}}
                         }
-                        Image {id:taskIcon;x:task.labeled ? 10 : (parent.width-width)/2;anchors.verticalCenter:parent.verticalCenter;width:s.islandStyle&&!task.labeled ? 26 : 24;height:width;sourceSize:Qt.size(48,48);source:Quickshell.iconPath(task.modelData.icon,true)
+                        Image {id:taskIcon;x:task.labeled ? 10 : (parent.width-width)/2;anchors.verticalCenter:parent.verticalCenter;width:s.islandStyle&&!task.labeled ? 26 : 24;height:width;sourceSize:Qt.size(48,48);source:Quickshell.iconPath(task.group.icon,true)
                             scale:1
                             Behavior on scale {NumberAnimation {duration:Theme.motion(220);easing.type:Easing.OutCubic}}
                         }
-                        Glyph {visible:taskIcon.status!==Image.Ready;x:taskIcon.x;anchors.verticalCenter:parent.verticalCenter;name:Hub.glyphForApp(task.modelData.app);font.pixelSize:24;color:s.islandStyle ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.primary}
-                        MText {visible:task.labeled;x:42;width:parent.width-58;anchors.verticalCenter:parent.verticalCenter;text:task.modelData.windows.length===1 ? task.modelData.windows[0].title : task.modelData.name;font.pixelSize:12;color:task.focused ? Theme.onContainer : Theme.text;role:"label"}
-                        Rectangle {visible:task.modelData.windows.length>1;anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:1;width:16;height:16;radius:8;color:Theme.primaryContainer;border.width:1;border.color:Theme.outline
-                            MText {anchors.centerIn:parent;text:Math.min(99,task.modelData.windows.length);font.pixelSize:9;font.weight:Font.Bold;color:Theme.onContainer}
+                        Glyph {visible:taskIcon.status!==Image.Ready;x:taskIcon.x;anchors.verticalCenter:parent.verticalCenter;name:Hub.glyphForApp(task.group.app);font.pixelSize:24;color:s.islandStyle ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.primary}
+                        MText {visible:task.labeled;x:42;width:parent.width-58;anchors.verticalCenter:parent.verticalCenter;text:task.group.windows.length===1 ? task.group.windows[0].title : task.group.name;font.pixelSize:12;color:task.focused ? Theme.onContainer : Theme.text;role:"label"}
+                        Rectangle {visible:task.group.windows.length>1;anchors.right:parent.right;anchors.top:parent.top;anchors.rightMargin:1;width:16;height:16;radius:8;color:Theme.primaryContainer;border.width:1;border.color:Theme.outline
+                            MText {anchors.centerIn:parent;text:Math.min(99,task.group.windows.length);font.pixelSize:9;font.weight:Font.Bold;color:Theme.onContainer}
                         }
-                        Rectangle {visible:task.modelData.windows.length>0;anchors.bottom:parent.bottom;anchors.bottomMargin:s.islandStyle ? 3 : 2;anchors.horizontalCenter:parent.horizontalCenter;width:task.focused ? 14 : 4;height:s.islandStyle ? 3 : 3;radius:2;color:s.islandStyle ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.primary
+                        Rectangle {visible:task.group.windows.length>0;anchors.bottom:parent.bottom;anchors.bottomMargin:s.islandStyle ? 3 : 2;anchors.horizontalCenter:parent.horizontalCenter;width:task.focused ? 14 : 4;height:s.islandStyle ? 3 : 3;radius:2;color:s.islandStyle ? (Theme.light ? Theme.containerInk : Theme.primary) : Theme.primary
                             Behavior on width {NumberAnimation {duration:Theme.motion(260);easing.type:Easing.OutCubic}}
                         }
                         // Urgent windows get an error dot that breathes slowly; reduced motion keeps it still.
@@ -145,27 +152,27 @@ Item {
                             drag.target:pressedButtons&Qt.LeftButton ? visual : null;drag.axis:Drag.XAxis;drag.threshold:8
                             property bool suppressClick:false
                             onPressed:suppressClick=false
-                            onPositionChanged:if(drag.active){suppressClick=true;s.begin(task.modelData.key,task.index,visual);s.updateDrop(visual.mapToItem(row,mouseX,mouseY).x);}
+                            onPositionChanged:if(drag.active){suppressClick=true;s.begin(task.group.key,task.index,visual);s.updateDrop(visual.mapToItem(row,mouseX,mouseY).x);}
                             onReleased:{if(task.dragged){const y=visual.mapToItem(s,mouseX,mouseY).y;s.finish(y>=-8&&y<=s.height+8);}else visual.x=0;}
                             onCanceled:{if(task.dragged)s.finish(false);else visual.x=0;suppressClick=true;}
-                            onClicked:e=>{if(suppressClick)return;Hub.closeTaskHover();if(e.button===Qt.RightButton)task.openMenu(e.x,e.y);else Hub.activateGroup(task.modelData);}
+                            onClicked:e=>{if(suppressClick)return;Hub.closeTaskHover();if(e.button===Qt.RightButton)task.openMenu(e.x,e.y);else Hub.activateGroup(task.group);}
                             onPressAndHold:e=>{if(!drag.active){suppressClick=true;Hub.closeTaskHover();task.openMenu(e.x,e.y);}}
                             onEntered:{
                                 s.hovered=true;s.engaged();
-                                if(task.modelData.windows.length>0&&s.output) {
+                                if(task.group.windows.length>0&&s.output) {
                                     const origin=visual.mapToItem(null,0,0);
-                                    Hub.hoverTask(s.output,task.modelData,origin.x+visual.width/2,s.panelHeight||64);
+                                    Hub.hoverTask(s.output,task.group,origin.x+visual.width/2,s.panelHeight||64);
                                 } else Hub.leaveTask();
                             }
                             onExited:{s.hovered=false;Hub.leaveTask();if(!s.interacting)s.released();}
 
                         }
                         activeFocusOnTab:true
-                        Keys.onReturnPressed:Hub.activateGroup(task.modelData)
-                        Keys.onLeftPressed:event=>{if(event.modifiers&Qt.ControlModifier){Hub.reorderTask(task.modelData.key,Math.max(0,task.index-1));event.accepted=true;}else event.accepted=false;}
-                        Keys.onRightPressed:event=>{if(event.modifiers&Qt.ControlModifier){Hub.reorderTask(task.modelData.key,Math.min(repeater.count-1,task.index+1));event.accepted=true;}else event.accepted=false;}
-                        Accessible.role:Accessible.Button;Accessible.name:task.modelData.name
-                        Accessible.onPressAction:Hub.activateGroup(task.modelData)
+                        Keys.onReturnPressed:Hub.activateGroup(task.group)
+                        Keys.onLeftPressed:event=>{if(event.modifiers&Qt.ControlModifier){Hub.reorderTask(task.group.key,Math.max(0,task.index-1));event.accepted=true;}else event.accepted=false;}
+                        Keys.onRightPressed:event=>{if(event.modifiers&Qt.ControlModifier){Hub.reorderTask(task.group.key,Math.min(repeater.count-1,task.index+1));event.accepted=true;}else event.accepted=false;}
+                        Accessible.role:Accessible.Button;Accessible.name:task.group.name
+                        Accessible.onPressAction:Hub.activateGroup(task.group)
                     }
                 }
             }

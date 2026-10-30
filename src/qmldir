@@ -55,6 +55,7 @@ Taskbar 1.0 Taskbar.qml
 DesktopShelf 1.0 DesktopShelf.qml
 TaskbarContextWindow 1.0 TaskbarContextWindow.qml
 TaskStrip 1.0 TaskStrip.qml
+KeyedListModel 1.0 KeyedListModel.qml
 Wallpaper 1.0 Wallpaper.qml
 WallpaperPicker 1.0 WallpaperPicker.qml
 WindowSwitcher 1.0 WindowSwitcher.qml
