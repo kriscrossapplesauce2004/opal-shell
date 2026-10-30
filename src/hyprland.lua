@@ -251,6 +251,8 @@ if opal_floating() then
 else
     -- Tiling mode keeps both plugins loaded with their parts switched off.
     if bars then pcall(hl.config, { plugin = { hyprbars = { enabled = false } } }) end
+    -- A disabled hyprbars still puts an invisible bar on the top strip of each window, and holding that strip drags the window. No window gets a bar in tiling mode.
+    if bars then pcall(hl.window_rule, { name = "opal-no-bar-tiling", match = { class = ".*" }, ["hyprbars:no_bar"] = true }) end
     if windowing then pcall(hl.config, { plugin = { opal_windowing = { snap_zones = false } } }) end
 end
 bind("SUPER + Z", qs .. "snaplayouts")
