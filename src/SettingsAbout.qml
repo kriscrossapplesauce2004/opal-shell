@@ -16,7 +16,7 @@ SettingsPage {
     }
     SettingsGroup {title:"Live usage"
         Repeater {
-            model:[{label:"Processor",value:Hub.status.cpu,icon:"speed"},{label:"Memory",value:Hub.status.memory,icon:"memory"}]
+            model:[{label:"Processor",value:Hub.load.cpu,icon:"speed"},{label:"Memory",value:Hub.load.memory,icon:"memory"}]
             SettingRow {
                 required property var modelData
                 icon:modelData.icon;title:modelData.label;value:Math.round(modelData.value)+"%"

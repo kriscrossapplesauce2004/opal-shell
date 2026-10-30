@@ -45,15 +45,15 @@ spacing:18
                     // every poll, and an inline array model rebuilt this card
                     // every time, which replayed its entrance animation.
                     ColumnLayout {Layout.fillWidth:true;spacing:10
-                        RowLayout {MText {text:"Processor";Layout.fillWidth:true;color:Theme.subtext}MText {text:Hub.status.cpu+"%";font.weight:Font.Bold}}
+                        RowLayout {MText {text:"Processor";Layout.fillWidth:true;color:Theme.subtext}MText {text:Hub.load.cpu+"%";font.weight:Font.Bold}}
                         Rectangle {Layout.fillWidth:true;height:12;radius:6;color:Theme.surfaceHigh
-                            Rectangle {width:parent.width*Math.max(0,Math.min(100,Hub.status.cpu))/100;height:12;radius:6;color:Theme.tertiary;Behavior on width {NumberAnimation {duration:400}}}
+                            Rectangle {width:parent.width*Math.max(0,Math.min(100,Hub.load.cpu))/100;height:12;radius:6;color:Theme.tertiary;Behavior on width {NumberAnimation {duration:400}}}
                         }
                     }
                     ColumnLayout {Layout.fillWidth:true;spacing:10
-                        RowLayout {MText {text:"Memory";Layout.fillWidth:true;color:Theme.subtext}MText {text:Hub.status.memory+"%";font.weight:Font.Bold}}
+                        RowLayout {MText {text:"Memory";Layout.fillWidth:true;color:Theme.subtext}MText {text:Hub.load.memory+"%";font.weight:Font.Bold}}
                         Rectangle {Layout.fillWidth:true;height:12;radius:6;color:Theme.surfaceHigh
-                            Rectangle {width:parent.width*Math.max(0,Math.min(100,Hub.status.memory))/100;height:12;radius:6;color:Theme.tertiary;Behavior on width {NumberAnimation {duration:400}}}
+                            Rectangle {width:parent.width*Math.max(0,Math.min(100,Hub.load.memory))/100;height:12;radius:6;color:Theme.tertiary;Behavior on width {NumberAnimation {duration:400}}}
                         }
                     }
                     Item {Layout.fillHeight:true}

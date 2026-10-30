@@ -122,8 +122,8 @@ Item {
             {text:"Frame limit",detail:GameState.perf.fpsLimit ? GameState.perf.fpsLimit+" FPS" : "Off",icon:"speed",adjust:d=>cycleFps(d),run:()=>cycleFps(1),stay:true},
             {text:"Performance overlay",detail:GameState.perf.overlay==="fps" ? "FPS only" : GameState.perf.overlay.charAt(0).toUpperCase()+GameState.perf.overlay.slice(1),icon:"monitoring",adjust:d=>cycleOverlay(d),run:()=>cycleOverlay(1),stay:true}
         ] : []).concat([
-            {text:"Processor",detail:Hub.status.cpu+"%",icon:"speed",slider:Hub.status.cpu,info:true},
-            {text:"Memory",detail:Hub.status.memory+"%",icon:"memory",slider:Hub.status.memory,info:true}
+            {text:"Processor",detail:Hub.load.cpu+"%",icon:"speed",slider:Hub.load.cpu,info:true},
+            {text:"Memory",detail:Hub.load.memory+"%",icon:"memory",slider:Hub.load.memory,info:true}
         ]).concat(Hub.status.profile ? [{id:"power-saver",name:"Power saver",icon:"eco"},{id:"balanced",name:"Balanced",icon:"balance"},{id:"performance",name:"Performance",icon:"rocket_launch"}].map(p=>({text:p.name,icon:p.icon,on:Hub.status.profile===p.id,run:()=>Hub.command({action:"profile",value:p.id}),stay:true})) : []);
         if(menuTab===4)return [
             {text:"Sort",detail:sortApplies ? sortName : "Applies to All, Pinned and source lists",icon:"sort",adjust:d=>{if(sortApplies)cycleSort(d);},run:()=>{if(sortApplies)cycleSort(1);},stay:true},

@@ -241,7 +241,7 @@ Item {
     Component {id:calendarSection;CalendarWidget {implicitHeight:300}}
     Component {id:monitorSection;Rectangle {implicitHeight:monitorRow.implicitHeight+28;radius:Theme.shapeLg;color:Theme.level(3)
         RowLayout {id:monitorRow;anchors.fill:parent;anchors.margins:14;spacing:14
-            Repeater {model:[{label:"CPU",value:Hub.status.cpu,icon:"speed"},{label:"Memory",value:Hub.status.memory,icon:"memory"}]
+            Repeater {model:[{label:"CPU",value:Hub.load.cpu,icon:"speed"},{label:"Memory",value:Hub.load.memory,icon:"memory"}]
                 ColumnLayout {required property var modelData;Layout.fillWidth:true;spacing:6
                     RowLayout {Layout.fillWidth:true;spacing:6
                         Glyph {name:modelData.icon;font.pixelSize:17;color:Theme.primary}

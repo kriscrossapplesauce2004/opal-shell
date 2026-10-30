@@ -95,7 +95,7 @@ PanelWindow {
                         }
                     }
                 }
-                MText {width:parent.width;text:"CPU "+Hub.status.cpu+"%   ·   Memory "+Hub.status.memory+"%";font.pixelSize:12;color:Theme.subtext}
+                MText {width:parent.width;text:"CPU "+Hub.load.cpu+"%   ·   Memory "+Hub.load.memory+"%";font.pixelSize:12;color:Theme.subtext}
                 MText {width:parent.width;text:"Uptime "+(Hub.status.uptime||"unavailable")+"   ·   Governor "+(Hub.status.governor||"unavailable");wrapMode:Text.Wrap;font.pixelSize:11;color:Theme.subtext}
                 MButton {width:parent.width;icon:"coffee";text:Hub.gameSession ? "Play session keeps awake" : Hub.keepAwake ? "Keep awake · On" : "Keep awake · Off";highlighted:Hub.keepAwake||Hub.gameSession;enabled:!Hub.gameSession;onClicked:Hub.keepAwake=!Hub.keepAwake}
                 MText {text:Hub.status.profile ? "Power mode" : "Power modes unavailable";font.pixelSize:12;color:Theme.subtext}

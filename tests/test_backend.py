@@ -112,6 +112,28 @@ class BackendTests(unittest.TestCase):
             result = self.backend.status()
         self.assertFalse({'workspace','workspaces','windows','title','activeAddress'} & result.keys())
 
+    def test_status_delta_sends_everything_first_then_only_changes(self):
+        first = {'volume': 40, 'muted': False, 'batteries': [], 'cpu': 3, 'memory': 50}
+        self.assertEqual(self.backend.status_delta({}, first),
+                         {'volume': 40, 'muted': False, 'batteries': []})
+        published = {'volume': 40, 'muted': False, 'batteries': []}
+        self.assertEqual(self.backend.status_delta(published, dict(first, cpu=9, memory=70)), {})
+        self.assertEqual(self.backend.status_delta(published, dict(first, volume=41)), {'volume': 41})
+        self.assertEqual(self.backend.status_delta(published, dict(first, batteries=[{'level': 80}])),
+                         {'batteries': [{'level': 80}]})
+
+    def test_load_delta_reports_only_changed_cpu_and_memory(self):
+        self.assertEqual(self.backend.load_delta({}, {'volume': 1, 'cpu': 7, 'memory': 40}), {'cpu': 7, 'memory': 40})
+        self.assertEqual(self.backend.load_delta({'cpu': 7, 'memory': 40}, {'cpu': 7, 'memory': 41}), {'memory': 41})
+        self.assertEqual(self.backend.load_delta({'cpu': 7, 'memory': 40}, {'cpu': 7, 'memory': 40}), {})
+
+    def test_status_poll_omits_load_fields_from_status_event(self):
+        with patch.object(self.backend, 'run', return_value=''):
+            result = self.backend.status()
+        self.assertIn('cpu', result)
+        self.assertIn('memory', result)
+        self.assertFalse({'cpu', 'memory'} & self.backend.status_delta({}, result).keys())
+
     def test_cached_art_index_accepts_old_and_new_steam_layouts(self):
         cache = pathlib.Path(self.home.name) / '.local/share/Steam/appcache/librarycache'
         modern = cache / '1091500/hash/library_capsule.jpg'

@@ -836,6 +836,16 @@ def status():
     s['camera']=activity_signals.camera_users()
     return s
 
+# CPU and memory change on almost every poll, so they travel in their own low-rate 'load' event.
+LOAD_FIELDS=('cpu','memory')
+LOAD_INTERVAL=4
+def status_delta(previous, current):
+    """Return the status fields that differ from the last publish; all fields when nothing was published."""
+    return {k:v for k,v in current.items() if k not in LOAD_FIELDS and (k not in previous or previous[k]!=v)}
+def load_delta(previous, current):
+    """Return the CPU and memory values that differ from the last load publish."""
+    return {k:current[k] for k in LOAD_FIELDS if k in current and (k not in previous or previous[k]!=current[k])}
+
 # Floating window mode. Every Hyprland call goes through HyprActions; the plan comes from floating_mode.
 floating_lock=threading.Lock()
 floating_seen=set()
@@ -1744,14 +1754,23 @@ def main():
                 snap_seq[0]+=1
                 threading.Thread(target=snap_preview,args=(drag if drag.get('kind')=='zone' else {'zone':''},snap_seq[0]),daemon=True).start()
     if not GAMESCOPE[0]: threading.Thread(target=listen_hyprland, args=(compositor_emit,), daemon=True).start()
-    last_published=None
+    last_published={}
+    last_load={}
+    last_load_time=float('-inf')
     while True:
         try:
             current=status()
-            if current != last_published:
-                emit({'event':'status','data':current})
-                last_published=current
-                link_status(current)
+            changed=status_delta(last_published,current)
+            load=load_delta(last_load,current)
+            if changed:
+                emit({'event':'status','data':changed})
+                last_published.update(changed)
+            sent_load=bool(load) and time.monotonic()-last_load_time>=LOAD_INTERVAL
+            if sent_load:
+                emit({'event':'load','data':load})
+                last_load.update(load)
+                last_load_time=time.monotonic()
+            if changed or sent_load: link_status(current)
         except Exception: pass
         time.sleep(2)
 
