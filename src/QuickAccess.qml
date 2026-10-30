@@ -32,6 +32,7 @@ Item {
     function open(view) { tabIndex = view; if (ControllerNav.usingController) padFocus.selectSoon(); }
     function minutesText(m) { return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min"; }
     function leave() { GameState.closeQuickAccess(); }
+    function openPower() { qaPower.page = "menu"; if (ControllerNav.usingController) padFocus.selectSoon(); }
     function resume() { const w = GameState.gameWindows[0]; leave(); if (w) Compositor.focusApp(w); }
     // Presets apply to the game in front, or to the next game when nothing runs.
     function pickPreset(id) {
@@ -45,7 +46,7 @@ Item {
         else if (key === "power") Hub.command({action: "profile", value: value});
         else GameState.set(key, value);
     }
-    onShownChanged: { if (shown) { tabIndex = 0; confirmQuit = false; GameState.loadWidgets(); } }
+    onShownChanged: { if (shown) { tabIndex = 0; confirmQuit = false; qaPower.page = ""; GameState.loadWidgets(); } }
     onSheetOpenChanged: { Compositor.overlayInput(sheetOpen); if (sheetOpen && ControllerNav.usingController) padFocus.selectSoon(); }
 
     focus: GameState.quickAccess
@@ -165,11 +166,18 @@ Item {
                     height: 18; visible: flick.contentHeight > flick.height + 1
                     gradient: Gradient { GradientStop { position: 0; color: "transparent" } GradientStop { position: 1; color: Theme.alpha(Theme.level(2), .985) } }
                 }
+                PowerSheet {
+                    id: qaPower
+                    anchors.fill: parent
+                    form: "tv"; radius: 0; direct: false
+                    onRun: verb => { qa.leave(); if (verb === "lock") Hub.lock(); else Hub.command({action: "power", verb: verb}); }
+                }
             }
             RowLayout {
                 Layout.fillWidth: true
                 Item { Layout.fillWidth: true }
                 ControllerHints {
+                    visible: !qaPower.visible
                     items: {
                         const list = [{b: ControllerNav.acceptLabel, t: "Select"}, {b: ControllerNav.backLabel, t: qa.tabIndex === 0 ? "Close" : "Back"}, {b: "LB RB", t: "Sheets"}];
                         if (qa.tabIndex === 2) list.push({b: ControllerNav.altLabel, t: "Dismiss"});
@@ -190,7 +198,7 @@ Item {
         active: qa.sheetOpen
         closeOnBack: false
         showHints: false
-        onBack: { if (qa.tabIndex !== 0) qa.open(0); else qa.leave(); }
+        onBack: { if (qaPower.page !== "") qaPower.back(); else if (qa.tabIndex !== 0) qa.open(0); else qa.leave(); }
         onTab: delta => qa.step(delta)
     }
 
@@ -232,6 +240,7 @@ Item {
                 Layout.fillWidth: true; spacing: 8
                 MButton { visible: GameState.gameActive; Layout.fillWidth: true; text: "Resume"; icon: "play_arrow"; filled: true; onClicked: qa.resume() }
                 MButton { Layout.fillWidth: true; text: "Home"; icon: "home"; tonal: true; onClicked: Compositor.showHome() }
+                MButton { icon: "power"; tonal: true; tooltip: "Power"; Layout.preferredWidth: 48; onClicked: qa.openPower() }
                 MButton {
                     visible: GameState.gameWindows.length > 0; Layout.fillWidth: true
                     text: qa.confirmQuit ? "Press again" : "Quit"; icon: "close"; tonal: true

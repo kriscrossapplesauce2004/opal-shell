@@ -68,6 +68,7 @@ PhoneStatus 1.0 PhoneStatus.qml
 PowerProfileWindow 1.0 PowerProfileWindow.qml
 PowerMenu 1.0 PowerMenu.qml
 PowerMenuRow 1.0 PowerMenuRow.qml
+PowerSheet 1.0 PowerSheet.qml
 PowerMenuWindow 1.0 PowerMenuWindow.qml
 SettingsPowerKey 1.0 SettingsPowerKey.qml
 singleton PowerKey 1.0 PowerKey.qml

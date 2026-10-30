@@ -36,7 +36,7 @@ FocusScope {
     signal sessionPicked(int index)
 
     property bool revealed: greeter
-    property string confirmPower: ""
+    property alias confirmPower: lockPower.page
     property bool pinMode: false
     property var pinDigits: ["1","2","3","4","5","6","7","8","9","0"]
     function shufflePin() {
@@ -56,7 +56,7 @@ FocusScope {
     Timer { id: idle; interval: 20000; onTriggered: if (!scene.greeter && field.text === "" && !scene.busy) scene.revealed = false }
     focus: true
     Keys.onPressed: event => {
-        if (scene.confirmPower !== "") { if (event.key === Qt.Key_Escape) { scene.confirmPower = ""; event.accepted = true; } return; }
+        if (scene.confirmPower !== "") { if (event.key === Qt.Key_Escape) { lockPower.back(); event.accepted = true; } return; }
         if (!scene.revealed) {
             scene.reveal();
             if (event.text && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) && event.key !== Qt.Key_Escape && event.key !== Qt.Key_Return && event.key !== Qt.Key_Enter) field.insert(field.cursorPosition, event.text);
@@ -404,27 +404,14 @@ FocusScope {
     }
 
     // Power menu.
-    Rectangle {
-        visible: scene.confirmPower !== ""
-        anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.rightMargin: 28; anchors.bottomMargin: 28 + 48 + 8
-        width: 240; height: powerColumn.implicitHeight + 16
-        radius: Theme.shapeLg; color: Theme.level(3)
-        Column {
-            id: powerColumn; x: 8; y: 8; width: parent.width - 16; spacing: 2
-            Repeater {
-                model: scene.confirmPower === "menu" ? [{id: "suspend", name: "Sleep", icon: "sleep"}, {id: "reboot", name: "Restart", icon: "restart"}, {id: "poweroff", name: "Power off", icon: "power"}] : [{id: scene.confirmPower, name: scene.confirmPower === "reboot" ? "Restart now" : scene.confirmPower === "suspend" ? "Sleep now" : "Power off now", icon: "check"}, {id: "", name: "Cancel", icon: "close"}]
-                Rectangle {
-                    required property var modelData
-                    width: powerColumn.width; height: 44; radius: Theme.shapeMd
-                    color: powerMouse.containsMouse ? Theme.level(4) : "transparent"
-                    Row { anchors.verticalCenter: parent.verticalCenter; x: 14; spacing: 12
-                        Glyph { name: modelData.icon; font.pixelSize: 19; color: Theme.primary; anchors.verticalCenter: parent.verticalCenter }
-                        MText { text: modelData.name; role: "body"; anchors.verticalCenter: parent.verticalCenter } }
-                    MouseArea { id: powerMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: { if (scene.confirmPower === "menu") scene.confirmPower = modelData.id; else if (modelData.id === "") scene.confirmPower = ""; else { scene.powerRequested(modelData.id); scene.confirmPower = ""; } } }
-                }
-            }
-        }
+    PowerSheet {
+        id: lockPower
+        // It opens just above the power button in the bottom status row.
+        z: 7; x: parent.width - width - 28; y: parent.height - height - (28 + 48 + 8)
+        width: 288; height: implicitHeight
+        form: "card"; verbs: ["suspend", "reboot", "poweroff"]
+        direct: false; takeFocus: false; session: !scene.greeter
+        onRun: verb => scene.powerRequested(verb)
     }
 
     // Greeter: what's new in Opal.
@@ -478,7 +465,7 @@ FocusScope {
     ControllerFocus {
         anchors.fill: parent; root: scene; priority: 20; closeOnBack: false; preferText: true
         active: scene.greeter || Hub.locked
-        onBack: { if (scene.confirmPower !== "") scene.confirmPower = ""; else { field.text = ""; if (!scene.greeter) scene.revealed = false; } }
+        onBack: { if (scene.confirmPower !== "") lockPower.back(); else { field.text = ""; if (!scene.greeter) scene.revealed = false; } }
     }
 
     // Power key menu on the lock screen. Only the screen it opened on shows it, and it holds focus while open.

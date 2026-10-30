@@ -27,6 +27,16 @@ ShellRoot {
             {name:"lock-light-small",ui:"lock",w:420,h:860,light:true,reveal:true},
             {name:"greeter",ui:"lock",w:1440,h:900,greeter:true},
             {name:"greeter-whats-new",ui:"lock",w:1440,h:900,greeter:true,whatsNew:true,light:true},
+            {name:"power-shade",ui:"shade",w:420,h:560,power:"menu"},
+            {name:"power-shade-light",ui:"shade",w:420,h:560,power:"menu",light:true},
+            {name:"power-shade-confirm",ui:"shade",w:420,h:620,power:"poweroff"},
+            {name:"power-phone",ui:"shade",w:390,h:844,qs:true,power:"menu"},
+            {name:"power-phone-confirm-light",ui:"shade",w:390,h:844,qs:true,power:"reboot",light:true},
+            {name:"power-start",ui:"start",w:600,h:680,power:"menu"},
+            {name:"power-lock",ui:"lock",w:1440,h:900,power:"menu"},
+            {name:"power-lock-confirm-light",ui:"lock",w:1440,h:900,power:"poweroff",light:true},
+            {name:"power-greeter-confirm",ui:"lock",w:1440,h:900,greeter:true,power:"reboot"},
+            {name:"power-quickaccess",ui:"quickaccess",w:1920,h:1080,tab:0,power:"menu"},
             {name:"polkit",ui:"polkit",w:640,h:520},
             {name:"dock-menu",ui:"dockmenu",w:1280,h:720},
             {name:"dock-menu-light",ui:"dockmenu",w:1280,h:720,light:true},
@@ -422,6 +432,7 @@ ShellRoot {
         }}
         Component {id:lockView;Item {
             readonly property var test:fixture.cases[fixture.step]
+            property alias scene:lockScene
             Opal.LockScene {
                 id:lockScene;anchors.fill:parent
                 mode:parent.test.greeter ? "greeter" : "lock"
@@ -627,6 +638,7 @@ ShellRoot {
             view.sourceComponent=test.ui==="assistant" ? assistantView : test.ui==="pill" ? pillView : test.ui==="chips" ? chipsView : test.ui==="undotoast" ? undoToastView : test.ui==="layoutmorph" ? morphView : test.ui==="tabletdock" ? tabletDockView : test.ui==="battery" ? batteryView : test.ui==="gesture" ? gestureView : test.ui==="lockfx" ? lockFxView : test.ui==="start" ? startView : test.ui==="osd" ? osdView : test.ui==="phonebars" ? phoneBars : test.ui==="shapes" ? shapeView : test.ui==="audio" ? audioView : test.ui==="taskbar" ? taskbarView : test.ui==="switcher" ? switcherView : test.ui==="wallpaper" ? wallpaperStudio : test.ui==="dock" ? dockView : test.ui==="glass" ? glassView : test.ui==="convergence" ? convergenceView : test.ui==="keyboard" ? keyboardView : test.ui==="desktop" ? desktop : test.ui==="phone" ? phone : test.ui==="clipboard" ? clipboardView : test.ui==="dashboard" ? dashboardView : test.ui==="workspace" ? workspaceView : test.ui==="bars" ? barsView : test.ui==="dockmenu" ? dockMenuView : test.ui==="phonedock" ? phoneDockView : test.ui==="onboarding" ? onboardingView : test.ui==="lock" ? lockView : test.ui==="polkit" ? polkitView : test.ui==="reference" ? referenceView : test.ui==="search" ? searchView : test.ui==="menus" ? menusView : test.ui==="shade" ? shadeView : test.ui==="appearance" ? appearanceView : test.ui==="quickaccess" ? quickAccessView : test.ui==="padsettings" ? padSettingsView : test.ui==="padpolkit" ? padPolkitView : gaming;
             if(test.ui==="quickaccess"){view.item.qa.tabIndex=test.tab||0;}
             if(test.qs!==undefined)view.item.phone=true;
+            if(test.power)Qt.callLater(()=>{if(test.ui==="quickaccess")view.item.qa.openPower();else if(test.ui==="shade")view.item.confirm=test.power;else (test.ui==="start" ? view.item.menu : view.item.scene).confirmPower=test.power;});
             // A sheet made with a detail request must show that detail, not a blank card.
             if(test.ui==="shade"&&test.detail&&view.item.detailKind!==test.detail)console.error("ASSERTION_FAILED: detail lost at sheet creation in "+test.name);
             if(test.detailGrow!==undefined){const it=view.item;it.detailOrigin=Qt.rect(14,150,150,36);it.detailKind="wifi";it.detail=test.detailGrow;}
@@ -650,7 +662,7 @@ ShellRoot {
                         if(menu.selection!==1||menu.selected.kind!=="action")console.error("ASSERTION_FAILED: start action navigation");
                     }
                     if(test.searchText==="zzzzzzzz"&&menu.results.length)console.error("ASSERTION_FAILED: start empty search");
-                    if(!test.searchText&&!test.allApps) {
+                    if(!test.searchText&&!test.allApps&&!test.power) {
                         Opal.Hub.query="Firefox";menu.goBack();
                         if(Opal.Hub.query!==""||Opal.Hub.page!=="launcher")console.error("ASSERTION_FAILED: Escape must clear search before closing");
                     }

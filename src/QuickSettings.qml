@@ -5,7 +5,7 @@ import QtQuick.Layouts
 // Merged control and notification sheet. Sections and their order come from preferences.
 Item {
     id:q
-    property string confirm:""
+    property alias confirm:powerSheet.page
     property bool editing:false
     property bool phone:Hub.targetScreen ? Hub.layoutFor(Hub.targetScreen.width,Hub.targetScreen.height,Hub.targetScreen.name)==="phone" : Hub.prefs.mode==="phone"
     readonly property var catalog:[
@@ -51,7 +51,7 @@ Item {
         if(item&&scroller.contentHeight>scroller.height+1)scroller.contentY=Math.max(0,Math.min(scroller.contentHeight-scroller.height,item.y));
     }
     // Desktop sheets shrink to fit. Zero means the host picks the height.
-    readonly property real fitHeight:!q.phone&&Hub.controlDetail===""&&q.confirm==="" ? main.implicitHeight+28+padFocus.hintSpace : 0
+    readonly property real fitHeight:q.confirm!=="" ? powerSheet.fitHeight : !q.phone&&Hub.controlDetail==="" ? main.implicitHeight+28+padFocus.hintSpace : 0
     // Controller: LB and RB jump between sections.
     function jumpSection(delta) {
         const items=[];
@@ -338,21 +338,15 @@ Item {
         Component {id:displaysPage;DisplaysPanel {}
         }
     }
-    Rectangle {property bool controllerModal:true;visible:q.confirm!=="";anchors.fill:parent;radius:28;color:Theme.level(2)
-        MouseArea {anchors.fill:parent}
-        ColumnLayout {anchors.centerIn:parent;width:parent.width-48;spacing:10
-            MText {Layout.fillWidth:true;text:q.confirm==="menu" ? "Power" : q.confirm==="suspend" ? "Sleep now?" : q.confirm==="logout" ? "Log out now?" : q.confirm==="reboot" ? "Restart now?" : "Power off now?";role:"headline";wrapMode:Text.Wrap}
-            Repeater {model:q.confirm==="menu" ? [{id:"suspend",title:"Sleep",icon:"sleep"},{id:"logout",title:"Log out",icon:"logout"},{id:"reboot",title:"Restart",icon:"restart"},{id:"poweroff",title:"Power off",icon:"power"}] : []
-                MButton {required property var modelData;Layout.fillWidth:true;text:modelData.title;icon:modelData.icon;tonal:true;onClicked:q.confirm=modelData.id}
-            }
-            MButton {visible:q.confirm!=="menu";Layout.fillWidth:true;text:"Yes";filled:true;onClicked:{Hub.command({action:"power",verb:q.confirm});Hub.close();}}
-            MButton {Layout.fillWidth:true;text:"Cancel";onClicked:q.confirm=""}
-        }
+    PowerSheet {
+        id:powerSheet
+        anchors.fill:parent
+        form:q.phone ? "touch" : "desktop"
     }
     ControllerFocus {
         id:padFocus
         anchors.fill:parent;root:q;priority:5;closeOnBack:false;tabHints:true
-        onBack:{if(q.confirm!=="")q.confirm="";else if(Hub.controlDetail!=="")Hub.controlDetail="";else Hub.close();}
+        onBack:{if(q.confirm!=="")powerSheet.back();else if(Hub.controlDetail!=="")Hub.controlDetail="";else Hub.close();}
         onTab:delta=>q.jumpSection(delta)
     }
 }

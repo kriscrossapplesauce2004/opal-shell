@@ -19,8 +19,8 @@ FocusScope {
     property string letter:""
     readonly property var library:Hub.searchApps("",appCategory).filter(app=>!letter||app.name.toUpperCase().startsWith(letter))
     property string scope:"all"
-    property string confirmPower:""
-    onConfirmPowerChanged:if(confirmPower!=="")Qt.callLater(()=>powerCancel.forceActiveFocus());else searchField.forceActiveFocus()
+    property alias confirmPower:powerSheet.page
+    onConfirmPowerChanged:if(confirmPower==="")searchField.forceActiveFocus()
     // Result access for tests and controllers. The shared search owns the list and the selection.
     property alias selection:startSearch.selection
     readonly property var results:startSearch.flat.filter(r=>r.kind!=="web")
@@ -47,7 +47,7 @@ FocusScope {
     readonly property var recent:Hub.recentApps.slice(0,4)
     function move(delta) {startSearch.move(delta);}
     function goBack() {
-        if(confirmPower!==""){confirmPower="";return;}
+        if(confirmPower!==""){powerSheet.back();return;}
         if(searching){Hub.query="";scope="all";searchField.forceActiveFocus();}
         else if(allApps){section="pinned";searchField.forceActiveFocus();}
         else Hub.close();
@@ -235,16 +235,8 @@ FocusScope {
         }
     }
     }
-    Rectangle {
-        visible:menu.confirmPower!=="";anchors.fill:parent;radius:28;color:Theme.level(2)
-        MouseArea {anchors.fill:parent}
-        ColumnLayout {anchors.centerIn:parent;width:parent.width-64;spacing:12
-            MText {Layout.fillWidth:true;text:menu.confirmPower==="menu" ? "Session and power" : "Confirm "+menu.confirmPower+"?";font.pixelSize:24;wrapMode:Text.Wrap}
-            Repeater {model:menu.confirmPower==="menu" ? [{id:"suspend",name:"Sleep"},{id:"logout",name:"Log out"},{id:"reboot",name:"Restart"},{id:"poweroff",name:"Shut down"}] : []
-                MButton {required property var modelData;text:modelData.name;tonal:true;Layout.fillWidth:true;onClicked:menu.confirmPower=modelData.id}
-            }
-            MButton {visible:menu.confirmPower!=="menu";text:"Confirm";filled:true;Layout.fillWidth:true;onClicked:{Hub.command({action:"power",verb:menu.confirmPower});Hub.close();}}
-            MButton {id:powerCancel;text:"Cancel";Layout.fillWidth:true;onClicked:menu.confirmPower=""}
-        }
+    PowerSheet {
+        id:powerSheet
+        anchors.fill:parent
     }
 }
