@@ -349,11 +349,11 @@ case "${1:-on}" in
         shift
         exec bash "@OPAL_TOOLS@/switch/opal-switch" "$@"
         ;;
-    launcher|controls|notifications|clipboard|phone|desktop|appearance|close|inspect|lock)
+    launcher|controls|notifications|clock|clipboard|phone|desktop|appearance|close|inspect|lock)
         exec quickshell ipc -p "$config" call opal "$1"
         ;;
     *)
-        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|portal [on|off|touch|always|never]|activity …|switch [--gui|--check|--undo]|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
+        echo 'Usage: opal [on|reload|off|autostart [on|off]|theme [list|set|follow|export]|portal [on|off|touch|always|never]|activity …|switch [--gui|--check|--undo]|lock|greeter [--revert]|polkit|game-session [install-entry|remove-entry]|launcher|controls|notifications|clock|clipboard|phone|console|gaming|quickaccess|desktop|appearance|close|inspect]' >&2
         exit 2
         ;;
 esac

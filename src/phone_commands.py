@@ -58,7 +58,7 @@ def handle(c, emit, games=None):
     return True
 
 
-LOCK_NOTIFICATIONS = ('off', 'count', 'title')
+LOCK_NOTIFICATIONS = ('off', 'count', 'title', 'full')
 
 
 # Assignable edge gestures; the shell's PhoneState.gestureActions lists the same actions.

@@ -16,11 +16,15 @@ Item {
     // The icon whose long-press menu is open: {page, index, app, x, y}.
     property var menuFor: null
     property alias pager: pager
+    // The page the home opens on: 0 is the Live page, 1 the first home page. An open foldable shows two pages, one on each side of the hinge.
+    property int startPage: 1
+    // False when a taskbar outside the home carries the favourite apps and the search, as on an open foldable.
+    property bool ownDock: true
     // A tablet grid keeps icon cells near 168 px wide, so a large screen gets more columns and not wider cells.
     readonly property int columns: wide ? Math.max(PhoneState.columnsFor(pager.width, true) + 1, Math.floor((pager.width - 8) / 168)) : PhoneState.columnsFor(pager.width, false)
     readonly property real cellWidth: (pager.width - 8) / columns
     readonly property real cellHeight: PhoneState.cellHeight(Math.min(cellWidth, 104))
-    readonly property int dockCount: wide ? 0 : Math.min(4, Hub.favoriteApps.length)
+    readonly property int dockCount: wide || !ownDock ? 0 : Math.min(4, Hub.favoriteApps.length)
     // The layout changes only when the saved home changes. Other preference changes must not rebuild the pages or reset the page.
     readonly property string layoutKey: JSON.stringify(Hub.phoneHome)
     property var layout: ({pages: [{widgets: [], items: []}]})
@@ -270,8 +274,8 @@ Item {
             // Index 0 is the Live page; the home pages follow.
             model: [{minus: true}].concat(home.layout.pages)
             // The page the user is on. A new model or a size change returns to it; the first home page is the default.
-            property int wanted: 1
-            currentIndex: 1
+            property int wanted: home.startPage
+            currentIndex: home.startPage
             onMovementEnded: wanted = currentIndex
             onCountChanged: Qt.callLater(() => { currentIndex = Math.min(wanted, count - 1); positionViewAtIndex(currentIndex, ListView.Beginning); })
             onWidthChanged: positionViewAtIndex(currentIndex, ListView.Beginning)
@@ -329,9 +333,9 @@ Item {
                 }
             }
         }
-        // On a tablet the persistent dock carries the search, so the home does not draw a second one.
+        // On a tablet, or when an outside taskbar carries the apps, that bar carries the search, so the home does not draw a second one.
         Rectangle {
-            visible: !home.wide || Hub.prefs.tabletDock === false
+            visible: home.ownDock && (!home.wide || Hub.prefs.tabletDock === false)
             Layout.fillWidth: true; Layout.maximumWidth: home.wide ? 560 : 10000; Layout.alignment: Qt.AlignHCenter; Layout.preferredHeight: 56; radius: 28
             color: Theme.alpha(Theme.level(3), .95)
             Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.stateLayer; opacity: searchMouse.pressed ? .1 : 0 }

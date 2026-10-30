@@ -31,6 +31,13 @@ class ShellIpcTests(unittest.TestCase):
         missing = sorted((called | panels | layouts) - names)
         self.assertEqual(missing, [], 'MCP tools call missing IPC functions: %s' % missing)
 
+    def test_shade_and_assistant_pages_excluded_from_overlay(self):
+        text = SHELL.read_text()
+        wanted_line = [line for line in text.splitlines() if 'readonly property bool wanted:' in line][0]
+        # ShadeWindow handles controls, notifications, clock; AssistantWindow handles assistant
+        for page in ('controls', 'notifications', 'assistant', 'clock'):
+            self.assertIn(f'Hub.page!=="{page}"', wanted_line)
+
 
 if __name__ == '__main__':
     unittest.main()

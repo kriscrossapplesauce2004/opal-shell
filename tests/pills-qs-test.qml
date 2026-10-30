@@ -30,7 +30,13 @@ ShellRoot {
             {name: "displays-sheet", view: displays, w: 412, h: 620},
             {name: "spaces-card", view: spaces, w: 1040, h: 420, spaces: true},
             {name: "spaces-edit", view: spaces, w: 460, h: 640, spaces: true, edit: 2},
-            {name: "spaces-shelf", view: shelf, w: 1440, h: 160, spaces: true}
+            {name: "spaces-shelf", view: shelf, w: 1440, h: 160, spaces: true},
+            {name: "lock-desktop", view: lock, w: 1280, h: 800},
+            {name: "lock-thin", view: lock, w: 1280, h: 800, prefs: {lockFace: "thin", lockColor: "white"}},
+            {name: "lock-notifications", view: lock, w: 1280, h: 800, lockList: true, prefs: {lockNotifications: "full"}},
+            {name: "lock-quick", view: lock, w: 1280, h: 800, lockQuick: true},
+            {name: "lock-phone", view: lock, w: 412, h: 915},
+            {name: "settings-lock", view: settings, w: 1100, h: 900}
         ]
         Loader { id: loader; anchors.fill: parent }
         function run() {
@@ -38,7 +44,7 @@ ShellRoot {
             const c = cases[step];
             width = c.w; height = c.h;
             const now = Date.now();
-            Opal.Hub.prefs = Object.assign({}, Opal.Hub.prefs, {palette: 1, barStyle: "islands", pillLevel: "full", pillsCollapsed: false, quickTiles: ["wifi", "bluetooth", "dnd", "awake", "theme", "saver", "mic", "keyboard"], quickTileSizes: {}}, c.prefs || {});
+            Opal.Hub.prefs = Object.assign({}, Opal.Hub.prefs, {palette: 1, barStyle: "islands", pillLevel: "full", pillsCollapsed: false, quickTiles: ["wifi", "bluetooth", "dnd", "awake", "theme", "saver", "mic", "keyboard"], quickTileSizes: {}, lockFace: "stacked", lockColor: "primary", lockNotifications: "title"}, c.prefs || {});
             Opal.Hub.status = Object.assign({}, Opal.Hub.status, {battery: 73, charging: false, wifi: true, network: "Oasis WLAN", bluetooth: true, brightness: 58, volume: 32, hypr: true, workspace: 2, workspaces: [1, 2, 3], profile: "balanced"});
             Opal.Activities.fixture = [
                 {id: "focus", kind: "focus", icon: "timer", title: "Pasta timer", short: "4:12", subtitle: "Ends at 15:04", progress: .7, priority: 60, since: 2, until: 0, controls: []},
@@ -76,5 +82,9 @@ ShellRoot {
     Component { id: notes; Card { Opal.NotificationSheet { anchors.fill: parent } } }
     Component { id: clock; Card { Opal.ClockCard { anchors.fill: parent } } }
     Component { id: spaces; Item { Opal.WorkspaceCard { id: wcard; x: 10; y: 10; width: implicitWidth; height: implicitHeight; Component.onCompleted: if (fixture.cases[fixture.step].edit) wcard.editing = fixture.cases[fixture.step].edit } } }
+    Component { id: lock; Opal.LockScene { id: scene; mode: "lock"; userName: "Melissa"
+        Component.onCompleted: { Opal.Hub.prefs = Object.assign({}, Opal.Hub.prefs, {wallpaperPath: "file://" + Quickshell.env("HOME") + "/Ocean.png", wallpaperDim: 0});
+            const c = fixture.cases[fixture.step]; if (c.lockList) Qt.callLater(scene.openNotifications); if (c.lockQuick) Qt.callLater(scene.openQuick); } } }
+    Component { id: settings; Rectangle { color: Opal.Theme.base; Opal.Settings { anchors.fill: parent; Component.onCompleted: Opal.Hub.settingsSection = "lock" } } }
     Component { id: displays; Card { Opal.DisplaysPanel { anchors.fill: parent; anchors.margins: 16 } } }
 }

@@ -647,6 +647,10 @@ Scope {
     // Session lock. The Opal lock screen owns unlocking through PAM.
     property bool locked: false
     function lock() { page=""; locked=true; }
+    // Things asked for on the lock screen that wait for the unlock: replies, notification actions and app shortcuts.
+    property var afterUnlock: []
+    function whenUnlocked(fn) { afterUnlock = afterUnlock.concat([fn]); }
+    onLockedChanged: if (!locked && afterUnlock.length) { const run = afterUnlock; afterUnlock = []; Qt.callLater(() => run.forEach(fn => { try { fn(); } catch (e) { console.warn("after unlock: " + e); } })); }
     function settings(which) { if(which==="lock") {lock();return;} if(which==="network"||which==="bluetooth") {controlDetail=which==="network" ? "wifi" : which;page="controls";return;} page=""; command({action:"settings",which:which}); }
     function volume(value) { value=Math.max(0,Math.min(100,Math.round(value)));command({action:"volume",value:value}); let s=Object.assign({},status); s.volume=value; status=s;showVolumeOsd(); }
     function workspace(n) { if(status.hypr)command({action:"workspace",number:Number(n)}); }

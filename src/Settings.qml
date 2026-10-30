@@ -23,6 +23,7 @@ Item {
          {id:"devices",title:"Connected devices",icon:"bluetooth",detail:"Bluetooth, Opal Link, controllers"}],
         [{id:"apps",title:"Apps & windows",icon:"select_window",detail:Hub.prefs.floatingMode ? "Floating windows, app switcher" : "Tiling, app switcher, file dialogs"},
          {id:"notifications",title:"Notifications",icon:"notifications",detail:Hub.dnd ? "Do not disturb is on" : Hub.inbox.length+" in your inbox"},
+         {id:"lock",title:"Lock screen",icon:"lock",detail:"Clock, widgets, shortcuts and privacy"},
          {id:"power",title:"Battery & power",icon:"battery_5_bar",detail:Hub.status.battery>=0 ? Hub.status.battery+"% · "+(Hub.status.profile||"power") : "Profiles, keep awake, power key"},
          {id:"sound",title:"Sound",icon:"volume_up",detail:Hub.status.muted ? "Muted" : "Volume "+Hub.status.volume+"%"}],
         [{id:"displays",title:"Displays",icon:"monitor",detail:"Arrangement and what each screen becomes"},
@@ -74,6 +75,10 @@ Item {
         {s:"apps",t:"Live previews",k:"app switcher thumbnails"},
         {s:"apps",t:"Opal file dialogs",k:"file picker portal open save"},
         {s:"notifications",t:"Do not disturb",k:"dnd silence quiet"},
+        {s:"lock",t:"Clock face",k:"lock screen clock stacked thin"},
+        {s:"lock",t:"Widget stack",k:"lock screen widgets music timer calendar"},
+        {s:"lock",t:"Corner shortcuts",k:"lock screen torch flashlight shortcut"},
+        {s:"lock",t:"Reply from the lock screen",k:"lock reply notifications"},
         {s:"notifications",t:"Notification inbox",k:"history"},
         {s:"power",t:"Power profile",k:"performance saver balanced"},
         {s:"power",t:"Keep awake",k:"caffeine sleep inhibit"},
@@ -236,7 +241,7 @@ Item {
                 id:page
                 Layout.fillWidth:true;Layout.fillHeight:true
                 readonly property string sec:Hub.settingsSection
-                sourceComponent:({"":overviewPage,network:networkPage,bluetooth:bluetoothPage,devices:devicesPage,link:linkPage,apps:appsPage,notifications:notificationsPage,power:powerPage,powerkey:powerKeyPage,sound:soundPage,displays:screensPage,style:stylePage,look:lookPage,apptheme:appThemePage,home:homePage,phone:phonePage,games:gamesPage,routines:routinesPage,profiles:profilesPage,accessibility:accessibilityPage,ai:aiPage,system:systemPage,about:aboutPage})[sec]||overviewPage
+                sourceComponent:({"":overviewPage,network:networkPage,bluetooth:bluetoothPage,devices:devicesPage,link:linkPage,apps:appsPage,notifications:notificationsPage,lock:lockPage,power:powerPage,powerkey:powerKeyPage,sound:soundPage,displays:screensPage,style:stylePage,look:lookPage,apptheme:appThemePage,home:homePage,phone:phonePage,games:gamesPage,routines:routinesPage,profiles:profilesPage,accessibility:accessibilityPage,ai:aiPage,system:systemPage,about:aboutPage})[sec]||overviewPage
                 // A new page slides in from the side; going back slides the other way.
                 onLoaded:pageIn.restart()
                 ParallelAnimation {
@@ -332,6 +337,7 @@ Item {
     Component {id:linkPage;SettingsLink {}}
     Component {id:appsPage;SettingsApps {}}
     Component {id:notificationsPage;SettingsNotifications {}}
+    Component {id:lockPage;SettingsLock {}}
     Component {id:powerPage;SettingsPower {}}
     Component {id:powerKeyPage;SettingsPowerKey {}}
     Component {id:soundPage;SettingsSound {}}

@@ -5,6 +5,11 @@ import QtQuick.Layouts
 ColumnLayout {
     id:deck
     property bool editing:false
+    // Locked: toggles still work, but anything that shows private data or opens an app asks for an unlock first.
+    property bool locked:false
+    signal unlockRequested()
+    readonly property var lockSafe:["wifi","bluetooth","dnd","awake","theme","saver","mic","focus","media","devices","motion"]
+    function needsUnlock(id) {return locked&&lockSafe.indexOf(id)<0;}
     readonly property var defaults:["wifi","bluetooth","dnd","awake","theme","saver","mic","keyboard"]
     readonly property var tiles:[
         {id:"wifi",title:"Internet",icon:"wifi"}, {id:"bluetooth",title:"Bluetooth",icon:"bluetooth"},
@@ -143,16 +148,22 @@ ColumnLayout {
                     anchors.fill:parent
                     dense:true;iconOnly:cell.rect.size==="round"
                     icon:deck.iconFor(cell.modelData);title:deck.titleFor(cell.modelData);subtitle:deck.subtitle(cell.modelData.id);active:deck.state(cell.modelData.id)
-                    settings:deck.pageFor(cell.modelData.id)!==""&&!deck.editing
+                    settings:deck.pageFor(cell.modelData.id)!==""&&!deck.editing&&!deck.locked
                     enabled:deck.enabledFor(cell.modelData.id)||deck.editing
                     opacity:deck.enabledFor(cell.modelData.id) ? 1 : .45
-                    onToggled:if(!deck.editing)deck.toggle(cell.modelData.id)
-                    onClicked:if(!deck.editing){if(deck.pageFor(cell.modelData.id)!=="")deck.pageRequested(deck.pageFor(cell.modelData.id),cell);else deck.toggle(cell.modelData.id);}
-                    onOpenSettings:deck.pageRequested(deck.pageFor(cell.modelData.id),cell)
+                    onToggled:if(!deck.editing){if(deck.needsUnlock(cell.modelData.id))deck.unlockRequested();else deck.toggle(cell.modelData.id);}
+                    onClicked:if(!deck.editing){if(deck.needsUnlock(cell.modelData.id)||deck.locked&&deck.pageFor(cell.modelData.id)!=="")deck.unlockRequested();else if(deck.pageFor(cell.modelData.id)!=="")deck.pageRequested(deck.pageFor(cell.modelData.id),cell);else deck.toggle(cell.modelData.id);}
+                    onOpenSettings:if(deck.locked)deck.unlockRequested();else deck.pageRequested(deck.pageFor(cell.modelData.id),cell)
                 }
                 QuickBigTile {visible:cell.big;anchors.fill:parent;kind:cell.modelData.id;wide:cell.rect.size==="wide"}
                 // Right-click opens the sheet, like a long press.
-                TapHandler {enabled:!deck.editing&&deck.pageFor(cell.modelData.id)!=="";acceptedButtons:Qt.RightButton;onTapped:deck.pageRequested(deck.pageFor(cell.modelData.id),cell)}
+                TapHandler {enabled:!deck.editing&&deck.pageFor(cell.modelData.id)!=="";acceptedButtons:Qt.RightButton;onTapped:if(deck.locked)deck.unlockRequested();else deck.pageRequested(deck.pageFor(cell.modelData.id),cell)}
+                // Locked: a badge marks tiles that ask for an unlock.
+                Rectangle {
+                    visible:deck.locked&&(deck.needsUnlock(cell.modelData.id)||deck.pageFor(cell.modelData.id)!=="")
+                    anchors.right:parent.right;anchors.top:parent.top;anchors.margins:5;width:20;height:20;radius:10;color:Theme.level(4)
+                    Glyph {anchors.centerIn:parent;name:"lock";font.pixelSize:12;color:Theme.subtext}
+                }
                 // Edit mode: drag anywhere to move, the corner badge removes, the corner handle changes the size.
                 Rectangle {visible:deck.editing;anchors.fill:parent;anchors.margins:-3;radius:cell.rect.size==="round" ? height/2+3 : 24;color:"transparent";border.width:2;border.color:Theme.alpha(Theme.primary,cell.lifted ? 1 : .45)}
                 MouseArea {

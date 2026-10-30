@@ -96,7 +96,7 @@ FocusScope {
     }
     MText {
         visible: !scene.revealed && !scene.greeter
-        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 96
+        anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: scene.greeter ? 96 : 18
         text: "Swipe up or press any key"; role: "label"; color: Theme.alpha("#ffffff", .7)
     }
 
@@ -104,13 +104,33 @@ FocusScope {
     Column {
         id: clock
         anchors.horizontalCenter: parent.horizontalCenter
-        y: scene.revealed ? scene.height * .1 : scene.height * .2
+        y: scene.revealed ? scene.height * .1 : scene.greeter ? scene.height * .2 : scene.height * (scene.width < 600 ? .07 : .06)
         scale: scene.revealed ? .55 : 1
         transformOrigin: Item.Top
-        spacing: 4
+        spacing: scene.greeter ? 4 : 14
         Behavior on y { NumberAnimation { duration: Theme.motion(Theme.durLong); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasized } }
         Behavior on scale { NumberAnimation { duration: Theme.motion(Theme.durLong); easing.type: Easing.BezierSpline; easing.bezierCurve: Theme.emphasized } }
+        // Lock: the chosen face, the glance line and live activities. The greeter keeps one plain clock.
+        LockClock {
+            visible: !scene.greeter
+            anchors.horizontalCenter: parent.horizontalCenter
+            size: Math.min(scene.width < 600 ? 130 : 160, scene.width * .3)
+        }
+        LockGlance {
+            visible: !scene.greeter && Hub.prefs.lockGlance !== false
+            anchors.horizontalCenter: parent.horizontalCenter
+            compact: scene.width < 600
+        }
+        ActivitySegments {
+            readonly property bool hideNotes: ["off", "count"].indexOf(Hub.prefs.lockNotifications || "title") >= 0
+            visible: !scene.greeter && Hub.prefs.lockActivities !== false && !Activities.off && items.length > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            items: Activities.list.filter(a => !hideNotes || a.nid === undefined)
+            size: 40; fill: Theme.alpha(Theme.level(3), .62); maxLabel: scene.width < 600 ? 120 : 200
+            onPicked: scene.reveal()
+        }
         MText {
+            visible: scene.greeter
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(Hub.now, "HH:mm")
             font.pixelSize: Math.min(200, scene.width * .16)
@@ -120,6 +140,7 @@ FocusScope {
             color: "#ffffff"
         }
         MText {
+            visible: scene.greeter
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(Hub.now, "dddd d MMMM")
             role: "title"; font.pixelSize: 22
@@ -315,9 +336,9 @@ FocusScope {
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         anchors.margins: 28
         spacing: 12
-        // Lock: now playing.
+        // Now playing lives in the lock's widget stack; this row is only for the greeter.
         Rectangle {
-            visible: !scene.greeter && Hub.status.track !== ""
+            visible: false
             Layout.preferredHeight: 56; Layout.preferredWidth: Math.min(360, mediaRow.implicitWidth + 24)
             radius: 28; color: Theme.level(3)
             Row {
@@ -368,8 +389,9 @@ FocusScope {
                 Accessible.name: modelData.count + " notifications from " + modelData.app
             }
         }
-        // Status and power.
+        // Status and power for the greeter. The lock has its own pill at the top right.
         Rectangle {
+            visible: scene.greeter
             Layout.preferredHeight: 48; Layout.preferredWidth: statusRow.implicitWidth + 24
             radius: 24; color: Theme.level(3)
             Row { id: statusRow; anchors.centerIn: parent; spacing: 10
@@ -406,8 +428,8 @@ FocusScope {
     // Power menu.
     PowerSheet {
         id: lockPower
-        // It opens just above the power button in the bottom status row.
-        z: 7; x: parent.width - width - 28; y: parent.height - height - (28 + 48 + 8)
+        // It opens next to the power button: at the bottom on the login screen, at the top on the lock screen.
+        z: 7; x: parent.width - width - (scene.greeter ? 28 : 20); y: scene.greeter ? parent.height - height - (28 + 48 + 8) : 16 + 48 + 8
         width: 288; height: implicitHeight
         form: "card"; verbs: ["suspend", "reboot", "poweroff"]
         direct: false; takeFocus: false; session: !scene.greeter
@@ -456,9 +478,29 @@ FocusScope {
             }
         }
     }
-    // Phone extras: notification titles, torch and the ambient clock.
-    Loader { anchors.fill: parent; z: 5; active: !scene.greeter; sourceComponent: LockExtras {}
-        onLoaded: item.scene = scene
+    // Lock status: battery, network and power at the top right. A click elsewhere on it opens Quick Settings.
+    Rectangle {
+        visible: !scene.greeter && !scene.revealed
+        z: 6
+        anchors.right: parent.right; anchors.rightMargin: 20; y: 16
+        width: lockStatusRow.implicitWidth + 24; height: 48; radius: 24
+        color: Theme.alpha(Theme.level(3), .62); border.width: 1; border.color: Theme.alpha("#ffffff", .10)
+        Rectangle { anchors.fill: parent; radius: parent.radius; color: Theme.stateLayer; opacity: quickMouse.pressed ? .12 : quickMouse.containsMouse ? .06 : 0 }
+        MouseArea { id: quickMouse; anchors.fill: parent; enabled: !scene.preview && Hub.prefs.lockQuickSettings !== false; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: scene.openQuick()
+            Accessible.role: Accessible.Button; Accessible.name: "Quick Settings" }
+        Row { id: lockStatusRow; anchors.centerIn: parent; spacing: 10
+            Glyph { visible: Hub.status.battery >= 0; name: Hub.status.charging ? "charging" : "battery"; font.pixelSize: 19; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+            MText { visible: Hub.status.battery >= 0; text: Hub.status.battery + "%"; role: "label"; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+            Glyph { name: Hub.status.wifi ? "wifi" : "wifiOff"; font.pixelSize: 19; color: "#ffffff"; anchors.verticalCenter: parent.verticalCenter }
+            MButton { icon: "power"; compact: true; implicitWidth: 36; implicitHeight: 36; ink: "#ffffff"; tooltip: "Power"; onClicked: scene.confirmPower = scene.confirmPower === "" ? "menu" : "" }
+        }
+    }
+    // Lock extras: the notification chip, the widget stack, corner shortcuts, Quick Settings while locked and the ambient clock.
+    property bool preview: false
+    function openQuick() { if (extrasLoader.item) extrasLoader.item.openQuick(); }
+    function openNotifications() { if (extrasLoader.item) extrasLoader.item.listOpen = true; }
+    Loader { id: extrasLoader; anchors.fill: parent; z: 5; active: !scene.greeter; sourceComponent: LockExtras {}
+        onLoaded: { item.scene = scene; item.preview = Qt.binding(() => scene.preview); }
     }
     // Controller: the first press wakes the scene, then the D-pad moves between controls and the keyboard types.
     Connections { target: ControllerNav; function onKey() { if (!scene.revealed && scene.confirmPower === "") scene.reveal(); } }

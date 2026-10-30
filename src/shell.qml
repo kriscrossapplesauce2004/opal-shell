@@ -21,6 +21,7 @@ ShellRoot {
         function controls():void {root.show("controls");}
         function audio():void {Hub.toggleAudio(Hub.chooseScreen());}
         function notifications():void {root.show("notifications");}
+        function clock():void {root.show("clock");}
         function phone():void {Hub.targetScreen=Hub.chooseScreen();Hub.mode("phone");}
         function gaming():void {Hub.mode("console");}
         function desktop():void {Hub.mode("desktop");}
@@ -356,7 +357,7 @@ ShellRoot {
     PanelWindow {
         id:overlay
         screen:Hub.targetScreen || Quickshell.screens[0]
-        readonly property bool wanted:Hub.page!==""&&Hub.page!=="controls"&&Hub.page!=="notifications"&&Hub.page!=="assistant"
+        readonly property bool wanted:Hub.page!==""&&Hub.page!=="controls"&&Hub.page!=="notifications"&&Hub.page!=="assistant"&&Hub.page!=="clock"
         // The last page stays latched while the panel plays its exit, so the content does not change during the animation.
         property string lastPage:""
         // Visibility follows the panel's arrival value, so the window never unmaps for a frame between close and the exit animation.
